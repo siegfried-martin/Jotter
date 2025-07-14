@@ -119,9 +119,7 @@
 	}
 	
 	function handleCancel() {
-		if (hasUnsavedChanges && !confirm('You have unsaved changes. Are you sure you want to leave?')) {
-			return;
-		}
+		// Cancel without saving - just go back
 		goto('/');
 	}
 	
@@ -192,8 +190,9 @@
 	class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
 	on:click={handleBackgroundClick}
 >
-	<div class="bg-white rounded-xl shadow-2xl w-full max-w-7xl border border-gray-200 flex flex-col"
-		 style="height: 90vh;">
+	<!-- Wider modal - changed from max-w-7xl to max-w-full with specific width -->
+	<div class="bg-white rounded-xl shadow-2xl w-full border border-gray-200 flex flex-col"
+		 style="width: 95vw; height: 90vh;">
 		
 		{#if loading}
 			<div class="flex-1 flex items-center justify-center">

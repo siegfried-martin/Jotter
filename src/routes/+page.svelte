@@ -156,7 +156,7 @@
 		const defaultContent = {
 			checklist: '',  // Empty for structured approach
 			code: '',
-			wysiwyg: '<p>Start typing your notes here...</p>',
+			wysiwyg: '',
 			diagram: ''
 		};
 		
@@ -304,8 +304,8 @@
 					</div>
 				</div>
 				
-				<!-- Note Items Grid - Dynamic sizing -->
-				<div class="grid gap-6 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+				<!-- Note Items Grid - Wider cards, approximately 3 columns -->
+				<div class="grid gap-6 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));">
 					{#each selectedContainerSections as section (section.id)}
 						<NoteItem 
 							{section}

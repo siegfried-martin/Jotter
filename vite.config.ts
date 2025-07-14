@@ -25,9 +25,12 @@ export default defineConfig({
       '@codemirror/lang-php',
       '@codemirror/lang-xml',
       '@codemirror/lang-markdown',
-      '@codemirror/theme-one-dark'
+      '@codemirror/theme-one-dark',
+      'tinymce'
     ]
   },
+  // Copy TinyMCE assets
+  assetsInclude: ['**/*.woff', '**/*.woff2'],
   build: {
     rollupOptions: {
       external: [],

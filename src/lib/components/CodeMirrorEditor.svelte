@@ -95,6 +95,12 @@
       state,
       parent: container,
     });
+    
+    // Auto-focus and place cursor at beginning
+    editor.focus();
+    editor.dispatch({
+      selection: { anchor: 0, head: 0 }
+    });
   }
 
   // Update editor content
