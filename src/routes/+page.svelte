@@ -1,335 +1,62 @@
-<!-- src/routes/+page.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { supabase } from '$lib/supabase';
-	import type { NoteContainer, NoteSection, CreateNoteContainer, CreateNoteSection, ChecklistItem } from '$lib/types';
-	
-	import NoteContainerList from '$lib/components/NoteContainerList.svelte';
-	import NoteItem from '$lib/components/NoteItem.svelte';
-	import CreateNoteItem from '$lib/components/CreateNoteItem.svelte';
-	
-	let containers: NoteContainer[] = [];
-	let selectedContainer: NoteContainer | null = null;
-	let selectedContainerSections: NoteSection[] = [];
-	let isCollapsed = false;
-	let lastRefreshTime = 0;
-	
-	onMount(async () => {
-		await loadContainers();
-		if (containers.length > 0) {
-			await selectContainer(containers[0]);
-		}
-	});
-	
-	// Keyboard shortcuts
-	function handleKeydown(event: KeyboardEvent) {
-		// New note shortcuts - multiple options
-		if ((event.ctrlKey || event.metaKey) && (event.key === 'm' || event.key === 'M')) {
-			event.preventDefault();
-			if (event.shiftKey) {
-				// Ctrl+Shift+M: Create note with code section and open editor
-				createNewNoteWithCode();
-			} else {
-				// Ctrl+M: Create new note
-				createNewNote();
-			}
-		} else if (event.altKey && (event.key === 'n' || event.key === 'N')) {
-			event.preventDefault();
-			if (event.shiftKey) {
-				// Alt+Shift+N: Create note with code section and open editor
-				createNewNoteWithCode();
-			} else {
-				// Alt+N: Create new note
-				createNewNote();
-			}
-		}
-	}
-	
-	// Auto-refresh when returning to this page (e.g., from edit page)
-	$: if ($page.url.pathname === '/' && Date.now() - lastRefreshTime > 1000) {
-		refreshCurrentContainer();
-		lastRefreshTime = Date.now();
-	}
-	
-	async function refreshCurrentContainer() {
-		if (selectedContainer) {
-			await selectContainer(selectedContainer);
-		}
-	}
-	
-	async function loadContainers() {
-		const { data, error } = await supabase
-			.from('note_container')
-			.select('*')
-			.order('updated_at', { ascending: false });
-			
-		if (error) {
-			console.error('Error loading containers:', error);
-		} else {
-			containers = data || [];
-		}
-	}
-	
-	async function selectContainer(container: NoteContainer) {
-		selectedContainer = container;
-		
-		// Load sections for this container
-		const { data, error } = await supabase
-			.from('note_section')
-			.select('*')
-			.eq('note_container_id', container.id)
-			.order('sequence');
-			
-		if (error) {
-			console.error('Error loading sections:', error);
-		} else {
-			selectedContainerSections = data || [];
-		}
-	}
-	
-	async function createNewNote() {
-		const newContainer: CreateNoteContainer = {
-			title: `New Note ${new Date().toLocaleDateString()}`
-		};
-		
-		const { data, error } = await supabase
-			.from('note_container')
-			.insert(newContainer)
-			.select()
-			.single();
-			
-		if (error) {
-			console.error('Error creating container:', error);
-		} else {
-			await loadContainers();
-			await selectContainer(data);
-		}
-	}
-	
-	async function createNewNoteWithCode() {
-		// First create the note
-		const newContainer: CreateNoteContainer = {
-			title: `New Note ${new Date().toLocaleDateString()}`
-		};
-		
-		const { data: containerData, error: containerError } = await supabase
-			.from('note_container')
-			.insert(newContainer)
-			.select()
-			.single();
-			
-		if (containerError) {
-			console.error('Error creating container:', containerError);
-			return;
-		}
-		
-		// Then create a code section
-		const newSection: CreateNoteSection = {
-			note_container_id: containerData.id,
-			type: 'code',
-			content: '',
-			sequence: 0,
-			meta: { language: 'plaintext' }
-		};
-		
-		const { data: sectionData, error: sectionError } = await supabase
-			.from('note_section')
-			.insert(newSection)
-			.select()
-			.single();
-			
-		if (sectionError) {
-			console.error('Error creating section:', sectionError);
-		} else {
-			// Update containers list and navigate to the editor
-			await loadContainers();
-			await selectContainer(containerData);
-			goto(`/edit/${sectionData.id}`);
-		}
-	}
-	
-	async function createSection(sectionType: 'checklist' | 'code' | 'wysiwyg' | 'diagram') {
-		if (!selectedContainer) return;
-		
-		const defaultContent = {
-			checklist: '',  // Empty for structured approach
-			code: '',
-			wysiwyg: '',
-			diagram: ''
-		};
-		
-		const newSection: CreateNoteSection = {
-			note_container_id: selectedContainer.id,
-			type: sectionType,
-			content: defaultContent[sectionType],
-			sequence: selectedContainerSections.length,
-			meta: sectionType === 'code' ? { language: 'plaintext' } : {},
-			checklist_data: sectionType === 'checklist' ? [{ text: 'New task', checked: false }] : undefined
-		};
-		
-		const { data, error } = await supabase
-			.from('note_section')
-			.insert(newSection)
-			.select()
-			.single();
-			
-		if (error) {
-			console.error('Error creating section:', error);
-		} else {
-			console.log('Created section:', data);
-			// Refresh sections and navigate to edit the new section
-			await selectContainer(selectedContainer);
-			console.log('Navigating to:', `/edit/${data.id}`);
-			goto(`/edit/${data.id}`);
-		}
-	}
-	
-	function handleEdit(sectionId: string) {
-		console.log('handleEdit called with:', sectionId);
-		goto(`/edit/${sectionId}`);
-	}
-	
-	async function deleteSection(sectionId: string) {
-		if (!confirm('Are you sure you want to delete this section?')) return;
-		
-		const { error } = await supabase
-			.from('note_section')
-			.delete()
-			.eq('id', sectionId);
-			
-		if (error) {
-			console.error('Error deleting section:', error);
-		} else {
-			// Refresh sections
-			if (selectedContainer) {
-				await selectContainer(selectedContainer);
-			}
-		}
-	}
-	
-	async function deleteContainer(containerId: string) {
-		if (!confirm('Are you sure you want to delete this note and all its sections?')) return;
-		
-		// Delete the container (sections will be deleted via CASCADE)
-		const { error } = await supabase
-			.from('note_container')
-			.delete()
-			.eq('id', containerId);
-			
-		if (error) {
-			console.error('Error deleting container:', error);
-		} else {
-			// Refresh containers and select a new one
-			await loadContainers();
-			if (containers.length > 0) {
-				await selectContainer(containers[0]);
-			} else {
-				selectedContainer = null;
-				selectedContainerSections = [];
-			}
-		}
-	}
-	
-	async function handleCheckboxChange(event: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>) {
-		const { sectionId, checked, lineIndex } = event.detail;
-		const section = selectedContainerSections.find(s => s.id === sectionId);
-		if (!section || !section.checklist_data) return;
-		
-		// Update the checkbox state in structured data
-		if (section.checklist_data[lineIndex]) {
-			section.checklist_data[lineIndex].checked = checked;
-			
-			// Update in database
-			const { error } = await supabase
-				.from('note_section')
-				.update({ 
-					checklist_data: section.checklist_data,
-					updated_at: new Date().toISOString()
-				})
-				.eq('id', sectionId);
-				
-			if (error) {
-				console.error('Error updating checkbox:', error);
-			} else {
-				// Update local state
-				selectedContainerSections = [...selectedContainerSections];
-				
-				// Update container timestamp
-				if (selectedContainer) {
-					await supabase
-						.from('note_container')
-						.update({ updated_at: new Date().toISOString() })
-						.eq('id', selectedContainer.id);
-				}
-			}
-		}
-	}
+  import { onMount } from 'svelte';
+  import { authStore, signInWithGoogle } from '$lib/auth';
+  import { goto } from '$app/navigation';
+
+  let loading = false;
+
+  // Check if already logged in
+  onMount(() => {
+    const unsubscribe = authStore.subscribe((auth) => {
+      if (!auth.loading && auth.user) {
+        goto('/app');
+      }
+    });
+
+    return unsubscribe;
+  });
+
+  const handleGoogleSignIn = async () => {
+    loading = true;
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Login failed:', error);
+      loading = false;
+    }
+  };
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
-<div class="flex h-screen bg-gray-50">
-	<!-- Sidebar -->
-	<NoteContainerList 
-		{containers}
-		{selectedContainer}
-		{isCollapsed}
-		on:selectContainer={(e) => selectContainer(e.detail)}
-		on:createNew={createNewNote}
-		on:toggleCollapse={(e) => isCollapsed = e.detail}
-		on:deleteContainer={(e) => deleteContainer(e.detail)}
-	/>
-
-	<!-- Main Content Area -->
-	<div class="flex-1 p-6 overflow-y-auto">
-		<div class="w-full">
-			{#if selectedContainer}
-				<div class="flex justify-between items-center mb-6">
-					<h1 class="text-2xl font-bold">{selectedContainer.title}</h1>
-					<div class="flex items-center gap-2">
-						<div class="text-xs text-gray-500">
-							Ctrl+M or Alt+N: New note • Ctrl+Shift+M or Alt+Shift+N: New note with code
-						</div>
-						<button 
-							on:click={refreshCurrentContainer}
-							class="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-							title="Refresh content"
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-							</svg>
-						</button>
-					</div>
-				</div>
-				
-				<!-- Note Items Grid - Wider cards, approximately 3 columns -->
-				<div class="grid gap-6 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));">
-					{#each selectedContainerSections as section (section.id)}
-						<NoteItem 
-							{section}
-							on:edit={(e) => handleEdit(e.detail)}
-							on:delete={(e) => deleteSection(e.detail)}
-							on:checkboxChange={handleCheckboxChange}
-						/>
-					{/each}
-					
-					{#if selectedContainerSections.length === 0}
-						<div class="col-span-full text-center text-gray-500 py-12">
-							This note is empty. Add a section below to get started!
-						</div>
-					{/if}
-				</div>
-
-				<!-- Add Section Controls -->
-				<CreateNoteItem on:createSection={(e) => createSection(e.detail)} />
-			{:else}
-				<div class="text-center text-gray-500 py-12">
-					<h1 class="text-2xl font-bold mb-4">Welcome to Jotter</h1>
-					<p>Select a note from the sidebar or create a new one to get started!</p>
-				</div>
-			{/if}
-		</div>
-	</div>
+<div class="min-h-screen bg-gray-50 flex items-center justify-center">
+  <div class="text-center max-w-md w-full space-y-8 px-4">
+    <div>
+      <h1 class="text-4xl font-bold text-gray-900 mb-4">Jotter</h1>
+      <p class="text-gray-600 mb-8">Lightning-fast note-taking for developers</p>
+    </div>
+    
+    <div class="bg-white py-8 px-6 shadow rounded-lg">
+      <button 
+        class="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+        on:click={handleGoogleSignIn}
+        disabled={loading}
+      >
+        {#if loading}
+          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+          Signing in...
+        {:else}
+          <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Continue with Google
+        {/if}
+      </button>
+      
+      <p class="mt-4 text-xs text-gray-500">
+        By signing in, you agree to our terms of service and privacy policy.
+      </p>
+    </div>
+  </div>
 </div>

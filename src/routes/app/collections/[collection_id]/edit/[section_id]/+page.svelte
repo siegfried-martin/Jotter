@@ -1,9 +1,9 @@
-<!-- src/routes/edit/[section_id]/+page.svelte -->
+<!-- src/routes/app/collections/[collection_id]/edit/[section_id]/+page.svelte -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { supabase } from '$lib/supabase';
+	import { SectionService } from '$lib/services/sectionService';
 	import type { NoteSection } from '$lib/types';
 	
 	// Import editor components
@@ -24,6 +24,7 @@
 	let checklistData: import('$lib/types').ChecklistItem[] = [];
 	
 	$: sectionId = $page.params.section_id;
+	$: collectionId = $page.params.collection_id;
 	
 	onMount(async () => {
 		await loadSection();
@@ -39,36 +40,36 @@
 	async function loadSection() {
 		if (!sectionId) return;
 		
-		const { data, error: loadError } = await supabase
-			.from('note_section')
-			.select('*')
-			.eq('id', sectionId)
-			.single();
-		
-		if (loadError) {
-			error = 'Section not found';
-			loading = false;
-			return;
-		}
-		
-		section = data;
-		
-		// Check for draft content first (only if localStorage is available)
-		let draftContent = null;
 		try {
-			draftContent = localStorage?.getItem(`draft_${section.id}`);
-		} catch (e) {
-			// localStorage not available, continue normally
+			section = await SectionService.getSection(sectionId);
+			
+			if (!section) {
+				error = 'Section not found';
+				loading = false;
+				return;
+			}
+			
+			// Check for draft content first (only if localStorage is available)
+			let draftContent = null;
+			try {
+				draftContent = localStorage?.getItem(`draft_${section.id}`);
+			} catch (e) {
+				// localStorage not available, continue normally
+			}
+			
+			content = draftContent || section.content;
+			language = section.meta?.language || 'plaintext';
+			checklistData = section.checklist_data || [];
+			
+			// Mark as having unsaved changes if we loaded draft content
+			hasUnsavedChanges = !!draftContent;
+			
+		} catch (loadError) {
+			console.error('Error loading section:', loadError);
+			error = 'Failed to load section';
+		} finally {
+			loading = false;
 		}
-		
-		content = draftContent || section.content;
-		language = section.meta?.language || 'plaintext';
-		checklistData = section.checklist_data || [];
-		
-		// Mark as having unsaved changes if we loaded draft content
-		hasUnsavedChanges = !!draftContent;
-		
-		loading = false;
 	}
 	
 	async function saveSection() {
@@ -76,26 +77,19 @@
 		
 		saving = true;
 		
-		const updateData: any = {
-			content,
-			updated_at: new Date().toISOString()
-		};
-		
-		if (section.type === 'code') {
-			updateData.meta = { ...section.meta, language };
-		} else if (section.type === 'checklist') {
-			updateData.checklist_data = checklistData;
-		}
-		
-		const { error: saveError } = await supabase
-			.from('note_section')
-			.update(updateData)
-			.eq('id', section.id);
-		
-		if (saveError) {
-			console.error('Error saving section:', saveError);
-			error = 'Failed to save changes';
-		} else {
+		try {
+			const updateData: any = {
+				content,
+			};
+			
+			if (section.type === 'code') {
+				updateData.meta = { ...section.meta, language };
+			} else if (section.type === 'checklist') {
+				updateData.checklist_data = checklistData;
+			}
+			
+			await SectionService.updateSection(section.id, updateData);
+			
 			// Clear draft and mark as saved
 			try {
 				localStorage?.removeItem(`draft_${section.id}`);
@@ -104,23 +98,20 @@
 			}
 			hasUnsavedChanges = false;
 			
-			// Update the updated_at of the parent container
-			const { error: containerError } = await supabase
-				.from('note_container')
-				.update({ updated_at: new Date().toISOString() })
-				.eq('id', section.note_container_id);
+			// Navigate back to collection page
+			goto(`/app/collections/${collectionId}`);
 			
-			if (!containerError) {
-				goto('/');
-			}
+		} catch (saveError) {
+			console.error('Error saving section:', saveError);
+			error = 'Failed to save changes';
+		} finally {
+			saving = false;
 		}
-		
-		saving = false;
 	}
 	
 	function handleCancel() {
-		// Cancel without saving - just go back
-		goto('/');
+		// Cancel without saving - just go back to collection
+		goto(`/app/collections/${collectionId}`);
 	}
 	
 	function handleContentChange(event: CustomEvent<string>) {
