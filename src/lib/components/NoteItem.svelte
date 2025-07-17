@@ -54,12 +54,24 @@
 			? section.checklist_data.map(item => {
 				const today = new Date();
 				today.setHours(0, 0, 0, 0);
-				const itemDate = item.date ? new Date(item.date) : null;
-				const isOverdue = itemDate ? itemDate.getTime() < today.getTime() : false;
+				
+				// Fix timezone issue: treat date string as local date
+				let itemDate = null;
+				let isOverdue = false;
+				let displayDate = null;
+				
+				if (item.date) {
+					const [year, month, day] = item.date.split('-');
+					itemDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+					itemDate.setHours(0, 0, 0, 0);
+					isOverdue = itemDate.getTime() < today.getTime();
+					displayDate = itemDate.toLocaleDateString();
+				}
 				
 				return {
 					...item,
-					isOverdue
+					isOverdue,
+					displayDate
 				};
 			})
 			: section.content.split('\n')
@@ -72,10 +84,26 @@
 					
 					const today = new Date();
 					today.setHours(0, 0, 0, 0);
-					const itemDate = date ? new Date(date) : null;
-					const isOverdue = itemDate ? itemDate.getTime() < today.getTime() : false;
 					
-					return { text, checked, date, isOverdue };
+					let itemDate = null;
+					let isOverdue = false;
+					let displayDate = null;
+					
+					if (date) {
+						const [year, month, day] = date.split('-');
+						itemDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+						itemDate.setHours(0, 0, 0, 0);
+						isOverdue = itemDate.getTime() < today.getTime();
+						displayDate = itemDate.toLocaleDateString();
+					}
+					
+					return { 
+						text, 
+						checked, 
+						date, 
+						isOverdue,
+						displayDate
+					};
 				})
 		)
 		: [];
@@ -147,9 +175,9 @@
 								aria-label="Mark task as {item.checked ? 'incomplete' : 'complete'}: {item.text}"
 							>
 							<span class="text-sm flex-1 break-words">{item.text}</span>
-							{#if item.date}
-								<span class="text-xs flex-shrink-0 {item.isOverdue ? 'text-red-500' : 'text-gray-400'}" aria-label="Due date: {new Date(item.date).toLocaleDateString()}">
-									{new Date(item.date).toLocaleDateString()}
+							{#if item.displayDate}
+								<span class="text-xs flex-shrink-0 {item.isOverdue ? 'text-red-500' : 'text-gray-400'}" aria-label="Due date: {item.displayDate}">
+									{item.displayDate}
 								</span>
 							{/if}
 						</div>

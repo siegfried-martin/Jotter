@@ -19,7 +19,7 @@ export class UserService {
     const { data, error } = await supabase
       .from('user_preferences')
       .select('*')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error loading user preferences:', error);

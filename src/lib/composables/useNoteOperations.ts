@@ -81,7 +81,7 @@ export function useNoteOperations() {
         content: defaultContent[sectionType],
         sequence: selectedContainerSections.length,
         meta: sectionType === 'code' ? { language: 'plaintext' } : {},
-        checklist_data: sectionType === 'checklist' ? [{ text: 'New task', checked: false }] : undefined
+        checklist_data: sectionType === 'checklist' ? [{ text: '', checked: false }] : undefined
       };
       
       const createdSection = await SectionService.createSection(newSection);
