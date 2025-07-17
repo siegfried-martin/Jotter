@@ -65,6 +65,7 @@
     "@codemirror/view": "^6.38.0",
     "@excalidraw/excalidraw": "^0.18.0",
     "@supabase/supabase-js": "^2.50.5",
+    "@sveltejs/adapter-node": "^5.2.13",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "codemirror": "^6.0.2",
