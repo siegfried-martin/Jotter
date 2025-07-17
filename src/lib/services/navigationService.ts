@@ -56,6 +56,18 @@ export class NavigationService {
       
       if (defaultCollection) {
         goto(`/app/collections/${defaultCollection.id}?create=true`);
+      } else {
+        // Handle the case where user has no collections
+        // Option 1: Create a default collection first
+        const newCollection = await CollectionService.createCollection({
+          name: 'Default',
+          color: '#3B82F6',
+          is_default: true
+        });
+        goto(`/app/collections/${newCollection.id}?create=true`);
+        
+        // Option 2: Alternative - go to a special "create first collection" page
+        // goto('/app/collections/new');
       }
     } catch (error) {
       console.error('Failed to navigate to create collection:', error);
