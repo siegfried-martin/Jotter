@@ -44,6 +44,10 @@ export const noteActions = {
       containers: [container, ...state.containers]
     }));
   },
+
+  updateContainers: (containers: NoteContainer[]) => {
+    noteStore.update(state => ({ ...state, containers }));
+  },
   
   removeContainer: (containerId: string) => {
     noteStore.update(state => ({

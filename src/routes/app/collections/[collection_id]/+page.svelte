@@ -8,11 +8,11 @@
   import { useNoteOperations } from '$lib/composables/useNoteOperations';
   
   // Stores
-  import { noteStore } from '$lib/stores/noteStore';
+  import { noteStore, noteActions } from '$lib/stores/noteStore';
   
   // Types
   import type { PageData } from './$types';
-  import type { NoteSection } from '$lib/types';
+  import type { NoteSection, NoteContainer } from '$lib/types';
   
   // Components
   import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
@@ -75,13 +75,26 @@
     await noteOperations.handleCheckboxChange(event, selectedContainerSections, selectedContainer);
   }
   
-  // NEW: Handle section reordering from drag & drop
+  // Handle section reordering from drag & drop
   async function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
     console.log('Sections reordered:', event.detail);
     
     // The reordering is already handled in SortableNoteGrid
     // We just need to update the local state if needed
     // The SectionService.reorderSections call in SortableNoteGrid already updates the database
+  }
+  
+  // NEW: Handle note container title updates
+  async function handleTitleUpdate(event: CustomEvent<{ containerId: string; newTitle: string }>) {
+    const { containerId, newTitle } = event.detail;
+    console.log('🏷️ Updating note title:', { containerId, newTitle });
+    
+    try {
+      await noteOperations.updateNoteTitle(containerId, newTitle);
+    } catch (error) {
+      console.error('❌ Failed to update title:', error);
+      // You could show a toast notification here
+    }
   }
   
   // Create keyboard handler
@@ -95,20 +108,22 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <!-- Main Content Layout -->
-<div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
-  <!-- Sidebar -->
+<div class="app-layout">
+  <!-- Sidebar with Drag & Drop Support -->
   <NoteManagementSidebar 
     {containers}
     {selectedContainer}
+    collectionId={currentCollectionId}
     on:selectContainer={(e) => pageManager.selectContainer(e.detail)}
     on:createNew={createNewNote}
     on:deleteContainer={deleteContainer}
+    on:containersReordered={handleContainersReordered}
   />
 
   <!-- Main Content Area -->
-  <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
+  <div class="main-content">
     {#if loading}
-      <div class="flex items-center justify-center h-64">
+      <div class="loading-container">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     {:else}
@@ -116,6 +131,7 @@
         {selectedContainer}
         {loading}
         on:refresh={pageManager.refreshNotes}
+        on:updateTitle={handleTitleUpdate}
       />
       
       <NotesGrid 
@@ -131,41 +147,72 @@
     {/if}
   </div>
 
-  <!-- Floating Add Section Area -->
+  <!-- Streamlined Add Section Bar -->
   {#if !loading && selectedContainer}
-    <div class="floating-add-section">
-      <div class="floating-add-section-content">
-        <CreateNoteItem on:createSection={createSection} />
-      </div>
+    <div class="add-section-bar">
+      <CreateNoteItem on:createSection={createSection} />
     </div>
   {/if}
 </div>
 
 <style>
-  .floating-add-section {
+  .app-layout {
+    display: flex;
+    height: calc(100vh - 4rem);
+    background-color: #f9fafb;
+    position: relative;
+    overflow: hidden; /* Prevent double scrollbars */
+  }
+
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    padding-bottom: 4rem; /* Space for add bar */
+    box-sizing: border-box;
+  }
+
+  .loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 16rem;
+  }
+
+  .add-section-bar {
     position: fixed;
     bottom: 0;
     right: 0;
     left: 280px; /* Account for sidebar width */
-    z-index: 50;
-    pointer-events: none; /* Allow clicking through the container */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(229, 231, 235, 0.6);
+    z-index: 40;
+    transition: all 0.2s ease;
   }
 
-  .floating-add-section-content {
-    background: linear-gradient(to top, rgba(249, 250, 251, 0.95) 60%, transparent);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid rgba(229, 231, 235, 0.8);
-    padding: 12px 16px;
-    margin: 0 16px 16px 16px;
-    border-radius: 8px 8px 0 0;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-    pointer-events: auto; /* Re-enable clicks for the content */
+  .add-section-bar::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: linear-gradient(to top, rgba(249, 250, 251, 0.8), transparent);
+    pointer-events: none;
   }
 
   /* Responsive adjustments */
   @media (max-width: 1024px) {
-    .floating-add-section {
+    .add-section-bar {
       left: 0; /* Full width on smaller screens */
+    }
+  }
+
+  @media (max-width: 768px) {
+    .main-content {
+      padding: 1rem;
+      padding-bottom: 3.5rem;
     }
   }
 </style>

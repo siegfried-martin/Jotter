@@ -1,22 +1,42 @@
 <!-- src/lib/components/layout/CollectionPageHeader.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import InlineEditableTitle from '$lib/components/ui/InlineEditableTitle.svelte';
 
   export let selectedContainer: any;
   export let loading: boolean = false;
 
   const dispatch = createEventDispatcher<{
     refresh: void;
+    updateTitle: { containerId: string; newTitle: string };
   }>();
 
   function handleRefresh() {
     dispatch('refresh');
   }
+
+  function handleTitleSave(newTitle: string) {
+    if (selectedContainer) {
+      dispatch('updateTitle', { 
+        containerId: selectedContainer.id, 
+        newTitle 
+      });
+    }
+  }
 </script>
 
 <div class="flex justify-between items-center mb-6">
   <h1 class="text-2xl font-bold">
-    {selectedContainer?.title || 'No note selected'}
+    {#if selectedContainer}
+      <InlineEditableTitle
+        title={selectedContainer.title}
+        placeholder="Untitled Note"
+        className="text-2xl font-bold"
+        on:save={(e) => handleTitleSave(e.detail)}
+      />
+    {:else}
+      No note selected
+    {/if}
   </h1>
   
   <div class="flex items-center gap-2">

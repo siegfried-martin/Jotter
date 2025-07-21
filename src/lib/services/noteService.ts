@@ -105,6 +105,36 @@ export class NoteService {
     return data;
   }
 
+    // Update note container title
+  static async updateNoteContainerTitle(
+    id: string, 
+    title: string
+  ): Promise<NoteContainer> {
+    const { data, error } = await supabase
+      .from('note_container')
+      .update({
+        title: title.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select(`
+        *,
+        collections (
+          id,
+          name,
+          color
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error updating note container title:', error);
+      throw error;
+    }
+
+    return data;
+  }
+
   // Delete note container (cascade will delete sections)
   static async deleteNoteContainer(id: string): Promise<void> {
     const { error } = await supabase

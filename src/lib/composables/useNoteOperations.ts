@@ -55,6 +55,20 @@ export function useNoteOperations() {
     }
   }
 
+    /**
+   * Update note container title
+   */
+  async function updateNoteTitle(containerId: string, newTitle: string): Promise<void> {
+    try {
+      const updatedContainer = await NoteService.updateNoteContainerTitle(containerId, newTitle);
+      noteActions.updateContainer(updatedContainer);
+      console.log('✅ Note title updated successfully');
+    } catch (error) {
+      console.error('Failed to update note title:', error);
+      throw error;
+    }
+  }
+
   /**
    * Create a new section in the selected note
    */
@@ -206,6 +220,7 @@ export function useNoteOperations() {
     deleteSection,
     deleteContainer,
     handleCheckboxChange,
-    createKeyboardHandler
+    createKeyboardHandler,
+    updateNoteTitle
   };
 }

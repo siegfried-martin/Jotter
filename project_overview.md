@@ -49,15 +49,30 @@ src/lib/
 ├── composables/       # Reusable reactive logic
 ├── components/        # Domain-organized components
 │   ├── ui/           # Generic reusable components
-│   │   └── SortableList.svelte (✅ new)
+│   │   ├── SortableList.svelte (✅ complete)
+│   │   └── SortableGrid.svelte (✅ new - grid-based DnD)
 │   ├── notes/        # Note-related components
-│   │   ├── NoteItem.svelte
+│   │   ├── NoteItem.svelte (✅ refactored & modular)
 │   │   ├── NotesGrid.svelte
 │   │   ├── CreateNoteItem.svelte
-│   │   └── SortableNoteList.svelte (🔧 in progress)
+│   │   ├── SortableNoteGrid.svelte (✅ new - grid DnD)
+│   │   ├── content/   # Content type components
+│   │   │   ├── ChecklistContent.svelte (✅ new)
+│   │   │   ├── CodeContent.svelte (✅ new)
+│   │   │   ├── WysiwygContent.svelte (✅ new)
+│   │   │   └── DiagramPreview.svelte (✅ new)
+│   │   ├── shared/    # Reusable note components
+│   │   │   ├── NoteCardContainer.svelte (✅ new)
+│   │   │   ├── NoteCardHeader.svelte (✅ new)
+│   │   │   └── NoteCardActions.svelte (✅ new)
+│   │   └── utils/     # Note utilities
+│   │       ├── checklistUtils.ts (✅ new)
+│   │       ├── contentUtils.ts (✅ new)
+│   │       └── noteCardUtils.ts (✅ new)
 │   ├── collections/  # Collection components
 │   ├── editors/      # All editor components
 │   │   ├── ChecklistEditor.svelte (✅ refactored)
+│   │   ├── DiagramEditor.svelte (✅ complete)
 │   │   ├── SortableChecklist.svelte (✅ new)
 │   │   └── SortableChecklistItem.svelte (✅ new)
 │   └── layout/       # App-level layout
@@ -80,7 +95,7 @@ src/lib/
 ### **🏗️ Architecture Excellence**
 
 - ✅ **Enterprise-grade security** with Row Level Security (RLS)
-- ✅ **Modular codebase** with AI-friendly file sizes (<100 lines each)
+- ✅ **Modular codebase** with AI-friendly file sizes (<50 lines each)
 - ✅ **Type-safe throughout** with comprehensive TypeScript
 - ✅ **Reactive state management** with proper error handling
 - ✅ **Component-driven architecture** with clean separation of concerns
@@ -104,93 +119,103 @@ src/lib/
 
 ## 🚀 Recent Major Achievements - July 20, 2025
 
-### **🎯 Drag & Drop Foundation - IN PROGRESS** 🔧
+### **🎯 Drag & Drop Foundation - COMPLETE** ✅
 
 - ✅ **Database Schema Migration**: Added sequence columns to all tables
 - ✅ **Sequence Management Services**: Complete service layer with DB functions
 - ✅ **Sequence Utilities**: Generic helper functions for reordering logic
 - ✅ **DnD Library Integration**: svelte-dnd-action installed and configured
 - ✅ **Checklist Item Sorting**: Complete and working smoothly
-- 🔧 **Note Section Sorting**: Components built, drag handle conflict resolution needed
+- ✅ **Note Section Grid Sorting**: Complete with time-based click vs drag detection
 - ⏳ **Note Container Sorting**: Ready to implement
 - ⏳ **Collection Tab Sorting**: Ready to implement
 
-### **🔧 Technical Architecture Improvements** ✅
+### **🔧 Grid-Based Drag & Drop System** ✅
 
-- ✅ **Component Reorganization**: Domain-based folder structure
-- ✅ **Reusable DnD Components**: SortableList.svelte for consistency
-- ✅ **Service Layer Updates**: All services support sequence operations
-- ✅ **Type Safety**: Updated types.ts with sequence support
-- ✅ **File Size Management**: All components under 100 lines for AI context
+- ✅ **SortableGrid Component**: Generic grid-based drag & drop utility
+- ✅ **Time-Based Detection**: 200ms threshold to distinguish click from drag
+- ✅ **Visual Feedback**: Standard opacity changes during drag (no jarring effects)
+- ✅ **Click-to-Edit**: Quick click navigates to edit page, hold+drag reorders
+- ✅ **Database Integration**: Automatic sequence updates via SectionService
+- ✅ **Responsive Grid**: 1-3 columns based on screen size
 
-### **🎨 DnD UX Design** ✅
+### **🧩 Component Refactoring & Organization** ✅
 
-- ✅ **Checklist Items**: Smooth drag & drop with visual feedback
-- 🔧 **Note Sections**: Drag handle approach to avoid click conflicts
-- ⏳ **Note Containers**: Grid-based reordering planned
-- ⏳ **Collection Tabs**: Horizontal tab reordering planned
+- ✅ **NoteItem Breakdown**: Split 200+ line component into 8 focused files
+- ✅ **Content Type Components**: Separate components for each section type
+- ✅ **Shared Components**: Reusable header, actions, and container components
+- ✅ **Utility Functions**: Pure functions for checklist parsing, content utils
+- ✅ **Improved Maintainability**: Each file has single responsibility
+- ✅ **Better Testing**: Isolated components easier to test and debug
 
-## 🚀 Immediate Next Steps - Drag & Drop Completion
+### **🎨 Enhanced Note Card UX** ✅
 
-### **Phase 1: Fix Note Section DnD (Current Priority)**
+- ✅ **Taller Cards**: Increased height by 50% (360px) for more content space
+- ✅ **Scrollable Content**: Proper vertical scrolling for overflow content
+- ✅ **Fixed Checkbox Navigation**: Checkboxes toggle without opening edit page
+- ✅ **Improved Proportions**: Better diagram thumbnail scaling
+- ✅ **Consistent Grid**: Fixed-height cards maintain stable grid layout
 
-**1. Resolve Drag Handle Conflicts**
+## 🚀 Immediate Next Steps - Extend Drag & Drop
 
-- Fix click vs drag interaction conflicts
-- Ensure drag only initiates from handle area
-- Maintain existing click-to-edit functionality
+### **Phase 1: Note Container Reordering (Next Priority)**
 
-**2. Complete Note Section Reordering**
+**1. Apply Grid Pattern to Containers**
 
-- Test drag & drop functionality end-to-end
-- Verify database sequence updates
-- Ensure smooth animations and feedback
+- Use SortableGrid for note container cards in sidebar
+- Implement container-level sequence management
+- Add visual feedback during container reordering
 
-### **Phase 2: Note Container Reordering**
+**2. Container Service Integration**
 
-**3. Implement Container Sorting**
+- Extend NoteService with reordering methods
+- Database sequence updates for containers
+- Optimistic UI updates with error handling
 
-- Apply same pattern to note containers within collections
-- Grid-based drag & drop with visual feedback
-- Sequence management integration
+### **Phase 2: Collection Tab Reordering**
 
-### **Phase 3: Collection Tab Reordering**
+**3. Horizontal Tab Sorting**
 
-**4. Collection Tab Sorting**
+- Adapt SortableGrid for horizontal collection tabs
+- Persistent tab ordering across sessions
+- Visual feedback during tab reordering
 
-- Horizontal drag & drop for collection tabs
-- Persistent ordering across sessions
-- Visual feedback during reordering
+**4. Collection Service Integration**
 
-### **Phase 4: Polish & Testing**
+- Extend CollectionService with reordering methods
+- Database sequence updates for collections
+- Maintain tab order in user preferences
 
-**5. User Experience Refinement**
+### **Phase 3: Polish & Optimization**
+
+**5. Performance & UX Refinement**
 
 - Performance optimization for large lists
-- Visual feedback improvements
-- Error handling and edge cases
 - Mobile touch support verification
+- Accessibility improvements
+- Error handling edge cases
 
 ## 🎯 Current Development Status
 
-**Status**: 🔧 **Drag & Drop Implementation In Progress**
-**Current Focus**: Fixing note section drag handle conflicts
-**Next Milestone**: Complete all sorting functionality
+**Status**: ✅ **Note Section Drag & Drop Complete**
+**Current Focus**: Extend drag & drop to note containers and collections
+**Next Milestone**: Complete container and collection reordering
 **Last Updated**: July 20, 2025
-**Version**: 2.6 - Drag & Drop Foundation
+**Version**: 2.7 - Grid Drag & Drop System
 
-### **Current Issues to Resolve**:
+### **Recent Completions**:
 
-1. **Note Section DnD**: Drag handle not working due to click conflicts
-2. **Event Propagation**: Need proper event handling separation
-3. **Visual Feedback**: Ensure drag states are clear and responsive
+1. ✅ **Grid-Based DnD**: SortableGrid component with responsive layout
+2. ✅ **Smart Event Handling**: Time-based click vs drag detection
+3. ✅ **Component Refactoring**: Modular, maintainable note components
+4. ✅ **Enhanced UX**: Taller cards, scrolling, fixed interactions
 
-### **Success Criteria for Completion**:
+### **Success Criteria for Next Phase**:
 
-- **Intuitive Sorting**: All entities (sections, containers, collections) can be reordered
-- **No Conflicts**: Drag and click interactions work independently
-- **Performance**: Smooth animations and responsive feedback
-- **Data Integrity**: Sequence numbers maintained consistently
+- **Container Reordering**: Note containers can be reordered in sidebar
+- **Collection Reordering**: Collection tabs can be reordered horizontally
+- **Consistent UX**: Same interaction pattern across all drag operations
+- **Performance**: Smooth operation with large datasets
 
 ## 🔧 Deployment Information
 
@@ -218,4 +243,4 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 
 ---
 
-**Current Priority**: Fix note section drag & drop conflicts, then complete container and collection sorting
+**Current Priority**: Implement drag & drop for note containers and collection tabs using the established SortableGrid pattern
