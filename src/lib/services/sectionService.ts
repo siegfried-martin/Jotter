@@ -1,9 +1,11 @@
 // src/lib/services/sectionService.ts
 import { supabase } from '$lib/supabase';
-import type { NoteSection, CreateNoteSection, ChecklistItem } from '$lib/types';
+import type { NoteSection, CreateNoteSection, ChecklistItem, SequenceUpdate } from '$lib/types';
+import { getNextNoteSectionSequence, updateNoteSectionSequences } from './sequenceService';
+import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 
 export class SectionService {
-  // Get all sections for a note container
+  // Get all sections for a note container - ALREADY ORDERED BY SEQUENCE
   static async getSections(noteContainerId: string): Promise<NoteSection[]> {
     const { data, error } = await supabase
       .from('note_section')
@@ -19,14 +21,18 @@ export class SectionService {
     return data || [];
   }
 
-  // Create a new section
+  // Create a new section - NOW WITH ENHANCED SEQUENCE SUPPORT
   static async createSection(section: CreateNoteSection): Promise<NoteSection> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get next sequence if not provided
+    const sequence = section.sequence ?? await getNextNoteSectionSequence(section.note_container_id);
+
     const newSection = {
       ...section,
-      user_id: user.id
+      user_id: user.id,
+      sequence // Ensure sequence is set
     };
 
     const { data, error } = await supabase
@@ -43,10 +49,10 @@ export class SectionService {
     return data;
   }
 
-  // Update section content
+  // Update section content - NOW SUPPORTS SEQUENCE UPDATES
   static async updateSection(
     id: string, 
-    updates: Partial<CreateNoteSection>
+    updates: Partial<CreateNoteSection> & { sequence?: number }
   ): Promise<NoteSection> {
     const { data, error } = await supabase
       .from('note_section')
@@ -126,5 +132,74 @@ export class SectionService {
     }
 
     return data;
+  }
+
+  // NEW: Reorder sections within a note container via drag & drop
+  static async reorderSections(
+    noteContainerId: string,
+    fromIndex: number,
+    toIndex: number
+  ): Promise<NoteSection[]> {
+    // Get current sections for this note container
+    const sections = await this.getSections(noteContainerId);
+    
+    // Calculate sequence updates
+    const updates = calculateReorderSequences(sections, fromIndex, toIndex);
+    
+    // Apply updates to database
+    const success = await updateNoteSectionSequences(updates);
+    
+    if (!success) {
+      throw new Error('Failed to update section sequences');
+    }
+    
+    // Return updated sections
+    return await this.getSections(noteContainerId);
+  }
+
+  // NEW: Move section to specific position within note container
+  static async moveSectionToPosition(
+    noteContainerId: string,
+    sectionId: string,
+    newPosition: number
+  ): Promise<NoteSection[]> {
+    const sections = await this.getSections(noteContainerId);
+    const currentIndex = sections.findIndex(s => s.id === sectionId);
+    
+    if (currentIndex === -1) {
+      throw new Error('Section not found');
+    }
+    
+    return await this.reorderSections(noteContainerId, currentIndex, newPosition);
+  }
+
+  // NEW: Insert section at specific position
+  static async insertSectionAtPosition(
+    noteContainerId: string,
+    section: Omit<CreateNoteSection, 'note_container_id' | 'sequence'>,
+    position: number
+  ): Promise<NoteSection> {
+    const sections = await this.getSections(noteContainerId);
+    
+    // Calculate sequence for insertion at specific position
+    let sequence: number;
+    if (position === 0) {
+      // Insert at beginning
+      sequence = sections.length > 0 ? Math.max(1, sections[0].sequence - 10) : 10;
+    } else if (position >= sections.length) {
+      // Insert at end
+      sequence = sections.length > 0 ? sections[sections.length - 1].sequence + 10 : 10;
+    } else {
+      // Insert in middle
+      const prevSequence = sections[position - 1].sequence;
+      const nextSequence = sections[position].sequence;
+      sequence = Math.floor((prevSequence + nextSequence) / 2);
+    }
+
+    return await this.createSection({
+      ...section,
+      note_container_id: noteContainerId,
+      sequence
+    });
   }
 }

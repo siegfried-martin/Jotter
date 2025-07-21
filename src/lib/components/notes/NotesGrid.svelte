@@ -1,12 +1,14 @@
-<!-- src/lib/components/layout/NotesGrid.svelte -->
+<!-- src/lib/components/notes/NotesGrid.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import NoteItem from '$lib/components/NoteItem.svelte';
-  import CreateNoteItem from '$lib/components/CreateNoteItem.svelte';
+  import SortableNoteGrid from './SortableNoteGrid.svelte';
+  import CreateNoteItem from './CreateNoteItem.svelte';
+  import type { NoteSection } from '$lib/types';
 
-  export let sections: any[] = [];
+  export let sections: NoteSection[] = [];
   export let collectionName: string = '';
   export let hasSelectedContainer: boolean = false;
+  export let noteContainerId: string = ''; // This is now properly exported
 
   const dispatch = createEventDispatcher<{
     edit: string;
@@ -14,6 +16,7 @@
     checkboxChange: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>;
     createSection: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
     createNote: void;
+    sectionsReordered: NoteSection[];
   }>();
 
   function handleEdit(event: CustomEvent<string>) {
@@ -35,22 +38,26 @@
   function handleCreateNote() {
     dispatch('createNote');
   }
+
+  function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
+    dispatch('sectionsReordered', event.detail);
+  }
 </script>
 
 {#if hasSelectedContainer}
-  <!-- Note Items Grid -->
-  <div class="grid gap-6 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));">
-    {#each sections as section (section.id)}
-      <NoteItem 
-        {section}
+  <!-- Sortable Note Sections Grid -->
+  <div class="mb-6">
+    {#if sections.length > 0}
+      <SortableNoteGrid 
+        {sections}
+        {noteContainerId}
+        on:sectionsReordered={handleSectionsReordered}
         on:edit={handleEdit}
         on:delete={handleDelete}
         on:checkboxChange={handleCheckboxChange}
       />
-    {/each}
-    
-    {#if sections.length === 0}
-      <div class="col-span-full text-center text-gray-500 py-12">
+    {:else}
+      <div class="text-center text-gray-500 py-12">
         This note is empty. Add a section below to get started!
       </div>
     {/if}

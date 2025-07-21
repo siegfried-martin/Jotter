@@ -123,7 +123,7 @@
   .diagram-thumbnail {
     position: relative;
     width: 100%;
-    height: 120px;
+    height: 220px;
     background: #f8fafc;
     border-radius: 6px;
     overflow: hidden;

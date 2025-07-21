@@ -50,4 +50,27 @@ export class UserService {
     const preferences = await this.getUserPreferences();
     return preferences?.last_visited_collection_id || null;
   }
+
+  static async updateLastVisitedAndDefault(collectionId: string): Promise<void> {
+    // Update user preferences
+    await this.updateLastVisitedCollection(collectionId);
+    
+    // Update collection to be default (unset others first)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    
+    // First, unset all collections as default
+    await supabase
+      .from('collections')
+      .update({ is_default: false })
+      .eq('user_id', user.id);
+    
+    // Then set this collection as default
+    await supabase
+      .from('collections')
+      .update({ is_default: true })
+      .eq('id', collectionId)
+      .eq('user_id', user.id);
+  }
 }
+

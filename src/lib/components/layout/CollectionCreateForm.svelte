@@ -5,27 +5,27 @@
   export let collectionManager: ReturnType<typeof useCollectionManager>;
 
   // Reactive values from the composable
-  $: ({ newCollectionName, newCollectionColor, loading } = $collectionManager);
+  $: ({ newCollectionName, newCollectionColor, loading, defaultColors } = $collectionManager);
 
   function handleKeydown(event: KeyboardEvent) {
-    collectionManager.handleCollectionKeydown(event);
+    $collectionManager.handleCollectionKeydown(event);
   }
 
   function handleColorSelect(color: string) {
-    collectionManager.setCollectionColor(color);
+    $collectionManager.setCollectionColor(color);
   }
 
   function handleNameChange(event: Event) {
     const target = event.target as HTMLInputElement;
-    collectionManager.setCollectionName(target.value);
+    $collectionManager.setCollectionName(target.value);
   }
 
   function handleCreate() {
-    collectionManager.createCollection();
+    $collectionManager.createCollection();
   }
 
   function handleCancel() {
-    collectionManager.cancelCreate();
+    $collectionManager.cancelCreate();
   }
 </script>
 
@@ -83,7 +83,7 @@
   
   <!-- Color Picker -->
   <div class="flex items-center space-x-1 flex-shrink-0">
-    {#each collectionManager.defaultColors as color}
+    {#each defaultColors as color}
       <button
         class="w-4 h-4 rounded-full border transition-all flex-shrink-0 hover:scale-110"
         class:border-gray-800={newCollectionColor === color}

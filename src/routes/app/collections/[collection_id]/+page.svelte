@@ -1,4 +1,4 @@
-<!-- src/routes/app/collections/[collection_id]/+page.svelte (Refactored) -->
+<!-- src/routes/app/collections/[collection_id]/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
@@ -12,10 +12,11 @@
   
   // Types
   import type { PageData } from './$types';
+  import type { NoteSection } from '$lib/types';
   
   // Components
   import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
-  import NotesGrid from '$lib/components/layout/NotesGrid.svelte';
+  import NotesGrid from '$lib/components/notes/NotesGrid.svelte';
   import NoteManagementSidebar from '$lib/components/layout/NoteManagementSidebar.svelte';
   
   export let data: PageData;
@@ -73,6 +74,15 @@
     await noteOperations.handleCheckboxChange(event, selectedContainerSections, selectedContainer);
   }
   
+  // NEW: Handle section reordering from drag & drop
+  async function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
+    console.log('Sections reordered:', event.detail);
+    
+    // The reordering is already handled in SortableNoteGrid
+    // We just need to update the local state if needed
+    // The SectionService.reorderSections call in SortableNoteGrid already updates the database
+  }
+  
   // Create keyboard handler
   const handleKeydown = noteOperations.createKeyboardHandler(
     currentCollectionId,
@@ -111,11 +121,13 @@
         sections={selectedContainerSections}
         collectionName={currentCollection?.name}
         hasSelectedContainer={!!selectedContainer}
+        noteContainerId={selectedContainer?.id || ''}
         on:edit={handleEdit}
         on:delete={deleteSection}
         on:checkboxChange={handleCheckboxChange}
         on:createSection={createSection}
         on:createNote={createNewNote}
+        on:sectionsReordered={handleSectionsReordered}
       />
     {/if}
   </div>

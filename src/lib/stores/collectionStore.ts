@@ -1,6 +1,6 @@
 // src/lib/stores/collectionStore.ts
 import { writable } from 'svelte/store';
-import type { Collection } from '$lib/services/collectionService';
+import type { Collection } from '$lib/types';
 
 interface CollectionState {
   collections: Collection[];

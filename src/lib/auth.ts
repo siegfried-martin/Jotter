@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { writable } from 'svelte/store';
 import type { User, Session } from '@supabase/supabase-js';
 import { goto } from '$app/navigation';
+import { NavigationService } from '$lib/services/navigationService';
 import { browser } from '$app/environment';
 
 // Auth store
@@ -40,12 +41,11 @@ export const initAuth = async () => {
         session,
         loading: false
       });
-
       // Only navigate on actual sign-in/sign-out events, not token refreshes
       if (browser && isInitialized) {
-        if (event === 'SIGNED_IN' && !window.location.pathname.startsWith('/app')) {
+        if (event === 'INITIAL_SESSION') {
           console.log('🔐 Redirecting to app after sign-in');
-          goto('/app');
+          NavigationService.redirectToLastVisited();
         } else if (event === 'SIGNED_OUT') {
           console.log('🔐 Redirecting to home after sign-out');
           goto('/');

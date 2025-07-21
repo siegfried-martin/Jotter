@@ -1,9 +1,9 @@
 // src/lib/composables/useCollectionManager.ts
-import { writable } from 'svelte/store';
+import { writable, get, derived } from 'svelte/store';
 import { CollectionService } from '$lib/services/collectionService';
 import { collectionStore, collectionActions } from '$lib/stores/collectionStore';
 import { NavigationService } from '$lib/services/navigationService';
-import type { Collection } from '$lib/services/collectionService';
+import type { Collection } from '$lib/types';
 
 export interface CollectionManagerState {
   showCreateForm: boolean;
@@ -53,15 +53,12 @@ export function useCollectionManager() {
    * Start the collection creation process
    */
   function startCreateCollection(): void {
-    update(s => {
-      const collections = collectionStore.get().collections;
-      return {
-        ...s,
-        showCreateForm: true,
-        newCollectionName: '',
-        newCollectionColor: defaultColors[collections.length % defaultColors.length]
-      };
-    });
+    update(s => ({
+      ...s,
+      showCreateForm: true,
+      newCollectionName: '',
+      newCollectionColor: defaultColors[0] // Just use the first color as default
+    }));
   }
 
   /**
@@ -79,7 +76,7 @@ export function useCollectionManager() {
    * Create a new collection
    */
   async function createCollection(): Promise<void> {
-    const currentState = state.get();
+    const currentState = get(state);
     
     if (!currentState.newCollectionName.trim()) {
       return;
@@ -153,8 +150,10 @@ export function useCollectionManager() {
     }
   }
 
-  return {
-    subscribe,
+  // Create a derived store that exposes the state with methods
+  const manager = derived(state, ($state) => ({
+    ...$state,
+    isCreating: $state.showCreateForm,
     defaultColors,
     loadCollections,
     startCreateCollection,
@@ -164,5 +163,7 @@ export function useCollectionManager() {
     setCollectionColor,
     handleCollectionKeydown,
     selectCollection
-  };
+  }));
+
+  return manager;
 }

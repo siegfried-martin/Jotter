@@ -2,18 +2,19 @@
 import { goto } from '$app/navigation';
 import { CollectionService } from './collectionService';
 import { UserService } from './userService';
-import type { Collection } from './collectionService';
+import type { Collection } from '$lib/types';
 
 export class NavigationService {
   /**
-   * Redirect user to their last visited collection or a sensible default
+   * Redirect user to their last visited collection
+   * If no last visited collection exists, return false (stay on /app page)
    */
   static async redirectToLastVisited(): Promise<boolean> {
     try {
       const lastVisitedId = await UserService.getLastVisitedCollectionId();
       
       if (lastVisitedId) {
-        // Verify the collection still exists
+        // Verify the collection still exists and user has access
         const userCollections = await CollectionService.getCollections();
         const lastVisited = userCollections.find(c => c.id === lastVisitedId);
         
@@ -21,17 +22,13 @@ export class NavigationService {
           goto(`/app/collections/${lastVisitedId}`, { replaceState: true });
           return true;
         }
+        
+        // Last visited collection no longer exists, clear it from preferences
+        console.log('Last visited collection no longer exists, clearing from preferences');
+        // Note: We could clear the preference here, but it's not critical
       }
       
-      // Fall back to default collection
-      const userCollections = await CollectionService.getCollections();
-      const defaultCollection = userCollections.find(c => c.is_default) || userCollections[0];
-      
-      if (defaultCollection) {
-        goto(`/app/collections/${defaultCollection.id}`, { replaceState: true });
-        return true;
-      }
-      
+      // No valid last visited collection - don't redirect, let user stay on /app
       return false;
     } catch (error) {
       console.error('Failed to redirect to last visited collection:', error);
@@ -47,30 +44,26 @@ export class NavigationService {
   }
 
   /**
-   * Navigate to first collection and trigger creation dialog
+   * Navigate to create a new collection
+   * If user has collections, go to the first one with create dialog
+   * If user has no collections, go to /app page to create first one
    */
   static async navigateToCreateCollection(): Promise<void> {
     try {
       const collections = await CollectionService.getCollections();
-      const defaultCollection = collections.find(c => c.is_default) || collections[0];
       
-      if (defaultCollection) {
-        goto(`/app/collections/${defaultCollection.id}?create=true`);
+      if (collections.length > 0) {
+        // Has collections - go to first one with create dialog
+        const firstCollection = collections[0];
+        goto(`/app/collections/${firstCollection.id}?create=true`);
       } else {
-        // Handle the case where user has no collections
-        // Option 1: Create a default collection first
-        const newCollection = await CollectionService.createCollection({
-          name: 'Default',
-          color: '#3B82F6',
-          is_default: true
-        });
-        goto(`/app/collections/${newCollection.id}?create=true`);
-        
-        // Option 2: Alternative - go to a special "create first collection" page
-        // goto('/app/collections/new');
+        // No collections - go to /app page to create first one
+        goto('/app');
       }
     } catch (error) {
       console.error('Failed to navigate to create collection:', error);
+      // Fallback to /app page
+      goto('/app');
     }
   }
 

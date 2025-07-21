@@ -1,32 +1,16 @@
 // src/lib/services/collectionService.ts
 import { supabase } from '$lib/supabase';
-
-export interface Collection {
-  id: string;
-  name: string;
-  description?: string;
-  color: string;
-  is_default: boolean;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateCollection {
-  name: string;
-  description?: string;
-  color?: string;
-  is_default?: boolean;
-}
+import type { Collection, CreateCollection, SequenceUpdate } from '$lib/types';
+import { getNextCollectionSequence, updateCollectionSequences } from './sequenceService';
+import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 
 export class CollectionService {
-  // Get all collections for current user
+  // Get all collections for current user - NOW ORDERED BY SEQUENCE
   static async getCollections(): Promise<Collection[]> {
     const { data, error } = await supabase
       .from('collections')
       .select('*')
-      .order('is_default', { ascending: false })
-      .order('name');
+      .order('sequence', { ascending: true }); // Changed from name to sequence
 
     if (error) {
       console.error('Error loading collections:', error);
@@ -42,6 +26,8 @@ export class CollectionService {
       .from('collections')
       .select('*')
       .eq('is_default', true)
+      .order('sequence', { ascending: true }) // Order by sequence in case multiple defaults
+      .limit(1)
       .single();
 
     if (error) {
@@ -52,15 +38,19 @@ export class CollectionService {
     return data;
   }
 
-  // Create new collection
+  // Create new collection - NOW WITH SEQUENCE SUPPORT
   static async createCollection(collection: CreateCollection): Promise<Collection> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get next sequence if not provided
+    const sequence = collection.sequence ?? await getNextCollectionSequence(user.id);
+
     const newCollection = {
       ...collection,
       user_id: user.id,
-      color: collection.color || '#3B82F6'
+      color: collection.color || '#3B82F6',
+      sequence // Add sequence to insert
     };
 
     const { data, error } = await supabase
@@ -77,10 +67,10 @@ export class CollectionService {
     return data;
   }
 
-  // Update collection
+  // Update collection - NOW SUPPORTS SEQUENCE UPDATES
   static async updateCollection(
     id: string, 
-    updates: Partial<CreateCollection>
+    updates: Partial<CreateCollection> & { sequence?: number }
   ): Promise<Collection> {
     const { data, error } = await supabase
       .from('collections')
@@ -111,5 +101,45 @@ export class CollectionService {
       console.error('Error deleting collection:', error);
       throw error;
     }
+  }
+
+  // NEW: Reorder collections via drag & drop
+  static async reorderCollections(
+    fromIndex: number,
+    toIndex: number
+  ): Promise<Collection[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Get current collections
+    const collections = await this.getCollections();
+    
+    // Calculate sequence updates
+    const updates = calculateReorderSequences(collections, fromIndex, toIndex);
+    
+    // Apply updates to database
+    const success = await updateCollectionSequences(updates);
+    
+    if (!success) {
+      throw new Error('Failed to update collection sequences');
+    }
+    
+    // Return updated collections
+    return await this.getCollections();
+  }
+
+  // NEW: Move collection to specific position
+  static async moveCollectionToPosition(
+    collectionId: string,
+    newPosition: number
+  ): Promise<Collection[]> {
+    const collections = await this.getCollections();
+    const currentIndex = collections.findIndex(c => c.id === collectionId);
+    
+    if (currentIndex === -1) {
+      throw new Error('Collection not found');
+    }
+    
+    return await this.reorderCollections(currentIndex, newPosition);
   }
 }

@@ -18,7 +18,7 @@ export const load: PageLoad = async ({ params, url }) => {
     }
     
     // Update last visited collection (fire and forget)
-    UserService.updateLastVisitedCollection(collectionId).catch(console.error);
+    UserService.updateLastVisitedAndDefault(collectionId).catch(console.error);
     
     return {
       collection,

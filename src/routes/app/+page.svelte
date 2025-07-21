@@ -1,24 +1,19 @@
-<!-- src/routes/app/+page.svelte (Updated to use new components) -->
+<!-- src/routes/app/+page.svelte (Updated with Collection Management) -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { CollectionService } from '$lib/services/collectionService';
   import { NavigationService } from '$lib/services/navigationService';
-  import CollectionGrid from '$lib/components/CollectionGrid.svelte';
+  import CollectionGrid from '$lib/components/collections/CollectionGrid.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-  import type { Collection } from '$lib/services/collectionService';
+  import type { Collection } from '$lib/types';
 
   let collections: Collection[] = [];
   let loading = true;
   let error: string | null = null;
 
   onMount(async () => {
-    // Check if user should be redirected to last visited collection
-    const redirected = await NavigationService.redirectToLastVisited();
-    
-    if (!redirected) {
-      // If we're still here, load collections for dashboard
-      await loadCollections();
-    }
+    // Don't redirect - this is the collection management page
+    await loadCollections();
   });
 
   async function loadCollections() {
@@ -38,8 +33,56 @@
     NavigationService.navigateToCollection(event.detail);
   }
 
-  function handleCreateCollection() {
-    NavigationService.navigateToCreateCollection();
+  async function handleCreateCollection(event: CustomEvent<{ name: string; color: string; description?: string }>) {
+    try {
+      const { name, color, description } = event.detail;
+      
+      const newCollection = await CollectionService.createCollection({
+        name: name.trim(),
+        color,
+        description: description?.trim()
+      });
+      
+      // Navigate to the new collection
+      NavigationService.navigateToCollection(newCollection);
+    } catch (err) {
+      console.error('Failed to create collection:', err);
+      error = 'Failed to create collection. Please try again.';
+    }
+  }
+
+  async function handleEditCollection(event: CustomEvent<Collection>) {
+    try {
+      const collection = event.detail;
+      await CollectionService.updateCollection(collection.id, {
+        name: collection.name,
+        color: collection.color,
+        description: collection.description
+      });
+      
+      // Reload collections to reflect changes
+      await loadCollections();
+    } catch (err) {
+      console.error('Failed to update collection:', err);
+      error = 'Failed to update collection. Please try again.';
+    }
+  }
+
+  async function handleDeleteCollection(event: CustomEvent<Collection>) {
+    try {
+      const collection = event.detail;
+      
+      await CollectionService.deleteCollection(collection.id);
+      
+      // Reload collections to reflect changes
+      await loadCollections();
+      
+      // Clear any previous errors
+      error = null;
+    } catch (err) {
+      console.error('Failed to delete collection:', err);
+      error = 'Failed to delete collection. Please try again.';
+    }
   }
 </script>
 
@@ -72,29 +115,12 @@
       <p class="text-gray-600">Organize your notes into collections</p>
     </div>
 
-    {#if collections.length === 0}
-      <!-- Empty State -->
-      <div class="text-center py-12">
-        <div class="text-gray-400 mb-4">
-          <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-          </svg>
-        </div>
-        <h2 class="text-xl font-semibold text-gray-900 mb-2">No collections yet</h2>
-        <p class="text-gray-600 mb-6">Create your first collection to start organizing your notes</p>
-        <button 
-          on:click={handleCreateCollection}
-          class="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-        >
-          Create Your First Collection
-        </button>
-      </div>
-    {:else}
-      <CollectionGrid 
-        {collections} 
-        on:select={handleCollectionSelect}
-        on:create={handleCreateCollection}
-      />
-    {/if}
+    <CollectionGrid 
+      {collections} 
+      on:select={handleCollectionSelect}
+      on:create={handleCreateCollection}
+      on:edit={handleEditCollection}
+      on:delete={handleDeleteCollection}
+    />
   {/if}
 </div>

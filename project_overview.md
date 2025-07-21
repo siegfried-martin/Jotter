@@ -20,32 +20,53 @@
 - Backend: Supabase (PostgreSQL + Auth + RLS)
 - Authentication: Google OAuth via Supabase Auth
 - Editors: CodeMirror 6 (code) + Quill (rich text) + Excalidraw (diagrams)
+- Drag & Drop: svelte-dnd-action
 
-**Database Schema**:
+**Database Schema** (Updated with Sequence Support):
 
 ```sql
--- Core tables
-note_container (id, title, user_id, collection_id, created_at, updated_at)
+-- Core tables with sequence support
+note_container (id, title, user_id, collection_id, sequence, created_at, updated_at)
 note_section (id, note_container_id, user_id, type, content, sequence, meta, checklist_data, created_at, updated_at)
-
--- Multi-user & organization
-collections (id, name, description, color, is_default, user_id, created_at, updated_at)
+collections (id, name, description, color, is_default, user_id, sequence, created_at, updated_at)
 user_preferences (id, user_id, theme, default_editor, auto_save_delay, keyboard_shortcuts, last_visited_collection_id, created_at, updated_at)
+
+-- Database functions for sequence management
+get_next_collection_sequence(user_id)
+get_next_note_container_sequence(collection_id)
+get_next_note_section_sequence(note_container_id)
 ```
 
-**Modular Architecture**:
+**Modular Architecture** (Reorganized by Domain):
 
 ```
 src/lib/
 ├── services/          # Business logic layer
+│   ├── collectionService.ts (✅ sequence support)
+│   ├── noteService.ts (✅ sequence support)
+│   ├── sectionService.ts (✅ sequence support)
+│   └── sequenceService.ts (✅ new)
 ├── composables/       # Reusable reactive logic
-├── components/        # Focused UI components
-│   ├── layout/        # Page layout components
-│   └── ui/           # Reusable UI elements
+├── components/        # Domain-organized components
+│   ├── ui/           # Generic reusable components
+│   │   └── SortableList.svelte (✅ new)
+│   ├── notes/        # Note-related components
+│   │   ├── NoteItem.svelte
+│   │   ├── NotesGrid.svelte
+│   │   ├── CreateNoteItem.svelte
+│   │   └── SortableNoteList.svelte (🔧 in progress)
+│   ├── collections/  # Collection components
+│   ├── editors/      # All editor components
+│   │   ├── ChecklistEditor.svelte (✅ refactored)
+│   │   ├── SortableChecklist.svelte (✅ new)
+│   │   └── SortableChecklistItem.svelte (✅ new)
+│   └── layout/       # App-level layout
+├── utils/
+│   └── sequenceUtils.ts (✅ new)
 └── stores/           # State management
 ```
 
-## ✅ Current Status - Production Ready!
+## ✅ Current Status - July 20, 2025
 
 ### **🔐 Core Features Complete**
 
@@ -63,12 +84,13 @@ src/lib/
 - ✅ **Type-safe throughout** with comprehensive TypeScript
 - ✅ **Reactive state management** with proper error handling
 - ✅ **Component-driven architecture** with clean separation of concerns
+- ✅ **Domain-organized components** for better maintainability
 
 ### **🎨 Professional UI/UX**
 
 - ✅ **Modern interface** that feels like a premium developer tool
 - ✅ **Responsive design** optimized for desktop development workflow
-- ✅ **Collection tabs** styled like code editor tabs
+- ✅ **Collection tabs** with color accents for visual navigation
 - ✅ **Visual previews** for diagrams and rich content
 - ✅ **Loading states** and graceful error handling throughout
 
@@ -80,118 +102,120 @@ src/lib/
 - ✅ **Debounced operations** to prevent expensive re-renders
 - ✅ **Smart caching** with localStorage draft recovery
 
-## 🚀 Recent Major Fixes
+## 🚀 Recent Major Achievements - July 20, 2025
 
-### **Fixed Collection Switching Bug** ✅
+### **🎯 Drag & Drop Foundation - IN PROGRESS** 🔧
 
-- **Issue**: Page content wasn't updating when switching between collections
-- **Root Cause**: Svelte reactivity not triggering on route parameter changes
-- **Solution**: Added reactive handling for route changes with proper data synchronization
-- **Result**: Seamless collection switching with immediate content updates
+- ✅ **Database Schema Migration**: Added sequence columns to all tables
+- ✅ **Sequence Management Services**: Complete service layer with DB functions
+- ✅ **Sequence Utilities**: Generic helper functions for reordering logic
+- ✅ **DnD Library Integration**: svelte-dnd-action installed and configured
+- ✅ **Checklist Item Sorting**: Complete and working smoothly
+- 🔧 **Note Section Sorting**: Components built, drag handle conflict resolution needed
+- ⏳ **Note Container Sorting**: Ready to implement
+- ⏳ **Collection Tab Sorting**: Ready to implement
 
-### **Fixed Tab-Switch Page Reloads** ✅
+### **🔧 Technical Architecture Improvements** ✅
 
-- **Issue**: App would reload every time user switched browser tabs
-- **Root Cause**: Supabase auth state changes firing navigation on token refresh
-- **Solution**: Added smart auth event handling to ignore token refreshes
-- **Result**: Stable app experience when switching tabs
+- ✅ **Component Reorganization**: Domain-based folder structure
+- ✅ **Reusable DnD Components**: SortableList.svelte for consistency
+- ✅ **Service Layer Updates**: All services support sequence operations
+- ✅ **Type Safety**: Updated types.ts with sequence support
+- ✅ **File Size Management**: All components under 100 lines for AI context
 
-### **Component Architecture Refactoring** ✅
+### **🎨 DnD UX Design** ✅
 
-- **Before**: Monolithic 300+ line files mixing concerns
-- **After**: Focused components (<100 lines each) with single responsibilities
-- **Benefits**: AI-friendly codebase, easier maintenance, reusable logic
-- **Files**: Split into composables, UI components, and clean orchestration
+- ✅ **Checklist Items**: Smooth drag & drop with visual feedback
+- 🔧 **Note Sections**: Drag handle approach to avoid click conflicts
+- ⏳ **Note Containers**: Grid-based reordering planned
+- ⏳ **Collection Tabs**: Horizontal tab reordering planned
 
-## 🚀 Next Steps - Production Launch Prep
+## 🚀 Immediate Next Steps - Drag & Drop Completion
 
-### **Phase 1: Final Polish (This Week)**
+### **Phase 1: Fix Note Section DnD (Current Priority)**
 
-**1. UI/UX Cleanup**
+**1. Resolve Drag Handle Conflicts**
 
-- Polish loading states and transitions
-- Improve error messages and user feedback
-- Add keyboard navigation hints
-- Responsive design tweaks for edge cases
+- Fix click vs drag interaction conflicts
+- Ensure drag only initiates from handle area
+- Maintain existing click-to-edit functionality
 
-**2. Code Organization**
+**2. Complete Note Section Reordering**
 
-- Clean up any remaining large files
-- Standardize component interfaces
-- Add comprehensive TypeScript types
-- Documentation cleanup
+- Test drag & drop functionality end-to-end
+- Verify database sequence updates
+- Ensure smooth animations and feedback
 
-**3. Production Readiness**
+### **Phase 2: Note Container Reordering**
 
-- Environment configuration (staging/prod)
-- Error monitoring setup
-- Performance optimization review
-- Security audit of auth flows
+**3. Implement Container Sorting**
 
-### **Phase 2: Developer Beta (Next Week)**
+- Apply same pattern to note containers within collections
+- Grid-based drag & drop with visual feedback
+- Sequence management integration
 
-**4. Beta Distribution**
+### **Phase 3: Collection Tab Reordering**
 
-- Deploy to production environment
-- Create simple onboarding flow
-- Share with developer friends for testing
-- Collect feedback and usage patterns
+**4. Collection Tab Sorting**
 
-**5. Initial Feature Polish**
+- Horizontal drag & drop for collection tabs
+- Persistent ordering across sessions
+- Visual feedback during reordering
 
-- Collection management improvements (delete, rename)
-- Note organization features (drag-and-drop)
-- Search within collections
-- Export functionality (Markdown, JSON)
+### **Phase 4: Polish & Testing**
 
-### **Phase 3: Public Launch Preparation**
+**5. User Experience Refinement**
 
-**6. Scale & Polish**
+- Performance optimization for large lists
+- Visual feedback improvements
+- Error handling and edge cases
+- Mobile touch support verification
 
-- Performance optimization for larger datasets
-- Advanced keyboard shortcuts
-- Dark mode support
-- Mobile viewing improvements
+## 🎯 Current Development Status
 
-**7. Growth Features**
+**Status**: 🔧 **Drag & Drop Implementation In Progress**
+**Current Focus**: Fixing note section drag handle conflicts
+**Next Milestone**: Complete all sorting functionality
+**Last Updated**: July 20, 2025
+**Version**: 2.6 - Drag & Drop Foundation
 
-- User onboarding improvements
-- Feature discovery
-- Feedback collection system
-- Analytics and monitoring
+### **Current Issues to Resolve**:
 
-## 🎯 Success Metrics
+1. **Note Section DnD**: Drag handle not working due to click conflicts
+2. **Event Propagation**: Need proper event handling separation
+3. **Visual Feedback**: Ensure drag states are clear and responsive
 
-**Current Achievement** ✅:
+### **Success Criteria for Completion**:
 
-- **Speed**: Note creation < 1 second
-- **Reliability**: Zero data loss, stable multi-user
-- **Architecture**: Production-ready, maintainable codebase
-- **Security**: Enterprise-grade with complete data isolation
+- **Intuitive Sorting**: All entities (sections, containers, collections) can be reordered
+- **No Conflicts**: Drag and click interactions work independently
+- **Performance**: Smooth animations and responsive feedback
+- **Data Integrity**: Sequence numbers maintained consistently
 
-**Beta Success Criteria**:
+## 🔧 Deployment Information
 
-- **Developer adoption**: 5+ dev friends actively using daily
-- **Performance**: Smooth with 50+ notes per collection
-- **Stability**: Zero critical bugs in 2-week beta period
-- **Feedback**: Clear feature priorities from real usage
+**Production Environment**:
 
-**Public Launch Goals**:
+- **URL**: https://jotter.marstol.com
+- **Server**: Ubuntu DigitalOcean (138.197.71.191)
+- **Service**: `jotter.service` (systemd)
+- **Database**: Supabase production project (wccmdhtjckzwywffvnsp)
 
-- Replace existing note-taking tools for target developers
-- Maintain sub-second performance at scale
-- Establish as "go-to dev tool" in target community
+**Management Commands**:
 
-## 📋 Current Roadmap Summary
+```bash
+# Service management
+sudo systemctl start jotter
+sudo systemctl restart jotter
+sudo systemctl status jotter
 
-**This Week**: Final UI polish + code cleanup  
-**Next Week**: Production deployment + developer beta  
-**Month 1**: Feature polish based on beta feedback  
-**Month 2**: Public launch preparation
+# View logs
+sudo journalctl -u jotter -f
+
+# Update deployment
+cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
+```
 
 ---
 
-**Status**: 🟢 **Production Ready - Beta Launch Imminent**  
-**Next Milestone**: Developer Beta Deployment  
-**Last Updated**: July 2025  
-**Version**: 2.2 - Production Launch Prep
+**Current Priority**: Fix note section drag & drop conflicts, then complete container and collection sorting
