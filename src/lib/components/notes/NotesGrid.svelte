@@ -2,19 +2,17 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import SortableNoteGrid from './SortableNoteGrid.svelte';
-  import CreateNoteItem from './CreateNoteItem.svelte';
   import type { NoteSection } from '$lib/types';
 
   export let sections: NoteSection[] = [];
   export let collectionName: string = '';
   export let hasSelectedContainer: boolean = false;
-  export let noteContainerId: string = ''; // This is now properly exported
+  export let noteContainerId: string = '';
 
   const dispatch = createEventDispatcher<{
     edit: string;
     delete: string;
     checkboxChange: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>;
-    createSection: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
     createNote: void;
     sectionsReordered: NoteSection[];
   }>();
@@ -29,10 +27,6 @@
 
   function handleCheckboxChange(event: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>) {
     dispatch('checkboxChange', event);
-  }
-
-  function handleCreateSection(event: CustomEvent<'checklist' | 'code' | 'wysiwyg' | 'diagram'>) {
-    dispatch('createSection', event.detail);
   }
 
   function handleCreateNote() {
@@ -58,13 +52,10 @@
       />
     {:else}
       <div class="text-center text-gray-500 py-12">
-        This note is empty. Add a section below to get started!
+        This note is empty. Use the floating panel below to add your first section!
       </div>
     {/if}
   </div>
-
-  <!-- Add Section Controls -->
-  <CreateNoteItem on:createSection={handleCreateSection} />
 {:else}
   <!-- Empty State -->
   <div class="text-center text-gray-500 py-12">

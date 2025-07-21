@@ -18,6 +18,7 @@
   import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
   import NotesGrid from '$lib/components/notes/NotesGrid.svelte';
   import NoteManagementSidebar from '$lib/components/layout/NoteManagementSidebar.svelte';
+  import CreateNoteItem from '$lib/components/notes/CreateNoteItem.svelte';
   
   export let data: PageData;
   
@@ -94,7 +95,7 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <!-- Main Content Layout -->
-<div class="flex h-screen bg-gray-50" style="height: calc(100vh - 4rem);">
+<div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
   <!-- Sidebar -->
   <NoteManagementSidebar 
     {containers}
@@ -105,7 +106,7 @@
   />
 
   <!-- Main Content Area -->
-  <div class="flex-1 p-6 overflow-y-auto">
+  <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
     {#if loading}
       <div class="flex items-center justify-center h-64">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -125,10 +126,46 @@
         on:edit={handleEdit}
         on:delete={deleteSection}
         on:checkboxChange={handleCheckboxChange}
-        on:createSection={createSection}
-        on:createNote={createNewNote}
         on:sectionsReordered={handleSectionsReordered}
       />
     {/if}
   </div>
+
+  <!-- Floating Add Section Area -->
+  {#if !loading && selectedContainer}
+    <div class="floating-add-section">
+      <div class="floating-add-section-content">
+        <CreateNoteItem on:createSection={createSection} />
+      </div>
+    </div>
+  {/if}
 </div>
+
+<style>
+  .floating-add-section {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    left: 280px; /* Account for sidebar width */
+    z-index: 50;
+    pointer-events: none; /* Allow clicking through the container */
+  }
+
+  .floating-add-section-content {
+    background: linear-gradient(to top, rgba(249, 250, 251, 0.95) 60%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(229, 231, 235, 0.8);
+    padding: 12px 16px;
+    margin: 0 16px 16px 16px;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    pointer-events: auto; /* Re-enable clicks for the content */
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 1024px) {
+    .floating-add-section {
+      left: 0; /* Full width on smaller screens */
+    }
+  }
+</style>
