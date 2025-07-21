@@ -83,6 +83,28 @@
     // We just need to update the local state if needed
     // The SectionService.reorderSections call in SortableNoteGrid already updates the database
   }
+
+  async function handleContainersReordered(event: CustomEvent<NoteContainer[]>) {
+    console.log('✅ Note containers reordered successfully, updating store');
+    console.log('📦 New containers order:', event.detail.map(c => c.title));
+    
+    // Update the note store with the new container order
+    noteActions.updateContainers(event.detail);
+    
+    console.log('📦 Store updated, current containers:', containers.map(c => c.title));
+    
+    // If the selected container is still in the list, make sure it stays selected
+    const updatedContainers = event.detail;
+    if (selectedContainer) {
+      const stillExists = updatedContainers.find(c => c.id === selectedContainer.id);
+      if (!stillExists) {
+        // If somehow the selected container was removed, select the first one
+        if (updatedContainers.length > 0) {
+          pageManager.selectContainer(updatedContainers[0]);
+        }
+      }
+    }
+  }
   
   // NEW: Handle note container title updates
   async function handleTitleUpdate(event: CustomEvent<{ containerId: string; newTitle: string }>) {
@@ -108,7 +130,7 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <!-- Main Content Layout -->
-<div class="app-layout">
+<div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
   <!-- Sidebar with Drag & Drop Support -->
   <NoteManagementSidebar 
     {containers}
@@ -121,9 +143,9 @@
   />
 
   <!-- Main Content Area -->
-  <div class="main-content">
+  <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
     {#if loading}
-      <div class="loading-container">
+      <div class="flex items-center justify-center h-64">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     {:else}
@@ -147,72 +169,41 @@
     {/if}
   </div>
 
-  <!-- Streamlined Add Section Bar -->
+  <!-- Floating Add Section Area -->
   {#if !loading && selectedContainer}
-    <div class="add-section-bar">
-      <CreateNoteItem on:createSection={createSection} />
+    <div class="floating-add-section">
+      <div class="floating-add-section-content">
+        <CreateNoteItem on:createSection={createSection} />
+      </div>
     </div>
   {/if}
 </div>
 
 <style>
-  .app-layout {
-    display: flex;
-    height: calc(100vh - 4rem);
-    background-color: #f9fafb;
-    position: relative;
-    overflow: hidden; /* Prevent double scrollbars */
-  }
-
-  .main-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.5rem;
-    padding-bottom: 4rem; /* Space for add bar */
-    box-sizing: border-box;
-  }
-
-  .loading-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 16rem;
-  }
-
-  .add-section-bar {
+  .floating-add-section {
     position: fixed;
     bottom: 0;
     right: 0;
     left: 280px; /* Account for sidebar width */
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(229, 231, 235, 0.6);
-    z-index: 40;
-    transition: all 0.2s ease;
+    z-index: 50;
+    pointer-events: none; /* Allow clicking through the container */
   }
 
-  .add-section-bar::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    left: 0;
-    right: 0;
-    height: 8px;
-    background: linear-gradient(to top, rgba(249, 250, 251, 0.8), transparent);
-    pointer-events: none;
+  .floating-add-section-content {
+    background: linear-gradient(to top, rgba(249, 250, 251, 0.95) 60%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(229, 231, 235, 0.8);
+    padding: 12px 16px;
+    margin: 0 16px 16px 16px;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    pointer-events: auto; /* Re-enable clicks for the content */
   }
 
   /* Responsive adjustments */
   @media (max-width: 1024px) {
-    .add-section-bar {
+    .floating-add-section {
       left: 0; /* Full width on smaller screens */
-    }
-  }
-
-  @media (max-width: 768px) {
-    .main-content {
-      padding: 1rem;
-      padding-bottom: 3.5rem;
     }
   }
 </style>
