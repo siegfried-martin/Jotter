@@ -3,10 +3,14 @@ import { supabase } from '$lib/supabase';
 import type { NoteContainer, CreateNoteContainer, SequenceUpdate } from '$lib/types';
 import { getNextNoteContainerSequence, updateNoteContainerSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
+import { CollectionService } from './collectionService';
 
 export class NoteService {
-  // Get all note containers for current user, optionally filtered by collection - NOW ORDERED BY SEQUENCE
+  // Get all note containers for current user - NOW WITH PROPER USER FILTERING
   static async getNoteContainers(collectionId?: string): Promise<NoteContainer[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     let query = supabase
       .from('note_container')
       .select(`
@@ -17,7 +21,8 @@ export class NoteService {
           color
         )
       `)
-      .order('sequence', { ascending: true }); // Changed from updated_at to sequence
+      .eq('user_id', user.id) // ← CRITICAL FIX: Filter by user_id
+      .order('sequence', { ascending: true });
 
     if (collectionId) {
       query = query.eq('collection_id', collectionId);
@@ -34,7 +39,7 @@ export class NoteService {
     return data || [];
   }
 
-  // Create a new note container - NOW WITH SEQUENCE SUPPORT
+  // Create a new note container - ENHANCED with default collection logic
   static async createNoteContainer(
     container: CreateNoteContainer, 
     collectionId?: string
@@ -42,16 +47,21 @@ export class NoteService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // If no collection specified, use user's default collection
+    let finalCollectionId = collectionId;
+    if (!finalCollectionId) {
+      const defaultCollection = await CollectionService.ensureDefaultCollection();
+      finalCollectionId = defaultCollection.id;
+    }
+
     // Get next sequence if not provided
-    const sequence = container.sequence ?? (
-      collectionId ? await getNextNoteContainerSequence(collectionId) : 10
-    );
+    const sequence = container.sequence ?? await getNextNoteContainerSequence(finalCollectionId);
 
     const newContainer = {
       ...container,
       user_id: user.id,
-      collection_id: collectionId || null,
-      sequence // Add sequence to insert
+      collection_id: finalCollectionId, // Now always has a collection
+      sequence
     };
 
     const { data, error } = await supabase
@@ -75,11 +85,14 @@ export class NoteService {
     return data;
   }
 
-  // Update note container - NOW SUPPORTS SEQUENCE UPDATES
+  // Update note container - ENHANCED with user ownership check
   static async updateNoteContainer(
     id: string, 
     updates: Partial<CreateNoteContainer> & { sequence?: number }
   ): Promise<NoteContainer> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('note_container')
       .update({
@@ -87,6 +100,7 @@ export class NoteService {
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
+      .eq('user_id', user.id) // ← SECURITY: Ensure user owns this note
       .select(`
         *,
         collections (
@@ -105,11 +119,14 @@ export class NoteService {
     return data;
   }
 
-    // Update note container title
+  // Update note container title - ENHANCED with user ownership check
   static async updateNoteContainerTitle(
     id: string, 
     title: string
   ): Promise<NoteContainer> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('note_container')
       .update({
@@ -117,6 +134,7 @@ export class NoteService {
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
+      .eq('user_id', user.id) // ← SECURITY: Ensure user owns this note
       .select(`
         *,
         collections (
@@ -135,12 +153,16 @@ export class NoteService {
     return data;
   }
 
-  // Delete note container (cascade will delete sections)
+  // Delete note container - ENHANCED with user ownership check
   static async deleteNoteContainer(id: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { error } = await supabase
       .from('note_container')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id); // ← SECURITY: Ensure user owns this note
 
     if (error) {
       console.error('Error deleting note container:', error);
@@ -148,15 +170,40 @@ export class NoteService {
     }
   }
 
-  // Move note container to different collection
+  // Move note container to different collection - ENHANCED with ownership checks
   static async moveToCollection(noteId: string, collectionId: string | null): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // If moving to null, use default collection instead
+    let finalCollectionId = collectionId;
+    if (!finalCollectionId) {
+      const defaultCollection = await CollectionService.ensureDefaultCollection();
+      finalCollectionId = defaultCollection.id;
+    }
+
+    // Verify the target collection belongs to the user
+    if (finalCollectionId) {
+      const { data: collection } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', finalCollectionId)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!collection) {
+        throw new Error('Target collection not found or access denied');
+      }
+    }
+
     const { error } = await supabase
       .from('note_container')
       .update({ 
-        collection_id: collectionId,
+        collection_id: finalCollectionId,
         updated_at: new Date().toISOString()
       })
-      .eq('id', noteId);
+      .eq('id', noteId)
+      .eq('user_id', user.id); // ← SECURITY: Ensure user owns this note
 
     if (error) {
       console.error('Error moving note to collection:', error);
@@ -164,13 +211,16 @@ export class NoteService {
     }
   }
 
-  // NEW: Reorder note containers within a collection via drag & drop
+  // Reorder note containers within a collection - ENHANCED with user filtering
   static async reorderNoteContainers(
     collectionId: string,
     fromIndex: number,
     toIndex: number
   ): Promise<NoteContainer[]> {
-    // Get current note containers for this collection
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Get current note containers for this collection (user-filtered)
     const containers = await this.getNoteContainers(collectionId);
     
     // Calculate sequence updates
@@ -187,7 +237,7 @@ export class NoteService {
     return await this.getNoteContainers(collectionId);
   }
 
-  // NEW: Move note container to specific position within collection
+  // Move note container to specific position within collection
   static async moveNoteContainerToPosition(
     collectionId: string,
     noteContainerId: string,

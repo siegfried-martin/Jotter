@@ -2,7 +2,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { parseChecklistItems } from '../utils/checklistUtils';
-  import { createCheckboxChangeHandler } from '../utils/noteCardUtils';
   import type { NoteSection } from '$lib/types';
 
   export let section: NoteSection;
@@ -13,10 +12,26 @@
   }>();
 
   $: checklistItems = section ? parseChecklistItems(section) : [];
-  $: handleCheckboxChange = createCheckboxChangeHandler(dispatch, section?.id || '', isDragging);
+
+  function handleCheckboxChange(event: Event, lineIndex: number) {
+    // Stop propagation to prevent card click, but allow default checkbox behavior
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    
+    if (isDragging) return;
+    
+    const target = event.target as HTMLInputElement;
+    
+    // Dispatch the checkbox change event
+    dispatch('checkboxChange', {
+      sectionId: section.id,
+      checked: target.checked,
+      lineIndex
+    });
+  }
 
   function handleCheckboxClick(event: Event) {
-    event.preventDefault();
+    // Stop propagation to prevent card navigation
     event.stopPropagation();
     event.stopImmediatePropagation();
   }

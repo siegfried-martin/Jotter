@@ -20,6 +20,7 @@
   const dispatch = createEventDispatcher<{
     delete: string;
     checkboxChange: { sectionId: string; checked: boolean; lineIndex: number };
+    titleSave: { sectionId: string; title: string | null };
   }>();
 
   $: showCopyAction = section.type === 'code' || section.type === 'wysiwyg';
@@ -35,15 +36,23 @@
   function handleCheckboxChange(event: CustomEvent<{ sectionId: string; checked: boolean; lineIndex: number }>) {
     dispatch('checkboxChange', event.detail);
   }
+
+  function handleTitleSave(event: CustomEvent<string | null>) {
+    dispatch('titleSave', {
+      sectionId: section.id,
+      title: event.detail
+    });
+  }
 </script>
 
 <NoteCardContainer {isDragging}>
   <NoteCardHeader 
-    sectionType={section.type}
+    {section}
     {isDragging}
     {showCopyAction}
     onCopy={handleCopy}
     onDelete={handleDelete}
+    on:titleSave={handleTitleSave}
   />
   
   <div class="note-content-preview overflow-y-auto scrollbar-thin">

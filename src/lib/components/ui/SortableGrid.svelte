@@ -30,9 +30,54 @@
     return { id: `temp_${index}`, ...item, originalIndex: index };
   });
 
+  function isInteractiveElement(element: HTMLElement): boolean {
+    // Check if the clicked element or any parent is an interactive element
+    let current = element;
+    while (current && current.nodeType === Node.ELEMENT_NODE) {
+      // Check for input elements
+      if (current.tagName === 'INPUT' || current.tagName === 'BUTTON') {
+        return true;
+      }
+      
+      // Check for elements with click handlers or interactive attributes
+      if (current.hasAttribute('role') && current.getAttribute('role') === 'button') {
+        return true;
+      }
+      
+      // Check for our specific interactive elements by title attribute
+      const title = current.getAttribute('title');
+      if (title === 'Click to edit title' || 
+          title === 'Copy content' || 
+          title === 'Delete section') {
+        return true;
+      }
+      
+      // Check for specific interactive classes (be more specific than just cursor-pointer)
+      if (current.classList.contains('copy-button') ||
+          current.classList.contains('opacity-0')) { // This catches our action buttons
+        return true;
+      }
+      
+      // Move up to parent
+      current = current.parentElement as HTMLElement;
+      
+      // Stop if we've reached the card container level
+      if (current && current.classList.contains('sortable-grid-item')) {
+        break;
+      }
+    }
+    
+    return false;
+  }
+
   function handleMouseDown(event: MouseEvent, item: any, index: number) {
     // Only handle left mouse button
     if (event.button !== 0) return;
+    
+    // Don't start drag detection for interactive elements
+    if (isInteractiveElement(event.target as HTMLElement)) {
+      return;
+    }
     
     dragStartTime = Date.now();
     dragStarted = false;
@@ -50,6 +95,11 @@
   }
 
   function handleMouseUp(event: MouseEvent, item: any, index: number) {
+    // Don't handle clicks on interactive elements
+    if (isInteractiveElement(event.target as HTMLElement)) {
+      return;
+    }
+    
     const clickDuration = Date.now() - dragStartTime;
     
     // If it was a quick click (under threshold) and no drag occurred, treat as click

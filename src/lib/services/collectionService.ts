@@ -5,12 +5,16 @@ import { getNextCollectionSequence, updateCollectionSequences } from './sequence
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 
 export class CollectionService {
-  // Get all collections for current user - NOW ORDERED BY SEQUENCE
+  // Get all collections for current user - NOW WITH PROPER USER FILTERING
   static async getCollections(): Promise<Collection[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('collections')
       .select('*')
-      .order('sequence', { ascending: true }); // Changed from name to sequence
+      .eq('user_id', user.id) // ← CRITICAL FIX: Filter by user_id
+      .order('sequence', { ascending: true });
 
     if (error) {
       console.error('Error loading collections:', error);
@@ -20,13 +24,17 @@ export class CollectionService {
     return data || [];
   }
 
-  // Get default collection for user
+  // Get default collection for current user - NOW WITH PROPER USER FILTERING
   static async getDefaultCollection(): Promise<Collection | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('collections')
       .select('*')
+      .eq('user_id', user.id) // ← CRITICAL FIX: Filter by user_id
       .eq('is_default', true)
-      .order('sequence', { ascending: true }) // Order by sequence in case multiple defaults
+      .order('sequence', { ascending: true })
       .limit(1)
       .single();
 
@@ -38,7 +46,7 @@ export class CollectionService {
     return data;
   }
 
-  // Create new collection - NOW WITH SEQUENCE SUPPORT
+  // Create new collection - ENHANCED with default collection logic
   static async createCollection(collection: CreateCollection): Promise<Collection> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
@@ -46,11 +54,16 @@ export class CollectionService {
     // Get next sequence if not provided
     const sequence = collection.sequence ?? await getNextCollectionSequence(user.id);
 
+    // If this is the user's first collection, make it default
+    const existingCollections = await this.getCollections();
+    const isFirstCollection = existingCollections.length === 0;
+
     const newCollection = {
       ...collection,
       user_id: user.id,
       color: collection.color || '#3B82F6',
-      sequence // Add sequence to insert
+      sequence,
+      is_default: collection.is_default ?? isFirstCollection // Auto-default first collection
     };
 
     const { data, error } = await supabase
@@ -72,6 +85,9 @@ export class CollectionService {
     id: string, 
     updates: Partial<CreateCollection> & { sequence?: number }
   ): Promise<Collection> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('collections')
       .update({
@@ -79,6 +95,7 @@ export class CollectionService {
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
+      .eq('user_id', user.id) // ← SECURITY: Ensure user owns this collection
       .select()
       .single();
 
@@ -90,12 +107,27 @@ export class CollectionService {
     return data;
   }
 
-  // Delete collection (notes will be moved to null collection)
+  // Delete collection - ENHANCED with orphan note handling
   static async deleteCollection(id: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // First, move any notes in this collection to the user's default collection
+    const defaultCollection = await this.getDefaultCollection();
+    if (defaultCollection && defaultCollection.id !== id) {
+      await supabase
+        .from('note_container')
+        .update({ collection_id: defaultCollection.id })
+        .eq('collection_id', id)
+        .eq('user_id', user.id); // Ensure we only move user's own notes
+    }
+
+    // Delete the collection
     const { error } = await supabase
       .from('collections')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id); // ← SECURITY: Ensure user owns this collection
 
     if (error) {
       console.error('Error deleting collection:', error);
@@ -111,7 +143,7 @@ export class CollectionService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    // Get current collections
+    // Get current collections for this user
     const collections = await this.getCollections();
     
     // Calculate sequence updates
@@ -141,5 +173,22 @@ export class CollectionService {
     }
     
     return await this.reorderCollections(currentIndex, newPosition);
+  }
+
+  // NEW: Ensure user has a default collection
+  static async ensureDefaultCollection(): Promise<Collection> {
+    let defaultCollection = await this.getDefaultCollection();
+    
+    if (!defaultCollection) {
+      // Create a default collection for the user
+      defaultCollection = await this.createCollection({
+        name: 'My Notes',
+        description: 'Default collection for your notes',
+        color: '#3B82F6',
+        is_default: true
+      });
+    }
+    
+    return defaultCollection;
   }
 }

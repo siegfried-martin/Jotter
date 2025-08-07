@@ -1,6 +1,11 @@
 // src/lib/components/notes/utils/noteCardUtils.ts
 
 export function stopEventPropagation(event: Event): void {
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+}
+
+export function stopEventPropagationWithPreventDefault(event: Event): void {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation();
@@ -12,6 +17,7 @@ export function createCheckboxChangeHandler(
   isDragging: boolean
 ) {
   return (event: Event, lineIndex: number) => {
+    // Only stop propagation, don't prevent default for checkboxes
     stopEventPropagation(event);
     
     if (isDragging) return;

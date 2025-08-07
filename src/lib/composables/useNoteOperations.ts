@@ -212,6 +212,67 @@ export function useNoteOperations() {
     };
   }
 
+  /**
+   * Handle section title updates
+   */
+  async function handleSectionTitleSave(
+    event: CustomEvent<{ sectionId: string; title: string | null }>,
+    selectedContainerSections: any[],
+    selectContainerFn: (container: any) => Promise<void>,
+    selectedContainer: any
+  ): Promise<void> {
+    const { sectionId, title } = event.detail;
+    
+    try {
+      const updatedSection = await SectionService.updateSectionTitle(sectionId, title);
+      
+      // Update local state
+      const sectionIndex = selectedContainerSections.findIndex(s => s.id === sectionId);
+      if (sectionIndex !== -1) {
+        selectedContainerSections[sectionIndex] = updatedSection;
+        noteActions.setSelectedSections([...selectedContainerSections]);
+      }
+      
+      console.log('✅ Section title updated successfully');
+    } catch (error) {
+      console.error('Failed to update section title:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle cross-container section moves
+   */
+  async function handleCrossContainerMove(
+    event: CustomEvent<{ sectionId: string; fromContainer: string; toContainer: string }>,
+    selectContainerFn: (container: any) => Promise<void>,
+    containers: any[]
+  ): Promise<void> {
+    const { sectionId, fromContainer, toContainer } = event.detail;
+    
+    try {
+      console.log('🔄 Moving section between containers:', {
+        sectionId,
+        from: fromContainer,
+        to: toContainer
+      });
+      
+      // Move section to new container
+      const updatedSection = await SectionService.moveSectionToContainer(sectionId, toContainer);
+      
+      // Find and select the target container to show the moved section
+      const targetContainer = containers.find(c => c.id === toContainer);
+      if (targetContainer) {
+        await selectContainerFn(targetContainer);
+      }
+      
+      console.log('✅ Section moved successfully to new container');
+    } catch (error) {
+      console.error('❌ Failed to move section:', error);
+      throw error;
+    }
+  }
+
   return {
     createNewNote,
     createNewNoteWithCode,
@@ -221,6 +282,8 @@ export function useNoteOperations() {
     deleteContainer,
     handleCheckboxChange,
     createKeyboardHandler,
-    updateNoteTitle
+    updateNoteTitle,
+    handleSectionTitleSave,
+    handleCrossContainerMove
   };
 }

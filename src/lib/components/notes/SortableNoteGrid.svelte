@@ -14,6 +14,7 @@
     edit: string;
     delete: string;
     checkboxChange: { sectionId: string; checked: boolean; lineIndex: number };
+    titleSave: { sectionId: string; title: string | null };
   }>();
 
   let isReordering = false;
@@ -95,6 +96,12 @@
       dispatch('checkboxChange', event.detail);
     }
   }
+
+  function handleTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
+    if (!isReordering) {
+      dispatch('titleSave', event.detail);
+    }
+  }
 </script>
 
 <SortableGrid 
@@ -113,6 +120,7 @@
       {isDragging}
       on:delete={handleDelete}
       on:checkboxChange={handleCheckboxChange}
+      on:titleSave={handleTitleSave}
     />
   </svelte:fragment>
 </SortableGrid>

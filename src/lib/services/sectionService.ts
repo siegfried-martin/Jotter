@@ -81,7 +81,8 @@ export class SectionService {
   }
 
   // Update checklist item
-  static async updateChecklistItem(
+  // Update checklist item with enhanced debugging
+static async updateChecklistItem(
     sectionId: string,
     lineIndex: number,
     checked: boolean,
@@ -202,4 +203,70 @@ export class SectionService {
       sequence
     });
   }
+
+  static async updateSectionTitle(
+    id: string, 
+    title: string | null
+  ): Promise<NoteSection> {
+    const { data, error } = await supabase
+      .from('note_section')
+      .update({
+        title: title,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating section title:', error);
+      throw error;
+    }
+
+    // Also update the parent container's timestamp
+    if (data.note_container_id) {
+      await supabase
+        .from('note_container')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', data.note_container_id);
+    }
+
+    return data;
+  }
+
+  static async moveSectionToContainer(
+    sectionId: string,
+    newContainerId: string
+  ): Promise<NoteSection> {
+    const { data, error } = await supabase
+      .from('note_section')
+      .update({
+        note_container_id: newContainerId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sectionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error moving section to container:', error);
+      throw error;
+    }
+
+    // Update both container timestamps
+    const now = new Date().toISOString();
+    
+    // Update the new container timestamp
+    await supabase
+      .from('note_container')
+      .update({ updated_at: now })
+      .eq('id', newContainerId);
+
+    // Update the old container timestamp (if we can determine it)
+    // Note: We could track the old container if needed for more precise updates
+
+    return data;
+  }
+
+  
 }

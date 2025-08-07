@@ -18,7 +18,12 @@
 	// Update currentValue when title prop changes
 	$: currentValue = title;
 	
-	async function startEditing() {
+	async function startEditing(event: Event) {
+		// Stop propagation to prevent parent click handlers
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+		
 		isEditing = true;
 		await tick(); // Wait for input to be rendered
 		if (inputElement) {
@@ -41,6 +46,10 @@
 	}
 	
 	function handleKeydown(event: KeyboardEvent) {
+		// Stop propagation on all keyboard events during editing
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+		
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			saveTitle();
@@ -58,6 +67,23 @@
 			}
 		}, 100);
 	}
+	
+	function handleInputClick(event: Event) {
+		// Stop propagation on input clicks to prevent card navigation
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+	}
+	
+	function handleSpanKeydown(event: KeyboardEvent) {
+		// Stop propagation and handle enter key to start editing
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+		
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			startEditing(event);
+		}
+	}
 </script>
 
 {#if isEditing}
@@ -66,6 +92,7 @@
 		bind:value={currentValue}
 		on:keydown={handleKeydown}
 		on:blur={handleBlur}
+		on:click={handleInputClick}
 		{maxLength}
 		class="bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-1 -mx-1 {className}"
 		style="width: 100%; min-width: 120px;"
@@ -73,7 +100,7 @@
 {:else}
 	<span
 		on:click={startEditing}
-		on:keydown={(e) => e.key === 'Enter' && startEditing()}
+		on:keydown={handleSpanKeydown}
 		class="cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1 transition-colors {className}"
 		tabindex="0"
 		role="button"

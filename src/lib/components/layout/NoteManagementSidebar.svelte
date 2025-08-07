@@ -9,13 +9,18 @@
   export let selectedContainer: NoteContainer | null = null;
   export let collectionId: string; // Required for drag & drop
 
-  let isCollapsed = false;
+  let isCollapsed = true;
 
   const dispatch = createEventDispatcher<{
     selectContainer: NoteContainer;
     createNew: void;
     deleteContainer: string;
     containersReordered: NoteContainer[]; // New event for reorder updates
+    crossContainerDrop: {
+      sectionId: string;
+      fromContainer: string;
+      toContainer: string;
+    }; // NEW: Cross-container section move
   }>();
 
   // Initialize drag & drop functionality
@@ -51,6 +56,15 @@
     const { fromIndex, toIndex } = event.detail;
     dnd.handleReorder(fromIndex, toIndex);
   }
+
+  // NEW: Handle cross-container section drops
+  function handleCrossContainerDrop(event: CustomEvent<{
+    sectionId: string;
+    fromContainer: string;
+    toContainer: string;
+  }>) {
+    dispatch('crossContainerDrop', event.detail);
+  }
 </script>
 
 <SortableNoteContainerList 
@@ -63,4 +77,5 @@
   on:toggleCollapse={handleToggleCollapse}
   on:deleteContainer={handleDeleteContainer}
   on:reorder={handleReorder}
+  on:crossContainerDrop={handleCrossContainerDrop}
 />

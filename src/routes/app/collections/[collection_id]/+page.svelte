@@ -75,6 +75,11 @@
     await noteOperations.handleCheckboxChange(event, selectedContainerSections, selectedContainer);
   }
   
+  // NEW: Handle section title updates
+  async function handleSectionTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
+    await noteOperations.handleSectionTitleSave(event, selectedContainerSections, pageManager.selectContainer, selectedContainer);
+  }
+  
   // Handle section reordering from drag & drop
   async function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
     console.log('Sections reordered:', event.detail);
@@ -106,17 +111,14 @@
     }
   }
   
-  // NEW: Handle note container title updates
-  async function handleTitleUpdate(event: CustomEvent<{ containerId: string; newTitle: string }>) {
-    const { containerId, newTitle } = event.detail;
-    console.log('🏷️ Updating note title:', { containerId, newTitle });
-    
-    try {
-      await noteOperations.updateNoteTitle(containerId, newTitle);
-    } catch (error) {
-      console.error('❌ Failed to update title:', error);
-      // You could show a toast notification here
-    }
+  // Handle cross-container section moves
+  async function handleCrossContainerMove(event: CustomEvent<{ sectionId: string; fromContainer: string; toContainer: string }>) {
+    await noteOperations.handleCrossContainerMove(event, pageManager.selectContainer, containers);
+  }
+  
+  // Handle cross-container drops from sidebar
+  async function handleCrossContainerDrop(event: CustomEvent<{ sectionId: string; fromContainer: string; toContainer: string }>) {
+    await noteOperations.handleCrossContainerMove(event, pageManager.selectContainer, containers);
   }
   
   // Create keyboard handler
@@ -140,6 +142,7 @@
     on:createNew={createNewNote}
     on:deleteContainer={deleteContainer}
     on:containersReordered={handleContainersReordered}
+    on:crossContainerDrop={handleCrossContainerDrop}
   />
 
   <!-- Main Content Area -->
@@ -165,6 +168,8 @@
         on:delete={deleteSection}
         on:checkboxChange={handleCheckboxChange}
         on:sectionsReordered={handleSectionsReordered}
+        on:titleSave={handleSectionTitleSave}
+        on:crossContainerMove={handleCrossContainerMove}
       />
     {/if}
   </div>

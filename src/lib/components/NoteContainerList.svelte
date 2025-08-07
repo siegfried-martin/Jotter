@@ -5,7 +5,7 @@
 	
 	export let containers: NoteContainer[] = [];
 	export let selectedContainer: NoteContainer | null = null;
-	export let isCollapsed = false;
+	export let isCollapsed = true;
 	
 	const dispatch = createEventDispatcher<{
 		selectContainer: NoteContainer;

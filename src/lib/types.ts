@@ -47,6 +47,7 @@ export interface NoteSection {
   id: string;
   note_container_id: string;
   type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
+  title?: string | null; // NEW: Optional title field
   content: string;
   sequence: number;
   meta: Record<string, any>;
@@ -64,6 +65,7 @@ export interface CreateNoteContainer {
 export interface CreateNoteSection {
   note_container_id: string;
   type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
+  title?: string | null; // NEW: Optional title field
   content: string;
   sequence?: number; // Optional - will be auto-assigned if not provided
   meta?: Record<string, any>;
@@ -80,6 +82,7 @@ export interface UpdateNoteContainer {
 export interface UpdateNoteSection {
   id: string;
   type?: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
+  title?: string | null; // NEW: Optional title field
   content?: string;
   sequence?: number;
   meta?: Record<string, any>;

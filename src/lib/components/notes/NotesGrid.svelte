@@ -1,20 +1,32 @@
 <!-- src/lib/components/notes/NotesGrid.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import SortableNoteGrid from './SortableNoteGrid.svelte';
+  import CustomNoteGrid from './CustomNoteGrid.svelte';
+  // import SortableJSNoteGrid from './SortableJSNoteGrid.svelte'; // Keep as fallback
+  // import DndKitNoteGrid from './DndKitNoteGrid.svelte'; // Failed due to React dependency
   import type { NoteSection } from '$lib/types';
 
   export let sections: NoteSection[] = [];
   export let collectionName: string = '';
   export let hasSelectedContainer: boolean = false;
   export let noteContainerId: string = '';
+  export let sortMode: boolean = true; // Enable sorting by default
+
+  // Toggle between implementations for testing
+  export let useCustomDrag: boolean = true; // Set to false to use SortableJS fallback
 
   const dispatch = createEventDispatcher<{
     edit: string;
     delete: string;
-    checkboxChange: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>;
+    checkboxChange: {sectionId: string; checked: boolean; lineIndex: number};
     createNote: void;
     sectionsReordered: NoteSection[];
+    titleSave: { sectionId: string; title: string | null };
+    crossContainerMove: {
+      sectionId: string;
+      fromContainer: string;
+      toContainer: string;
+    };
   }>();
 
   function handleEdit(event: CustomEvent<string>) {
@@ -26,7 +38,7 @@
   }
 
   function handleCheckboxChange(event: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>) {
-    dispatch('checkboxChange', event);
+    dispatch('checkboxChange', event.detail);
   }
 
   function handleCreateNote() {
@@ -36,20 +48,54 @@
   function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
     dispatch('sectionsReordered', event.detail);
   }
+
+  function handleTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
+    dispatch('titleSave', event.detail);
+  }
+
+  function handleCrossContainerMove(event: CustomEvent<{
+    sectionId: string;
+    fromContainer: string;
+    toContainer: string;
+  }>) {
+    dispatch('crossContainerMove', event.detail);
+  }
 </script>
 
 {#if hasSelectedContainer}
-  <!-- Sortable Note Sections Grid -->
+  <!-- DnD Note Sections Grid -->
   <div class="mb-6">
     {#if sections.length > 0}
-      <SortableNoteGrid 
-        {sections}
-        {noteContainerId}
-        on:sectionsReordered={handleSectionsReordered}
-        on:edit={handleEdit}
-        on:delete={handleDelete}
-        on:checkboxChange={handleCheckboxChange}
-      />
+      {#if useCustomDrag}
+        <CustomNoteGrid 
+          {sections}
+          {noteContainerId}
+          {sortMode}
+          on:sectionsReordered={handleSectionsReordered}
+          on:edit={handleEdit}
+          on:delete={handleDelete}
+          on:checkboxChange={handleCheckboxChange}
+          on:titleSave={handleTitleSave}
+          on:crossContainerMove={handleCrossContainerMove}
+        />
+      {:else}
+        <!-- Fallback to SortableJS implementation -->
+        <!-- Uncomment when needed:
+        <SortableJSNoteGrid 
+          {sections}
+          {noteContainerId}
+          {sortMode}
+          on:sectionsReordered={handleSectionsReordered}
+          on:edit={handleEdit}
+          on:delete={handleDelete}
+          on:checkboxChange={handleCheckboxChange}
+          on:titleSave={handleTitleSave}
+        />
+        -->
+        <div class="text-center text-gray-500 py-12">
+          <p>SortableJS fallback disabled. Set useCustomDrag to true.</p>
+        </div>
+      {/if}
     {:else}
       <div class="text-center text-gray-500 py-12">
         This note is empty. Use the floating panel below to add your first section!
