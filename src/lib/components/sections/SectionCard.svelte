@@ -1,18 +1,18 @@
-<!-- src/lib/components/notes/NoteItem.svelte -->
+<!-- src/lib/components/sections/SectionCard.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { NoteSection } from '$lib/types';
   
   // Components
-  import NoteCardContainer from './shared/NoteCardContainer.svelte';
-  import NoteCardHeader from './shared/NoteCardHeader.svelte';
+  import SectionCardContainer from './shared/SectionCardContainer.svelte';
+  import SectionCardHeader from './shared/SectionCardHeader.svelte';
   import ChecklistContent from './content/ChecklistContent.svelte';
   import CodeContent from './content/CodeContent.svelte';
   import WysiwygContent from './content/WysiwygContent.svelte';
   import DiagramPreview from './content/DiagramPreview.svelte';
   
   // Utils
-  import { copyToClipboard } from './utils/contentUtils';
+  import { copyToClipboard } from './utils/sectionUtils';
   
   export let section: NoteSection;
   export let isDragging: boolean = false;
@@ -37,16 +37,13 @@
     dispatch('checkboxChange', event.detail);
   }
 
-  function handleTitleSave(event: CustomEvent<string | null>) {
-    dispatch('titleSave', {
-      sectionId: section.id,
-      title: event.detail
-    });
+  function handleTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
+    dispatch('titleSave', event.detail);
   }
 </script>
 
-<NoteCardContainer {isDragging}>
-  <NoteCardHeader 
+<SectionCardContainer {isDragging}>
+  <SectionCardHeader 
     {section}
     {isDragging}
     {showCopyAction}
@@ -54,8 +51,7 @@
     onDelete={handleDelete}
     on:titleSave={handleTitleSave}
   />
-  
-  <div class="note-content-preview overflow-y-auto scrollbar-thin">
+  <div class="section-content-preview overflow-y-auto scrollbar-thin">
     {#if section.type === 'checklist'}
       <ChecklistContent {section} {isDragging} on:checkboxChange={handleCheckboxChange} />
     {:else if section.type === 'code'}
@@ -66,36 +62,36 @@
       <DiagramPreview {section} />
     {/if}
   </div>
-</NoteCardContainer>
+</SectionCardContainer>
 
 <style>
-  .note-content-preview {
+  .section-content-preview {
     flex: 1;
     overflow: hidden;
     position: relative;
   }
 
   /* Enable scrolling for content preview */
-  .note-content-preview.overflow-y-auto {
+  .section-content-preview.overflow-y-auto {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #cbd5e0 transparent;
   }
 
-  .note-content-preview.overflow-y-auto::-webkit-scrollbar {
+  .section-content-preview.overflow-y-auto::-webkit-scrollbar {
     width: 6px;
   }
 
-  .note-content-preview.overflow-y-auto::-webkit-scrollbar-track {
+  .section-content-preview.overflow-y-auto::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .note-content-preview.overflow-y-auto::-webkit-scrollbar-thumb {
+  .section-content-preview.overflow-y-auto::-webkit-scrollbar-thumb {
     background-color: #cbd5e0;
     border-radius: 3px;
   }
 
-  .note-content-preview.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  .section-content-preview.overflow-y-auto::-webkit-scrollbar-thumb:hover {
     background-color: #a0aec0;
   }
 </style>

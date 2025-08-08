@@ -1,8 +1,8 @@
-<!-- src/lib/components/notes/CustomNoteGrid.svelte -->
+<!-- src/lib/components/sections/SectionGrid.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { dragStore } from '$lib/stores/dragStore';
-  import DraggableNoteItem from './DraggableNoteItem.svelte';
+  import SectionItem from './SectionItem.svelte';
   import type { NoteSection } from '$lib/types';
   import { SectionService } from '$lib/services/sectionService';
 
@@ -148,7 +148,7 @@
   }
 </script>
 
-<div class="custom-note-grid">
+<div class="section-grid">
   <!-- Main grid -->
   <div 
     class="grid gap-6 grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 min-h-[100px]"
@@ -156,7 +156,7 @@
   >
     {#each visualSections as section, index (section.id)}
       {@const originalIndex = sections.findIndex(s => s.id === section.id)}
-      <DraggableNoteItem
+      <SectionItem
         {section}
         containerIndex={0}
         itemIndex={originalIndex}
@@ -191,7 +191,7 @@
 </div>
 
 <style>
-  .custom-note-grid {
+  .section-grid {
     position: relative;
   }
 

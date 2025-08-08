@@ -1,8 +1,8 @@
-<!-- src/lib/components/notes/DraggableNoteItem.svelte -->
+<!-- src/lib/components/sections/SectionItem.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import DraggableItem from '$lib/components/ui/DraggableItem.svelte';
-  import NoteItem from './NoteItem.svelte';
+  import SectionCard from './SectionCard.svelte';
   import type { NoteSection } from '$lib/types';
 
   export let section: NoteSection;
@@ -41,7 +41,7 @@
     dispatch('reorder', event.detail);
   }
 
-  // Forward events from NoteItem
+  // Forward events from SectionCard
   function handleDelete(event: CustomEvent<string>) {
     dispatch('delete', event.detail);
   }
@@ -66,7 +66,7 @@
   on:reorder={handleReorder}
 >
   <svelte:fragment slot="default" let:item let:isDragging>
-    <NoteItem 
+    <SectionCard 
       section={item}
       {isDragging}
       on:delete={handleDelete}

@@ -36,7 +36,7 @@
   $: isDragOver = $dragStore.dragOverContainer === containerId && $dragStore.dragOverIndex === itemIndex;
 
   function handlePointerDown(event: PointerEvent) {
-    if (disabled || shouldIgnoreEvent(event)) {
+    if (disabled || shouldIgnoreEvent(event) || !isPointerOverContent(event)) {
       return;
     }
 
@@ -51,6 +51,13 @@
     
     // Prevent default but allow event propagation for other handlers
     event.preventDefault();
+  }
+
+  function isPointerOverContent(event: PointerEvent): boolean {
+    // Check if the pointer is over the actual card content
+    const element = event.target as HTMLElement;
+    const cardContainer = element.closest('.section-card-base');
+    return cardContainer !== null;
   }
 
   function handlePointerMove(event: PointerEvent) {
@@ -170,7 +177,7 @@
   }
 
   function handleClick(event: PointerEvent) {
-    if (!shouldIgnoreEvent(event)) {
+    if (!shouldIgnoreEvent(event) && isPointerOverContent(event)) {
       console.log('👆 Item clicked:', itemId);
       dispatch('click', { item, itemId });
     }
@@ -198,6 +205,7 @@
   };
 </script>
 
+<!-- Grid cell container with drop zone data -->
 <div
   bind:this={itemElement}
   class="draggable-item"

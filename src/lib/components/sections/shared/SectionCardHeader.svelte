@@ -1,4 +1,4 @@
-<!-- src/lib/components/notes/shared/NoteCardHeader.svelte -->
+<!-- src/lib/components/sections/shared/SectionCardHeader.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import SectionEditableTitle from './SectionEditableTitle.svelte';
@@ -14,8 +14,7 @@
     titleSave: string;
   }>();
 
-  function handleTitleSave(event: CustomEvent<string>) {
-    // Title editing already handles propagation in InlineEditableTitle
+  function handleTitleSave(event: CustomEvent<string | null>) {
     dispatch('titleSave', event.detail);
   }
 

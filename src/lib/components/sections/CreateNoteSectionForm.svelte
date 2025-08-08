@@ -1,4 +1,4 @@
-<!-- src/lib/components/CreateNoteItem.svelte -->
+<!-- src/lib/components/sections/CreateNoteSectionForm.svelte -->
 <script lang="ts">
 	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';

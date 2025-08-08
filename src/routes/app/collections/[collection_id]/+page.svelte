@@ -16,9 +16,9 @@
   
   // Components
   import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
-  import NotesGrid from '$lib/components/notes/NotesGrid.svelte';
-  import NoteManagementSidebar from '$lib/components/layout/NoteManagementSidebar.svelte';
-  import CreateNoteItem from '$lib/components/notes/CreateNoteItem.svelte';
+  import SectionGridWrapper from '$lib/components/sections/SectionGridWrapper.svelte';
+  import ContainerSidebar from '$lib/components/containers/ContainerSidebar.svelte';
+  import CreateNoteSectionForm from '$lib/components/sections/CreateNoteSectionForm.svelte';
   
   export let data: PageData;
   
@@ -75,9 +75,39 @@
     await noteOperations.handleCheckboxChange(event, selectedContainerSections, selectedContainer);
   }
   
-  // NEW: Handle section title updates
+  // Handle section title updates
   async function handleSectionTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
     await noteOperations.handleSectionTitleSave(event, selectedContainerSections, pageManager.selectContainer, selectedContainer);
+  }
+  
+  // NEW: Handle note container title updates
+  async function handleTitleUpdate(event: CustomEvent<{ containerId: string; newTitle: string }>) {
+    if (!selectedContainer) {
+      console.warn('No selected container to update title');
+      return;
+    }
+    
+    try {
+      const { containerId, newTitle } = event.detail;
+      
+      if (!newTitle?.trim() || newTitle.trim() === selectedContainer.title) {
+        return; // No change needed
+      }
+      
+      const trimmedTitle = newTitle.trim();
+      
+      console.log('🏷️ Updating container title:', containerId, 'to:', trimmedTitle);
+      
+      // Call the note operations to handle the title update
+      await noteOperations.updateNoteTitle(
+        containerId,
+        trimmedTitle
+      );
+      
+      console.log('✅ Container title updated successfully');
+    } catch (error) {
+      console.error('❌ Failed to update container title:', error);
+    }
   }
   
   // Handle section reordering from drag & drop
@@ -127,14 +157,20 @@
     createNewNote,
     createNewNoteWithCode
   );
+
+  $: console.log('🔍 +page.svelte debug:', {
+    hasSelectedContainer: !!selectedContainer,
+    selectedContainerSections: selectedContainerSections?.length || 0,
+    sections: selectedContainerSections
+  });
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
 <!-- Main Content Layout -->
 <div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
-  <!-- Sidebar with Drag & Drop Support -->
-  <NoteManagementSidebar 
+  <!-- Improved Sidebar with Auto-Expand -->
+  <ContainerSidebar 
     {containers}
     {selectedContainer}
     collectionId={currentCollectionId}
@@ -159,7 +195,7 @@
         on:updateTitle={handleTitleUpdate}
       />
       
-      <NotesGrid 
+      <SectionGridWrapper 
         sections={selectedContainerSections}
         collectionName={currentCollection?.name}
         hasSelectedContainer={!!selectedContainer}
@@ -178,7 +214,7 @@
   {#if !loading && selectedContainer}
     <div class="floating-add-section">
       <div class="floating-add-section-content">
-        <CreateNoteItem on:createSection={createSection} />
+        <CreateNoteSectionForm on:createSection={createSection} />
       </div>
     </div>
   {/if}
