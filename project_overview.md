@@ -20,9 +20,9 @@
 - Backend: Supabase (PostgreSQL + Auth + RLS)
 - Authentication: Google OAuth via Supabase Auth
 - Editors: CodeMirror 6 (code) + Quill (rich text) + Excalidraw (diagrams)
-- Drag & Drop: **Custom Svelte-native system** (replaced third-party libraries)
+- Drag & Drop: Custom Svelte-native system
 
-**Database Schema** (Updated with Title and Sequence Support):
+**Database Schema**:
 
 ```sql
 -- Core tables with sequence and title support
@@ -37,202 +37,115 @@ get_next_note_container_sequence(collection_id)
 get_next_note_section_sequence(note_container_id)
 ```
 
-**Modular Architecture** (Custom DnD System):
+## ✅ Current Status - August 11, 2025
+
+### **Core Features**
+
+- ✅ Multi-user authentication with Google OAuth
+- ✅ Collection-based organization with color-coded tabs
+- ✅ Real-time note editing with 4 editor types (code, rich text, diagrams, checklists)
+- ✅ Editable section and container titles with optimistic updates
+- ✅ Lightning-fast navigation with bookmarkable URLs
+- ✅ Auto-save with local draft recovery
+- ✅ Keyboard shortcuts (Ctrl+M, Ctrl+Shift+M, etc.)
+
+### **UI/UX Improvements**
+
+- ✅ **Sidebar enhancements**: Auto-expand on desktop, custom scroll indicators, improved collapsed view
+- ✅ **Optimistic updates**: Fixed UI flicker for title changes and drag operations
+- ✅ **Event handling**: Resolved clickable area issues for section cards
+- ✅ **Responsive design**: Proper mobile collapsed sidebar behavior
+
+### **Drag & Drop System**
+
+- ✅ Custom DnD implementation for note sections
+- ✅ Cross-container section movement
+- ✅ Optimistic UI updates with server persistence
+- ✅ Visual feedback and error handling
+
+## 🚀 Recent Session Updates - August 11, 2025
+
+### **UI Fixes**
+
+- Fixed sidebar auto-expand behavior on desktop vs mobile
+- Implemented custom scroll indicators replacing default scrollbars
+- Improved collapsed sidebar design with colorful avatars and activity indicators
+- Resolved clickable area issues for section cards
+
+### **Optimistic Updates**
+
+- Fixed title editing flicker by implementing optimistic updates in `useNoteOperations.ts`
+- Applied same pattern to drag & drop operations in `SectionGrid.svelte`
+- Added proper error rollback for failed operations
+
+### **Event Chain Fixes**
+
+- Corrected section title event forwarding in `SectionCardHeader.svelte`
+- Fixed missing `handleTitleUpdate` function in main page component
+
+## 🎯 Next Session Priorities
+
+### **Phase 1: DnD Architecture Refactor**
+
+**Current Tightly-Coupled Structure:**
 
 ```
-src/lib/
-├── services/          # Business logic layer
-│   ├── collectionService.ts (✅ sequence support)
-│   ├── noteService.ts (✅ sequence support)
-│   ├── sectionService.ts (✅ sequence + cross-container support)
-│   └── sequenceService.ts (✅ complete)
-├── stores/            # State management
-│   └── dragStore.ts (✅ NEW - global drag state)
-├── composables/       # Reusable reactive logic
-├── components/        # Domain-organized components
-│   ├── ui/           # Generic reusable components
-│   │   ├── DraggableItem.svelte (✅ NEW - universal drag wrapper)
-│   │   ├── InlineEditableTitle.svelte (✅ enhanced)
-│   │   ├── SortableList.svelte (✅ legacy - svelte-dnd-action)
-│   │   └── SortableGrid.svelte (✅ legacy - svelte-dnd-action)
-│   ├── notes/        # Note-related components
-│   │   ├── NoteItem.svelte (✅ enhanced with titles)
-│   │   ├── NotesGrid.svelte (✅ updated for custom DnD)
-│   │   ├── CustomNoteGrid.svelte (✅ NEW - custom DnD implementation)
-│   │   ├── DraggableNoteItem.svelte (✅ NEW - note-specific wrapper)
-│   │   ├── SortableJSNoteGrid.svelte (✅ fallback - kept for reference)
-│   │   ├── SortableNoteGrid.svelte (✅ legacy - svelte-dnd-action)
-│   │   ├── SortableNoteContainerList.svelte (✅ enhanced for cross-container)
-│   │   ├── content/   # Content type components
-│   │   │   ├── ChecklistContent.svelte (✅ event propagation fixed)
-│   │   │   ├── CodeContent.svelte (✅ complete)
-│   │   │   ├── WysiwygContent.svelte (✅ complete)
-│   │   │   └── DiagramPreview.svelte (✅ complete)
-│   │   ├── shared/    # Reusable note components
-│   │   │   ├── NoteCardContainer.svelte (✅ enhanced)
-│   │   │   ├── NoteCardHeader.svelte (✅ with editable titles)
-│   │   │   ├── SectionEditableTitle.svelte (✅ NEW)
-│   │   │   └── NoteCardActions.svelte (✅ complete)
-│   │   └── utils/     # Note utilities
-│   │       ├── checklistUtils.ts (✅ complete)
-│   │       ├── contentUtils.ts (✅ complete)
-│   │       ├── noteCardUtils.ts (✅ complete)
-│   │       └── sectionTitleUtils.ts (✅ NEW)
-│   ├── collections/  # Collection components
-│   ├── editors/      # All editor components
-│   │   ├── ChecklistEditor.svelte (✅ complete)
-│   │   ├── DiagramEditor.svelte (✅ complete)
-│   │   ├── SortableChecklist.svelte (✅ complete)
-│   │   └── SortableChecklistItem.svelte (✅ complete)
-│   └── layout/       # App-level layout
-│       └── NoteManagementSidebar.svelte (✅ cross-container support)
-├── utils/
-│   └── sequenceUtils.ts (✅ complete)
-└── composables/
-    └── useNoteOperations.ts (✅ cross-container support)
+Current Issues:
+- Business logic mixed in +page.svelte
+- Each component needs specific event forwarding
+- Hard to reuse DnD in other contexts
+- Sections-specific implementation
 ```
 
-## ✅ Current Status - August 7, 2025
+**Proposed Modular Structure:**
 
-### **🔐 Core Features Complete**
+```
+DnD Core (reusable):
+├── DraggableItem.svelte (✅ already exists)
+├── useDragOperations.ts (NEW - extract business logic)
+├── DragProvider.svelte (NEW - context provider)
+└── dragStore.ts (✅ already exists)
 
-- ✅ **Multi-user authentication** with Google OAuth
-- ✅ **Collection-based organization** with color-coded tabs
-- ✅ **Real-time note editing** with 4 editor types (code, rich text, diagrams, checklists)
-- ✅ **Editable section titles** with click-to-edit and backwards compatibility
-- ✅ **Lightning-fast navigation** with bookmarkable URLs
-- ✅ **Auto-save everything** with local draft recovery
-- ✅ **Keyboard shortcuts** throughout (Ctrl+M, Ctrl+Shift+M, etc.)
+Application Layer:
+├── useSectionDrag.ts (NEW - section-specific logic)
+├── useContainerDrag.ts (NEW - container-specific logic)
+└── useCollectionDrag.ts (FUTURE - collection tabs)
+```
 
-### **🏗️ Architecture Excellence**
+**Files to Review/Refactor:**
 
-- ✅ **Enterprise-grade security** with Row Level Security (RLS)
-- ✅ **Modular codebase** with AI-friendly file sizes (<50 lines each)
-- ✅ **Type-safe throughout** with comprehensive TypeScript
-- ✅ **Reactive state management** with proper error handling
-- ✅ **Component-driven architecture** with clean separation of concerns
-- ✅ **Domain-organized components** for better maintainability
+- `src/routes/app/collections/[collection_id]/+page.svelte` - Extract DnD logic
+- `src/lib/components/sections/SectionGrid.svelte` - Simplify to use composables
+- `src/lib/composables/useNoteOperations.ts` - Move drag logic to new composables
+- `src/lib/components/ui/DraggableItem.svelte` - Ensure true reusability
 
-### **🎨 Professional UI/UX**
+### **Phase 2: Container DnD Implementation**
 
-- ✅ **Modern interface** that feels like a premium developer tool
-- ✅ **Responsive design** optimized for desktop development workflow
-- ✅ **Collection tabs** with color accents for visual navigation
-- ✅ **Visual previews** for diagrams and rich content
-- ✅ **Loading states** and graceful error handling throughout
+**Replace Legacy Implementation:**
 
-### **⚡ Performance Wins**
+- `src/lib/components/containers/ContainerList.svelte` - Currently uses `svelte-dnd-action`
+- Apply refactored DnD system to note containers
+- Implement container reordering with optimistic updates
+- Add cross-collection container movement
 
-- ✅ **Sub-1-second note creation** from click to first keystroke
-- ✅ **Instant collection switching** with proper route reactivity
-- ✅ **Optimized editors** with syntax highlighting for 14+ languages
-- ✅ **Debounced operations** to prevent expensive re-renders
-- ✅ **Smart caching** with localStorage draft recovery
+### **Phase 3: Validation**
 
-## 🚀 Recent Major Achievements - August 7, 2025
+- Test DnD system across all implementations
+- Ensure consistent behavior and performance
+- Verify mobile touch support
 
-### **🎯 Custom Drag & Drop System - REVOLUTIONARY** ✅
+## 🔧 Architecture Goals
 
-- ✅ **Custom Svelte-Native DnD**: Built from scratch using pointer events and CSS transforms
-- ✅ **Zero Third-Party Dependencies**: Eliminated React conflicts and library bloat
-- ✅ **Professional-Grade UX**: Rivals Notion/Linear with smooth animations and visual feedback
-- ✅ **Cross-Container Dragging**: Sections can move between different note containers
-- ✅ **Live Preview**: Real-time rearrangement shows final layout during drag
-- ✅ **Universal Architecture**: Reusable system for any drag & drop needs
+**Immediate Priority**: Refactor DnD into reusable composables before implementing container DnD
 
-### **🔧 Advanced Drag Features** ✅
+**Success Criteria**:
 
-- ✅ **Intelligent Event Detection**: 150ms + 5px threshold distinguishes click from drag
-- ✅ **Interactive Element Filtering**: Checkboxes, titles, buttons work without triggering drag
-- ✅ **Drag Ghost**: Beautiful floating card follows cursor during drag
-- ✅ **Drop Zone Highlighting**: Subtle visual feedback for valid drop targets
-- ✅ **Database Persistence**: Automatic sequence updates and foreign key changes
-- ✅ **Error Handling**: Optimistic updates with graceful rollback on failure
+1. DnD logic extracted from page components
+2. Reusable across different entity types (sections, containers, collections)
+3. Container DnD implemented using new modular system
+4. No functionality regressions
 
-### **🧩 Section Title System** ✅
-
-- ✅ **Editable Titles**: Click-to-edit inline titles for all note sections
-- ✅ **Backwards Compatibility**: Null titles display section type, custom titles override
-- ✅ **Database Schema**: Added optional title field to note_section table
-- ✅ **Type System**: Full TypeScript support with proper fallback logic
-- ✅ **UI Integration**: Seamless integration with existing drag system
-- ✅ **Service Layer**: Complete CRUD operations for section titles
-
-### **🎨 Enhanced Note Card UX** ✅
-
-- ✅ **Event Propagation Fixed**: All interactive elements work without navigation conflicts
-- ✅ **Checkbox Interactions**: Check/uncheck items without opening edit page
-- ✅ **Copy/Delete Actions**: Action buttons work properly with event isolation
-- ✅ **Visual Refinements**: Improved spacing, animations, and hover states
-- ✅ **Consistent Grid**: Fixed-height cards maintain stable layout during operations
-
-## 🚀 Next Session Priorities
-
-### **Phase 1: Codebase Cleanup**
-
-**1. Component Organization**
-
-- Clean up duplicate/legacy DnD components
-- Consolidate note-related files and folders
-- Remove unused utilities and artifacts
-
-**2. File Structure Optimization**
-
-- Reorganize components for better discoverability
-- Standardize naming conventions
-- Document component relationships
-
-### **Phase 2: Note Container System**
-
-**3. Bug Fixes**
-
-- Identify and fix existing issues in note container list
-- Resolve any pre-existing navigation or state problems
-- Ensure consistent behavior across all containers
-
-**4. Container DnD Migration**
-
-- Replace svelte-dnd-action with custom system for containers
-- Implement container reordering with live preview
-- Add visual feedback consistent with section dragging
-
-### **Phase 3: Collection-Level Dragging**
-
-**5. Cross-Collection Container Movement**
-
-- Enable dragging containers between collections
-- Update database foreign key relationships
-- Implement collection-level drop zones with highlighting
-
-**6. Collection Tab Reordering**
-
-- Apply custom DnD system to collection tabs
-- Horizontal drag & drop for tab reordering
-- Persistent order across sessions
-
-## 🎯 Current Development Status
-
-**Status**: ✅ **Custom Cross-Container DnD System Complete**
-**Current Focus**: Codebase cleanup and container system migration
-**Next Milestone**: Universal custom DnD across all app elements
-**Last Updated**: August 7, 2025
-**Version**: 3.0 - Custom Drag & Drop System
-
-### **Revolutionary Achievements**:
-
-1. ✅ **Industry-Leading DnD**: Custom system outperforms major libraries
-2. ✅ **Cross-Container Magic**: Seamless section movement between containers
-3. ✅ **Zero Dependencies**: Eliminated React conflicts and third-party bloat
-4. ✅ **Professional UX**: Live preview and smooth animations throughout
-5. ✅ **Editable Titles**: Click-to-edit functionality with backwards compatibility
-
-### **Technical Innovation**:
-
-- **Pointer Events**: Universal input handling (mouse + touch)
-- **CSS Transforms**: Smooth 60fps animations without layout thrashing
-- **Svelte Stores**: Global drag state management across component trees
-- **Generic Architecture**: Reusable DraggableItem component for any content
-- **Event Isolation**: Perfect event propagation control for complex interactions
+**Future Considerations**: Feature documentation and testing will follow after DnD migration is complete.
 
 ## 🔧 Deployment Information
 
@@ -260,4 +173,4 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 
 ---
 
-**Current Priority**: Clean up codebase and migrate remaining components to the custom DnD system
+**Current Priority**: Refactor DnD into modular composables, then implement container DnD using the new architecture

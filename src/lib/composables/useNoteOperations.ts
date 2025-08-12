@@ -164,6 +164,11 @@ export function useNoteOperations() {
     if (!section || !section.checklist_data) return;
     
     try {
+      // Optimistically update local state first
+      section.checklist_data[lineIndex].checked = checked;
+      noteActions.setSelectedSections([...selectedContainerSections]);
+      
+      // Then update server
       await SectionService.updateChecklistItem(
         sectionId, 
         lineIndex, 
@@ -171,16 +176,15 @@ export function useNoteOperations() {
         section.checklist_data
       );
       
-      // Update local state
-      section.checklist_data[lineIndex].checked = checked;
-      noteActions.setSelectedSections([...selectedContainerSections]);
-      
       // Update container timestamp
       if (selectedContainer) {
         await NoteService.updateNoteContainer(selectedContainer.id, {});
       }
     } catch (error) {
       console.error('Failed to update checkbox:', error);
+      // Revert optimistic update on error
+      section.checklist_data[lineIndex].checked = !checked;
+      noteActions.setSelectedSections([...selectedContainerSections]);
       throw error;
     }
   }
@@ -213,7 +217,7 @@ export function useNoteOperations() {
   }
 
   /**
-   * Handle section title updates
+   * Handle section title updates - FIXED: No unnecessary refetch
    */
   async function handleSectionTitleSave(
     event: CustomEvent<{ sectionId: string; title: string | null }>,
@@ -223,19 +227,38 @@ export function useNoteOperations() {
   ): Promise<void> {
     const { sectionId, title } = event.detail;
     
+    // Find the section in local state
+    const sectionIndex = selectedContainerSections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) {
+      console.warn('Section not found in local state:', sectionId);
+      return;
+    }
+
+    // Store original title for rollback
+    const originalTitle = selectedContainerSections[sectionIndex].title;
+    
     try {
+      // Optimistically update local state first
+      selectedContainerSections[sectionIndex].title = title;
+      noteActions.setSelectedSections([...selectedContainerSections]);
+      
+      console.log('🎯 Optimistically updated section title locally');
+      
+      // Then update server
       const updatedSection = await SectionService.updateSectionTitle(sectionId, title);
       
-      // Update local state
-      const sectionIndex = selectedContainerSections.findIndex(s => s.id === sectionId);
-      if (sectionIndex !== -1) {
-        selectedContainerSections[sectionIndex] = updatedSection;
-        noteActions.setSelectedSections([...selectedContainerSections]);
-      }
+      // Update with server response (in case server modified the data)
+      selectedContainerSections[sectionIndex] = updatedSection;
+      noteActions.setSelectedSections([...selectedContainerSections]);
       
-      console.log('✅ Section title updated successfully');
+      console.log('✅ Section title updated successfully on server');
     } catch (error) {
       console.error('Failed to update section title:', error);
+      
+      // Rollback optimistic update on error
+      selectedContainerSections[sectionIndex].title = originalTitle;
+      noteActions.setSelectedSections([...selectedContainerSections]);
+      
       throw error;
     }
   }

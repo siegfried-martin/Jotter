@@ -56,6 +56,14 @@
     return newSections;
   }
 
+  // Helper function to reorder array
+  function reorderArray(array: NoteSection[], fromIndex: number, toIndex: number): NoteSection[] {
+    const newArray = [...array];
+    const [movedItem] = newArray.splice(fromIndex, 1);
+    newArray.splice(toIndex, 0, movedItem);
+    return newArray;
+  }
+
   // Create a visual ghost/overlay for the dragged item
   $: draggedSection = $dragStore.isDragging ? $dragStore.draggedItem : null;
   $: dragPosition = $dragStore.currentPosition;
@@ -96,28 +104,49 @@
 
     isReordering = true;
 
+    // Find the actual indices in our current sections array
+    const actualFromIndex = sections.findIndex(s => s.id === itemId);
+    if (actualFromIndex === -1) {
+      console.warn('Section not found for reorder:', itemId);
+      isReordering = false;
+      return;
+    }
+
+    // Store original order for rollback
+    const originalSections = [...sections];
+
     try {
-      console.log(`🔄 Reordering section from ${fromIndex} to ${toIndex}`);
+      console.log(`🎯 Optimistically reordering section from ${actualFromIndex} to ${toIndex}`);
       
-      // Use original sections for database update (not visual preview)
-      const actualFromIndex = sections.findIndex(s => s.id === itemId);
+      // 1. OPTIMISTICALLY update local state first (prevents flicker)
+      const newSections = reorderArray(sections, actualFromIndex, toIndex);
+      sections = newSections;
+      dispatch('sectionsReordered', newSections);
       
-      // Update database with actual indices
+      console.log('🎯 Optimistic reorder applied, now updating server...');
+      
+      // 2. THEN update server
       const updatedSections = await SectionService.reorderSections(
         noteContainerId, 
         actualFromIndex, 
         toIndex
       );
       
-      // Update with server response
+      // 3. Update with server response (in case server modified anything)
       sections = updatedSections;
       dispatch('sectionsReordered', updatedSections);
       
-      console.log('✅ Section reorder completed');
+      console.log('✅ Section reorder completed on server');
     } catch (error) {
       console.error('❌ Failed to reorder sections:', error);
-      // Keep original sections on error
-      sections = [...sections];
+      
+      // ROLLBACK optimistic update on error
+      console.log('🔄 Rolling back optimistic reorder due to error');
+      sections = originalSections;
+      dispatch('sectionsReordered', originalSections);
+      
+      // Optionally show user-friendly error
+      // You could dispatch an error event here if needed
     } finally {
       isReordering = false;
     }

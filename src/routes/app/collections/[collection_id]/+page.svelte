@@ -110,13 +110,13 @@
     }
   }
   
-  // Handle section reordering from drag & drop
+  // Handle section reordering from drag & drop - UPDATE STORE
   async function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
-    console.log('Sections reordered:', event.detail);
+    console.log('📝 Sections reordered, updating store:', event.detail.length, 'sections');
     
-    // The reordering is already handled in SortableNoteGrid
-    // We just need to update the local state if needed
-    // The SectionService.reorderSections call in SortableNoteGrid already updates the database
+    // Update the store with the new section order
+    // This ensures the store stays in sync with the UI state
+    noteActions.setSelectedSections(event.detail);
   }
 
   async function handleContainersReordered(event: CustomEvent<NoteContainer[]>) {

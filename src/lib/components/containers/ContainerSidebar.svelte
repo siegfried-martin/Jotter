@@ -268,7 +268,17 @@
   /* Responsive adjustments */
   @media (max-width: 1024px) {
     .sidebar-container {
-      width: 16rem !important; /* Force smaller width on mobile when expanded */
+      /* On mobile, respect the collapsed/expanded state properly */
+    }
+    
+    /* Ensure collapsed state stays narrow on mobile */
+    .sidebar-container.w-20 {
+      width: 5rem !important; /* 80px - same as desktop collapsed */
+    }
+    
+    /* Expanded state can be wider on mobile but not full screen */
+    .sidebar-container.w-72 {
+      width: 16rem !important; /* 256px - reasonable mobile width */
     }
   }
 </style>
