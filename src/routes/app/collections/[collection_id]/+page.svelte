@@ -14,6 +14,11 @@
   import type { PageData } from './$types';
   import type { NoteSection, NoteContainer } from '$lib/types';
   
+  // NEW: DnD System
+  import DragProvider from '$lib/dnd/components/DragProvider.svelte';
+  import { createSectionDragBehavior } from '$lib/dnd/behaviors/SectionDragBehavior';
+  import { createContainerDragBehavior } from '$lib/dnd/behaviors/ContainerDragBehavior';
+  
   // Components
   import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
   import SectionGridWrapper from '$lib/components/sections/SectionGridWrapper.svelte';
@@ -39,6 +44,84 @@
   onMount(async () => {
     await pageManager.initialize(data);
   });
+
+  // Helper function for array reordering
+  function reorderArray<T>(array: T[], fromIndex: number, toIndex: number): T[] {
+    const newArray = [...array];
+    const [movedItem] = newArray.splice(fromIndex, 1);
+    newArray.splice(toIndex, 0, movedItem);
+    return newArray;
+  }
+
+  // NEW: Create drag behaviors
+  $: sectionBehavior = createSectionDragBehavior(
+    // Section reorder handler
+    async (fromIndex: number, toIndex: number, containerId: string) => {
+      console.log('🎯 Section reorder:', fromIndex, '→', toIndex, 'in', containerId);
+      
+      if (!selectedContainerSections || fromIndex === toIndex) return;
+      
+      // Store original order for potential rollback
+      const originalSections = [...selectedContainerSections];
+      
+      // Optimistically update UI
+      const reorderedSections = reorderArray(selectedContainerSections, fromIndex, toIndex);
+      noteActions.setSelectedSections(reorderedSections);
+      
+      try {
+        // Use the existing SectionService method (similar to how old SectionGrid worked)
+        const { SectionService } = await import('$lib/services/sectionService');
+        const updatedSections = await SectionService.reorderSections(
+          containerId, 
+          fromIndex, 
+          toIndex
+        );
+        
+        // Update with server response
+        noteActions.setSelectedSections(updatedSections);
+        console.log('✅ Section reorder completed');
+      } catch (error) {
+        console.error('❌ Section reorder failed:', error);
+        // Rollback on error
+        noteActions.setSelectedSections(originalSections);
+      }
+    },
+    
+    // Cross-container move handler  
+    async (sectionId: string, fromContainer: string, toContainer: string) => {
+      console.log('🎯 Section cross-container move:', sectionId, fromContainer, '→', toContainer);
+      
+      // Use existing cross-container logic
+      await handleCrossContainerMove({ 
+        detail: { sectionId, fromContainer, toContainer } 
+      } as CustomEvent);
+    }
+  );
+
+  $: containerBehavior = createContainerDragBehavior(
+    // Container reorder handler
+    async (fromIndex: number, toIndex: number) => {
+      console.log('🎯 Container reorder:', fromIndex, '→', toIndex);
+      
+      if (fromIndex === toIndex) return;
+      
+      // Optimistically update UI
+      const reorderedContainers = reorderArray(containers, fromIndex, toIndex);
+      noteActions.updateContainers(reorderedContainers);
+      
+      try {
+        // Use existing container reorder logic
+        await handleContainersReordered({ 
+          detail: { fromIndex, toIndex } 
+        } as CustomEvent);
+        console.log('✅ Container reorder completed');
+      } catch (error) {
+        console.error('❌ Container reorder failed:', error);
+        // Rollback on error
+        noteActions.updateContainers(containers);
+      }
+    }
+  );
   
   // Note operations with bound context
   async function createNewNote() {
@@ -80,7 +163,7 @@
     await noteOperations.handleSectionTitleSave(event, selectedContainerSections, pageManager.selectContainer, selectedContainer);
   }
   
-  // NEW: Handle note container title updates
+  // Handle note container title updates
   async function handleTitleUpdate(event: CustomEvent<{ containerId: string; newTitle: string }>) {
     if (!selectedContainer) {
       console.warn('No selected container to update title');
@@ -98,44 +181,38 @@
       
       console.log('🏷️ Updating container title:', containerId, 'to:', trimmedTitle);
       
-      // Call the note operations to handle the title update
-      await noteOperations.updateNoteTitle(
-        containerId,
-        trimmedTitle
-      );
+      await noteOperations.updateNoteTitle(containerId, trimmedTitle);
       
       console.log('✅ Container title updated successfully');
     } catch (error) {
       console.error('❌ Failed to update container title:', error);
     }
   }
-  
-  // Handle section reordering from drag & drop - UPDATE STORE
-  async function handleSectionsReordered(event: CustomEvent<NoteSection[]>) {
-    console.log('📝 Sections reordered, updating store:', event.detail.length, 'sections');
-    
-    // Update the store with the new section order
-    // This ensures the store stays in sync with the UI state
-    noteActions.setSelectedSections(event.detail);
-  }
 
-  async function handleContainersReordered(event: CustomEvent<NoteContainer[]>) {
-    console.log('✅ Note containers reordered successfully, updating store');
-    console.log('📦 New containers order:', event.detail.map(c => c.title));
+  async function handleContainersReordered(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
+    console.log('✅ Note containers reordered successfully:', event.detail);
+    
+    const { fromIndex, toIndex } = event.detail;
+    
+    // Create the reordered array locally
+    const reorderedContainers = [...containers];
+    const [movedContainer] = reorderedContainers.splice(fromIndex, 1);
+    reorderedContainers.splice(toIndex, 0, movedContainer);
+    
+    console.log('📦 New containers order:', reorderedContainers.map(c => c.title));
     
     // Update the note store with the new container order
-    noteActions.updateContainers(event.detail);
+    noteActions.updateContainers(reorderedContainers);
     
     console.log('📦 Store updated, current containers:', containers.map(c => c.title));
     
     // If the selected container is still in the list, make sure it stays selected
-    const updatedContainers = event.detail;
     if (selectedContainer) {
-      const stillExists = updatedContainers.find(c => c.id === selectedContainer.id);
+      const stillExists = reorderedContainers.find(c => c.id === selectedContainer.id);
       if (!stillExists) {
         // If somehow the selected container was removed, select the first one
-        if (updatedContainers.length > 0) {
-          pageManager.selectContainer(updatedContainers[0]);
+        if (reorderedContainers.length > 0) {
+          pageManager.selectContainer(reorderedContainers[0]);
         }
       }
     }
@@ -158,7 +235,7 @@
     createNewNoteWithCode
   );
 
-  $: console.log('🔍 +page.svelte debug:', {
+  $: console.log('🔧 +page.svelte debug:', {
     hasSelectedContainer: !!selectedContainer,
     selectedContainerSections: selectedContainerSections?.length || 0,
     sections: selectedContainerSections
@@ -167,58 +244,61 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<!-- Main Content Layout -->
-<div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
-  <!-- Improved Sidebar with Auto-Expand -->
-  <ContainerSidebar 
-    {containers}
-    {selectedContainer}
-    collectionId={currentCollectionId}
-    on:selectContainer={(e) => pageManager.selectContainer(e.detail)}
-    on:createNew={createNewNote}
-    on:deleteContainer={deleteContainer}
-    on:containersReordered={handleContainersReordered}
-    on:crossContainerDrop={handleCrossContainerDrop}
-  />
+<!-- NEW: Wrap everything in DragProvider -->
+<DragProvider behaviors={[sectionBehavior, containerBehavior]}>
 
-  <!-- Main Content Area -->
-  <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
-    {#if loading}
-      <div class="flex items-center justify-center h-64">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  <!-- Main Content Layout -->
+  <div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
+    <!-- Improved Sidebar with Auto-Expand -->
+    <ContainerSidebar 
+      {containers}
+      {selectedContainer}
+      collectionId={currentCollectionId}
+      on:selectContainer={(e) => pageManager.selectContainer(e.detail)}
+      on:createNew={createNewNote}
+      on:deleteContainer={deleteContainer}
+      on:containersReordered={handleContainersReordered}
+      on:crossContainerDrop={handleCrossContainerDrop}
+    />
+
+    <!-- Main Content Area -->
+    <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
+      {#if loading}
+        <div class="flex items-center justify-center h-64">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      {:else}
+        <CollectionPageHeader 
+          {selectedContainer}
+          {loading}
+          on:refresh={pageManager.refreshNotes}
+          on:updateTitle={handleTitleUpdate}
+        />
+        
+        <SectionGridWrapper 
+          sections={selectedContainerSections}
+          collectionName={currentCollection?.name}
+          hasSelectedContainer={!!selectedContainer}
+          noteContainerId={selectedContainer?.id || ''}
+          on:edit={handleEdit}
+          on:delete={deleteSection}
+          on:checkboxChange={handleCheckboxChange}
+          on:titleSave={handleSectionTitleSave}
+        />
+      {/if}
+    </div>
+
+    <!-- Floating Add Section Area -->
+    {#if !loading && selectedContainer}
+      <div class="floating-add-section">
+        <div class="floating-add-section-content">
+          <CreateNoteSectionForm on:createSection={createSection} />
+        </div>
       </div>
-    {:else}
-      <CollectionPageHeader 
-        {selectedContainer}
-        {loading}
-        on:refresh={pageManager.refreshNotes}
-        on:updateTitle={handleTitleUpdate}
-      />
-      
-      <SectionGridWrapper 
-        sections={selectedContainerSections}
-        collectionName={currentCollection?.name}
-        hasSelectedContainer={!!selectedContainer}
-        noteContainerId={selectedContainer?.id || ''}
-        on:edit={handleEdit}
-        on:delete={deleteSection}
-        on:checkboxChange={handleCheckboxChange}
-        on:sectionsReordered={handleSectionsReordered}
-        on:titleSave={handleSectionTitleSave}
-        on:crossContainerMove={handleCrossContainerMove}
-      />
     {/if}
   </div>
 
-  <!-- Floating Add Section Area -->
-  {#if !loading && selectedContainer}
-    <div class="floating-add-section">
-      <div class="floating-add-section-content">
-        <CreateNoteSectionForm on:createSection={createSection} />
-      </div>
-    </div>
-  {/if}
-</div>
+</DragProvider>
 
 <style>
   .floating-add-section {

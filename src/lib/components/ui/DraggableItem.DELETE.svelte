@@ -1,15 +1,18 @@
 <!-- src/lib/components/ui/DraggableItem.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { dragStore, dragActions } from '$lib/stores/dragStore';
+  import { dragStore, dragActions, type DragItemType } from '$lib/stores/dragStore.DELETE';
 
   // Generic props - no assumptions about what's being dragged
   export let item: any; // The data being dragged
   export let itemId: string; // Unique identifier
+  export let itemType: DragItemType; // NEW: What type of item this is
   export let containerIndex: number;
   export let itemIndex: number;
   export let containerId: string;
   export let disabled: boolean = false;
+
+  $: console.log('🔧 DraggableItem props debug:', { itemType, itemId });
 
   const dispatch = createEventDispatcher<{
     click: { item: any; itemId: string };
@@ -53,12 +56,13 @@
     event.preventDefault();
   }
 
-  function isPointerOverContent(event: PointerEvent): boolean {
-    // Check if the pointer is over the actual card content
+  // Override this function via prop if needed for custom interactive element detection
+  export let isPointerOverContent: (event: PointerEvent) => boolean = (event: PointerEvent) => {
     const element = event.target as HTMLElement;
     const cardContainer = element.closest('.section-card-base');
-    return cardContainer !== null;
-  }
+    const containerItem = element.closest('.container-item'); // Support both types
+    return cardContainer !== null || containerItem !== null;
+  };
 
   function handlePointerMove(event: PointerEvent) {
     if (!isPointerDown) return;
@@ -71,10 +75,10 @@
       const deltaY = Math.abs(currentPosition.y - ($dragStore.dragStartPosition?.y || 0));
       
       if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-        // Start dragging - create a generic drag item
+        // Start dragging - create a generic drag item with type info
         const dragItem = { id: itemId, ...item };
-        dragActions.startDrag(dragItem, containerId, currentPosition);
-        console.log('🎯 Custom drag started for item:', itemId);
+        dragActions.startDrag(dragItem, itemType, containerId, currentPosition);
+        console.log('🎯 Custom drag started for', itemType, 'item:', itemId);
       }
     } else if ($dragStore.draggedItem?.id === itemId) {
       // Update drag position
@@ -107,72 +111,130 @@
   }
 
   function updateDragTarget(event: PointerEvent) {
+    console.log('🔄 updateDragTarget called for itemType:', itemType, 'dragOverIndex before:', $dragStore.dragOverIndex);
     // Find the element under the pointer
     const elementBelow = document.elementFromPoint(event.clientX, event.clientY);
     const dropZone = elementBelow?.closest('[data-drop-zone]');
+
+    console.log('🔍 DOM Debug:', {
+      elementBelow: elementBelow?.tagName,
+      dropZone: dropZone?.tagName,
+      rawDataIndex: dropZone?.getAttribute('data-item-index'),
+      parsedIndex: parseInt(dropZone?.getAttribute('data-item-index') || '0'),
+      containerAttribute: dropZone?.getAttribute('data-container-id'),
+      allDataAttributes: dropZone ? Array.from(dropZone.attributes).map(attr => `${attr.name}=${attr.value}`) : []
+    });
     
     if (dropZone) {
       const dropType = dropZone.getAttribute('data-drop-zone');
       const container = dropZone.getAttribute('data-container-id');
       
-      if (dropType === 'container' && container !== containerId) {
-        // Cross-container drop target
-        console.log('🎯 Hovering over container:', container);
-        dragActions.setDragOverTarget(container, 'container');
-      } else if (dropType !== 'container') {
-        // Same-container reordering
+      // TYPE-AWARE LOGIC: Different behavior based on what's being dragged
+      if (itemType === 'section') {
+        // Sections can move to different containers OR reorder within same container
+        if (dropType === 'container' && container !== containerId) {
+          // Cross-container drop target for sections
+          console.log('🎯 Section hovering over different container:', container);
+          dragActions.setDragOverTarget(container, 'container');
+        } else if (dropType !== 'container') {
+          // Same-container reordering for sections
+          const index = parseInt(dropZone.getAttribute('data-item-index') || '0');
+          
+          if (container !== containerId || index !== itemIndex) {
+            dragActions.setDragOver(container, index);
+            dispatch('dragOver', { index });
+          }
+        }
+      } else if (itemType === 'container') {
         const index = parseInt(dropZone.getAttribute('data-item-index') || '0');
         
-        if (container !== containerId || index !== itemIndex) {
-          dragActions.setDragOver(container, index);
+        console.log('🎯 Container logic - container:', container, 'index:', index, 'myIndex:', itemIndex);
+        
+        // Smart check: Would this actually change the order?
+        const wouldChangeOrder = (index !== itemIndex);
+        
+        if (!isNaN(index) && wouldChangeOrder) {
+          console.log('🎯 Container reordering to index:', index);
+          dragActions.setDragOver('container-list', index);
           dispatch('dragOver', { index });
+        } else {
+          console.log('🎯 No order change needed - index:', index, 'myIndex:', itemIndex);
+          // Clear the drag state to show "no change" / "cancel"
+          dragActions.setDragOver(null, null);
+          dragActions.setDragOverTarget(null, null);
         }
       }
-    } else {
-      dragActions.setDragOver(null, null);
-      dragActions.setDragOverTarget(null, null);
+    // } else {
+    //   console.log('🎯 No valid drop target found, setting to null');
+    //   dragActions.setDragOver(null, null);
+    //   dragActions.setDragOverTarget(null, null);
     }
+    console.log('🔄 updateDragTarget finished, dragOverIndex after:', $dragStore.dragOverIndex);
   }
 
   function handleDrop() {
-    console.log('🎯 handleDrop function called!');
-    console.log('dragStore.dragOverContainer:', $dragStore.dragOverContainer, 'dragStore.dragOverIndex:', $dragStore.dragOverIndex);
-    console.log('dragStore.dragOverTargetContainer:', $dragStore.dragOverTargetContainer, 'dragStore.dragOverTargetType:', $dragStore.dragOverTargetType);
+    // console.log('🎯 handleDrop function called for', itemType);
+    // console.log('dragStore values:', {
+    //   dragOverContainer: $dragStore.dragOverContainer,
+    //   dragOverIndex: $dragStore.dragOverIndex,
+    //   dragOverTargetContainer: $dragStore.dragOverTargetContainer,
+    //   dragOverTargetType: $dragStore.dragOverTargetType,
+    //   itemType: $dragStore.itemType
+    // });
     
-    // Check for cross-container drop first
-    if ($dragStore.dragOverTargetContainer && $dragStore.dragOverTargetType === 'container') {
-      console.log('🎯 Cross-container drop detected:', {
-        from: { container: containerId, index: itemIndex },
-        to: { container: $dragStore.dragOverTargetContainer }
-      });
-      
-      // Dispatch cross-container move
-      dispatch('reorder', {
-        itemId: itemId,
-        item,
-        fromContainer: containerId,
-        fromIndex: itemIndex,
-        toContainer: $dragStore.dragOverTargetContainer,
-        toIndex: 0 // Doesn't matter for cross-container
-      });
-    } else if ($dragStore.dragOverContainer && $dragStore.dragOverIndex !== null) {
-      // Same-container reordering
-      console.log('🎯 Same-container drop detected:', {
-        from: { container: containerId, index: itemIndex },
-        to: { container: $dragStore.dragOverContainer, index: $dragStore.dragOverIndex }
-      });
-      
-      // Dispatch same-container reorder
-      dispatch('reorder', {
-        itemId: itemId,
-        item,
-        fromContainer: containerId,
-        fromIndex: itemIndex,
-        toContainer: $dragStore.dragOverContainer,
-        toIndex: $dragStore.dragOverIndex
-      });
-    } else {
-      console.log('❌ No valid drop target found');
+    // TYPE-AWARE DROP LOGIC
+    if (itemType === 'section') {
+      // Sections: Support both cross-container moves and same-container reordering
+      if ($dragStore.dragOverTargetContainer && $dragStore.dragOverTargetType === 'container') {
+        console.log('🎯 Section cross-container drop detected');
+        
+        dispatch('reorder', {
+          itemId: itemId,
+          item,
+          fromContainer: containerId,
+          fromIndex: itemIndex,
+          toContainer: $dragStore.dragOverTargetContainer,
+          toIndex: 0 // Doesn't matter for cross-container
+        });
+      } else if ($dragStore.dragOverContainer && $dragStore.dragOverIndex !== null) {
+        console.log('🎯 Section same-container reorder detected');
+        
+        dispatch('reorder', {
+          itemId: itemId,
+          item,
+          fromContainer: containerId,
+          fromIndex: itemIndex,
+          toContainer: $dragStore.dragOverContainer,
+          toIndex: $dragStore.dragOverIndex
+        });
+      } else {
+        console.log('❌ No valid drop target found for section');
+      }
+    } else if (itemType === 'container') {
+      // Containers: Only same-list reordering
+      if ($dragStore.dragOverContainer === containerId && $dragStore.dragOverIndex !== null) {
+        console.log('🎯 Container same-list reorder detected');
+
+        // console.log('📤 Dispatching container reorder:', {
+        //   itemId: itemId,
+        //   item,
+        //   fromContainer: containerId,
+        //   fromIndex: itemIndex,
+        //   toContainer: containerId,
+        //   toIndex: $dragStore.dragOverIndex
+        // });
+        
+        dispatch('reorder', {
+          itemId: itemId,
+          item,
+          fromContainer: containerId,
+          fromIndex: itemIndex,
+          toContainer: containerId,
+          toIndex: $dragStore.dragOverIndex
+        });
+      } else {
+        console.log('❌ No valid drop target found for container');
+      }
     }
   }
 
@@ -220,7 +282,7 @@
   style:user-select="none"
 >
   <!-- Slot for any content -->
-  <slot {item} isDragging={isDraggedItem} {isDragOver} />
+  <slot {item} isDragging={isDraggedItem} {isDragOver} {itemIndex} />
 </div>
 
 <style>

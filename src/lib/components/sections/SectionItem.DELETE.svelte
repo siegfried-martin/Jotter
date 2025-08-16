@@ -1,7 +1,7 @@
 <!-- src/lib/components/sections/SectionItem.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import DraggableItem from '$lib/components/ui/DraggableItem.svelte';
+  import DraggableItem from '$lib/components/ui/DraggableItem.DELETE.svelte';
   import SectionCard from './SectionCard.svelte';
   import type { NoteSection } from '$lib/types';
 
@@ -58,6 +58,7 @@
 <DraggableItem
   item={section}
   itemId={section.id}
+  itemType="section"
   {containerIndex}
   {itemIndex}
   {containerId}

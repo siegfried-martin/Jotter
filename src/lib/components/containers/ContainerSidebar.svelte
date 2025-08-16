@@ -76,7 +76,11 @@
   }
 
   function handleReorder(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
-    dispatch('containersReordered', event.detail);
+    // Pass the collectionId along with the event
+    dispatch('containersReordered', { 
+      ...event.detail, 
+      collectionId 
+    });
   }
 
   function handleCrossContainerDrop(event: CustomEvent<{
@@ -134,6 +138,7 @@
         {containers}
         {selectedContainer}
         {isCollapsed}
+        {collectionId}
         on:selectContainer={handleSelectContainer}
         on:deleteContainer={handleDeleteContainer}
         on:reorder={handleReorder}

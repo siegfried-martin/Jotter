@@ -1,219 +1,128 @@
 <!-- src/lib/components/sections/SectionGrid.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { dragStore } from '$lib/stores/dragStore';
-  import SectionItem from './SectionItem.svelte';
+  import { createEventDispatcher, getContext } from 'svelte';
+  import DraggableContainer from '$lib/dnd/components/DraggableContainer.svelte';
+  import SectionCard from './SectionCard.svelte';
   import type { NoteSection } from '$lib/types';
-  import { SectionService } from '$lib/services/sectionService';
 
   export let sections: NoteSection[] = [];
   export let noteContainerId: string;
   export let sortMode: boolean = true;
 
   const dispatch = createEventDispatcher<{
-    sectionsReordered: NoteSection[];
     edit: string;
     delete: string;
     checkboxChange: { sectionId: string; checked: boolean; lineIndex: number };
     titleSave: { sectionId: string; title: string | null };
-    crossContainerMove: {
-      sectionId: string;
-      fromContainer: string;
-      toContainer: string;
-    };
   }>();
 
-  let isReordering = false;
+  // Get drag context to subscribe to state changes
+  const dragContext = getContext('drag');
+  const { dragCore } = dragContext || {};
 
-  // Create visual preview of reordered items during drag
-  $: visualSections = createVisualLayout(sections, $dragStore);
+  // Create zone ID for this grid
+  $: zoneId = `section-grid-${noteContainerId}`;
 
-  function createVisualLayout(originalSections: NoteSection[], dragState: any) {
-    if (!dragState.isDragging || !dragState.draggedItem) {
-      return originalSections;
-    }
+  // Subscribe to drag state for live reordering
+  $: dragState = dragCore?.store;
+  $: isCurrentlyDragging = $dragState?.phase === 'dragging' && 
+                           $dragState?.itemType === 'section' &&
+                           $dragState?.sourceZone === zoneId;
+  
+  // Calculate display order based on drag state
+  $: displaySections = isCurrentlyDragging && $dragState?.dropTarget?.targetType === 'reorder' 
+    ? reorderSectionsForPreview(sections, $dragState)
+    : sections;
 
-    const draggedId = dragState.draggedItem.id;
-    const dragOverIndex = dragState.dragOverIndex;
-    const dragOverContainer = dragState.dragOverContainer;
-
-    // Only show preview for same container
-    if (dragOverContainer !== noteContainerId || dragOverIndex === null) {
-      return originalSections;
-    }
-
-    // Create a copy and remove the dragged item
-    const sectionsWithoutDragged = originalSections.filter(s => s.id !== draggedId);
+  function reorderSectionsForPreview(originalSections: NoteSection[], dragState: any) {
+    if (!dragState.dropTarget || !dragState.item) return originalSections;
     
-    // Find the dragged section
-    const draggedSection = originalSections.find(s => s.id === draggedId);
-    if (!draggedSection) return originalSections;
-
-    // Insert at the new position
-    const newSections = [...sectionsWithoutDragged];
-    newSections.splice(dragOverIndex, 0, draggedSection);
-
-    return newSections;
+    const sourceIndex = dragState.sourceIndex;
+    const targetIndex = dragState.dropTarget.itemIndex;
+    
+    console.log('🎨 Live reordering preview:', {
+      sourceIndex,
+      targetIndex,
+      draggedItem: dragState.item.id
+    });
+    
+    // Create new array with item moved to target position
+    const result = [...originalSections];
+    const [draggedItem] = result.splice(sourceIndex, 1);
+    result.splice(targetIndex, 0, draggedItem);
+    
+    console.log('🎨 Preview order:', result.map(s => s.id));
+    return result;
   }
 
-  // Helper function to reorder array
-  function reorderArray(array: NoteSection[], fromIndex: number, toIndex: number): NoteSection[] {
-    const newArray = [...array];
-    const [movedItem] = newArray.splice(fromIndex, 1);
-    newArray.splice(toIndex, 0, movedItem);
-    return newArray;
-  }
-
-  // Create a visual ghost/overlay for the dragged item
-  $: draggedSection = $dragStore.isDragging ? $dragStore.draggedItem : null;
-  $: dragPosition = $dragStore.currentPosition;
-
-  async function handleReorder(event: CustomEvent<{
-    itemId: string;
-    item: NoteSection;
-    fromContainer: string;
-    fromIndex: number;
-    toContainer: string;
-    toIndex: number;
-  }>) {
-    if (isReordering) return;
-    
-    const { itemId, fromContainer, fromIndex, toContainer, toIndex } = event.detail;
-    
-    // Check if this is a cross-container move
-    if (fromContainer !== toContainer) {
-      console.log('🔄 Cross-container move detected');
-      dispatch('crossContainerMove', {
-        sectionId: itemId,
-        fromContainer,
-        toContainer
-      });
-      return;
-    }
-
-    // Handle same-container reordering
-    if (fromContainer !== noteContainerId) {
-      console.log('🚫 Container mismatch for same-container reorder');
-      return;
-    }
-
-    if (fromIndex === toIndex) {
-      console.log('👆 No reorder needed - same position');
-      return;
-    }
-
-    isReordering = true;
-
-    // Find the actual indices in our current sections array
-    const actualFromIndex = sections.findIndex(s => s.id === itemId);
-    if (actualFromIndex === -1) {
-      console.warn('Section not found for reorder:', itemId);
-      isReordering = false;
-      return;
-    }
-
-    // Store original order for rollback
-    const originalSections = [...sections];
-
-    try {
-      console.log(`🎯 Optimistically reordering section from ${actualFromIndex} to ${toIndex}`);
-      
-      // 1. OPTIMISTICALLY update local state first (prevents flicker)
-      const newSections = reorderArray(sections, actualFromIndex, toIndex);
-      sections = newSections;
-      dispatch('sectionsReordered', newSections);
-      
-      console.log('🎯 Optimistic reorder applied, now updating server...');
-      
-      // 2. THEN update server
-      const updatedSections = await SectionService.reorderSections(
-        noteContainerId, 
-        actualFromIndex, 
-        toIndex
-      );
-      
-      // 3. Update with server response (in case server modified anything)
-      sections = updatedSections;
-      dispatch('sectionsReordered', updatedSections);
-      
-      console.log('✅ Section reorder completed on server');
-    } catch (error) {
-      console.error('❌ Failed to reorder sections:', error);
-      
-      // ROLLBACK optimistic update on error
-      console.log('🔄 Rolling back optimistic reorder due to error');
-      sections = originalSections;
-      dispatch('sectionsReordered', originalSections);
-      
-      // Optionally show user-friendly error
-      // You could dispatch an error event here if needed
-    } finally {
-      isReordering = false;
-    }
-  }
-
-  function handleEdit(event: CustomEvent<string>) {
-    if (!isReordering) {
-      dispatch('edit', event.detail);
-    }
+  function handleSectionClick(event: CustomEvent<{ item: NoteSection; itemType: string }>) {
+    console.log('🎯 Section clicked:', event.detail.item.id);
+    dispatch('edit', event.detail.item.id);
   }
 
   function handleDelete(event: CustomEvent<string>) {
-    if (!isReordering) {
-      dispatch('delete', event.detail);
-    }
+    dispatch('delete', event.detail);
   }
 
   function handleCheckboxChange(event: CustomEvent<{ sectionId: string; checked: boolean; lineIndex: number }>) {
-    if (!isReordering) {
-      dispatch('checkboxChange', event.detail);
-    }
+    dispatch('checkboxChange', event.detail);
   }
 
   function handleTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
-    if (!isReordering) {
-      dispatch('titleSave', event.detail);
-    }
+    dispatch('titleSave', event.detail);
   }
+
+  // Debug logging
+  $: console.log('🔧 SectionGrid rendered with live reordering:', {
+    zoneId,
+    originalCount: sections.length,
+    displayCount: displaySections.length,
+    isCurrentlyDragging,
+    dragState: $dragState ? {
+      phase: $dragState.phase,
+      sourceIndex: $dragState.sourceIndex,
+      targetIndex: $dragState.dropTarget?.itemIndex
+    } : null
+  });
 </script>
 
 <div class="section-grid">
-  <!-- Main grid -->
+  <!-- List layout with DraggableContainers and live reordering -->
   <div 
-    class="grid gap-6 grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 min-h-[100px]"
-    class:dragging={$dragStore.isDragging}
+    class="section-list"
+    data-section-grid={zoneId}
   >
-    {#each visualSections as section, index (section.id)}
-      {@const originalIndex = sections.findIndex(s => s.id === section.id)}
-      <SectionItem
-        {section}
-        containerIndex={0}
-        itemIndex={originalIndex}
-        containerId={noteContainerId}
+    {#each displaySections as section, index (section.id)}
+      <DraggableContainer
+        item={section}
+        itemType="section"
+        itemIndex={index}
+        {zoneId}
         disabled={!sortMode}
-        on:edit={handleEdit}
-        on:delete={handleDelete}
-        on:checkboxChange={handleCheckboxChange}
-        on:titleSave={handleTitleSave}
-        on:reorder={handleReorder}
-      />
+        className="section-draggable-container"
+        on:click={handleSectionClick}
+      >
+        <svelte:fragment slot="default" let:item let:isDragging let:isBeingDragged let:isDragOver>
+          <SectionCard 
+            section={item}
+            isDragging={isBeingDragged}
+            on:delete={handleDelete}
+            on:checkboxChange={handleCheckboxChange}
+            on:titleSave={handleTitleSave}
+          />
+        </svelte:fragment>
+      </DraggableContainer>
     {/each}
   </div>
 
-  <!-- Drag overlay/ghost -->
-  {#if draggedSection && dragPosition}
-    <div 
-      class="drag-ghost"
-      style:left="{dragPosition.x - 150}px"
-      style:top="{dragPosition.y - 50}px"
-    >
-      <div class="ghost-content">
-        <div class="ghost-header">
-          <span class="ghost-type">{draggedSection.type}</span>
-          <span class="ghost-title">
-            {draggedSection.title || (draggedSection.type.charAt(0).toUpperCase() + draggedSection.type.slice(1))}
-          </span>
-        </div>
+  <!-- Empty state -->
+  {#if sections.length === 0}
+    <div class="empty-state">
+      <div class="empty-content">
+        <svg class="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        <p class="text-gray-500 text-sm">No sections yet. Add one below!</p>
       </div>
     </div>
   {/if}
@@ -222,64 +131,46 @@
 <style>
   .section-grid {
     position: relative;
+    width: 100%;
   }
 
-  .grid.dragging {
-    /* Add any global drag state styling here */
+  /* List layout */
+  .section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
   }
 
-  .drag-ghost {
-    position: fixed;
-    pointer-events: none;
-    z-index: 1000;
-    width: 300px;
-    transform: rotate(3deg);
-    transition: none;
-  }
-
-  .ghost-content {
-    background: white;
-    border: 2px solid #3b82f6;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    opacity: 0.9;
-  }
-
-  .ghost-header {
+  /* Empty state */
+  .empty-state {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    min-height: 200px;
+    width: 100%;
   }
 
-  .ghost-type {
-    background: #3b82f6;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: capitalize;
+  .empty-content {
+    text-align: center;
+    padding: 2rem;
   }
 
-  .ghost-title {
-    font-weight: 500;
-    color: #374151;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* DraggableContainer specific styles */
+  :global(.section-draggable-container) {
+    min-height: 120px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
   }
 
-  /* Grid responsive adjustments */
-  @media (max-width: 1280px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (min-width: 1280px) and (max-width: 1536px) {
-    .grid {
-      grid-template-columns: repeat(2, 1fr);
+  /* Responsive */
+  @media (max-width: 768px) {
+    .section-list {
+      max-width: 100%;
+      padding: 0 1rem;
     }
   }
 </style>

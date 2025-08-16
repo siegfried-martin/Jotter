@@ -1,12 +1,15 @@
 <!-- src/lib/components/containers/ContainerItem.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { dragStore, dragActions } from '$lib/stores/dragStore';
+  import { dragStore, dragActions, type DragItemType } from '$lib/stores/dragStore.DELETE';
   import type { NoteContainer } from '$lib/types';
 
   export let container: NoteContainer;
   export let isSelected: boolean = false;
   export let isCollapsed: boolean = false;
+  export let isDragging: boolean = false;
+  export let isDragOver: boolean = false;
+  export let itemIndex: number;
 
   const dispatch = createEventDispatcher<{
     select: NoteContainer;
@@ -26,13 +29,39 @@
                       $dragStore.draggedFromContainer !== container.id &&
                       $dragStore.draggedItem;
 
-  function handleClick(event: MouseEvent) {
+  // Handle clicks - this will be called by DraggableItem's click handler
+  function handleClick() {
     if (!$dragStore.isDragging) {
       dispatch('select', container);
-    } else if (isDragTarget && $dragStore.draggedItem) {
-      event.preventDefault();
-      event.stopPropagation();
-      
+    }
+  }
+
+  // Handle container selection when clicked via DraggableItem
+  function handleContainerClick() {
+    handleClick();
+  }
+
+  function handleMouseEnter() {
+    if (isReceivingDrag) {
+      //dragActions.setDragOverTarget(container.id, 'container');
+    }
+  }
+
+  function handleMouseLeave() {
+    if (isDragTarget) {
+      //dragActions.setDragOverTarget(null, null);
+    }
+  }
+
+  function handleDeleteClick(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    dispatch('delete', container.id);
+  }
+
+  // Handle cross-container drop when in receiving mode
+  function handleDropTarget() {
+    if (isDragTarget && $dragStore.draggedItem) {
       dispatch('crossContainerDrop', {
         sectionId: $dragStore.draggedItem.id,
         fromContainer: $dragStore.draggedFromContainer!,
@@ -41,24 +70,6 @@
       
       dragActions.endDrag();
     }
-  }
-
-  function handleMouseEnter() {
-    if (isReceivingDrag) {
-      dragActions.setDragOverTarget(container.id, 'container');
-    }
-  }
-
-  function handleMouseLeave() {
-    if (isDragTarget) {
-      dragActions.setDragOverTarget(null, null);
-    }
-  }
-
-  function handleDeleteClick(event: MouseEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    dispatch('delete', container.id);
   }
 
   function formatDate(dateStr: string): string {
@@ -98,9 +109,12 @@
         ? 'receiving-drag'
         : 'default'
     } {isCollapsed ? 'collapsed' : 'expanded'}"
+    class:dragging={isDragging}
+    class:drag-over={isDragOver}
     data-drop-zone="container"
-    data-container-id={container.id}
-    on:click={handleClick}
+    data-container-id="container-list"
+    data-item-index={itemIndex}
+    on:click={handleContainerClick}
     on:mouseenter={handleMouseEnter}
     on:mouseleave={handleMouseLeave}
     title={isCollapsed ? container.title : ''}
@@ -156,7 +170,7 @@
         
         <!-- Drop target indicator -->
         {#if isDragTarget}
-          <div class="drop-indicator"></div>
+          <div class="drop-indicator" on:click={handleDropTarget}></div>
         {/if}
       </div>
     {/if}
@@ -213,6 +227,17 @@
   .container-item.receiving-drag {
     background: #f0f9ff;
     border: 2px dashed #0ea5e9;
+  }
+
+  /* Drag states from DraggableItem */
+  .container-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+
+  .container-item.drag-over {
+    /* Visual feedback for drag over - can customize as needed */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
   }
 
   /* Collapsed Mode */
@@ -348,6 +373,7 @@
     height: 3px;
     background: #3b82f6;
     border-radius: 0 0 8px 8px;
+    cursor: pointer;
   }
 
   .delete-button {

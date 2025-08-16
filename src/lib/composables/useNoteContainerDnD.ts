@@ -3,28 +3,37 @@ import { NoteService } from '$lib/services/noteService';
 import type { NoteContainer } from '$lib/types';
 
 export interface UseNoteContainerDnDOptions {
-  collectionId: string;
+  collectionId?: string; // Made optional since we'll set it when calling methods
   onSuccess?: (containers: NoteContainer[]) => void;
   onError?: (error: Error) => void;
 }
 
-export function useNoteContainerDnD(options: UseNoteContainerDnDOptions) {
-  const { collectionId, onSuccess, onError } = options;
+export function useNoteContainerDnD(options: UseNoteContainerDnDOptions = {}) {
+  const { onSuccess, onError } = options;
 
   /**
    * Handle drag & drop reordering of note containers
    */
-  async function handleReorder(fromIndex: number, toIndex: number): Promise<void> {
+  async function handleReorder(fromIndex: number, toIndex: number, collectionId?: string): Promise<void> {
+    const targetCollectionId = collectionId || options.collectionId;
+    
+    if (!targetCollectionId) {
+      const error = new Error('Collection ID is required for container reordering');
+      console.error('❌ Missing collection ID for container reorder');
+      if (onError) onError(error);
+      throw error;
+    }
+
     try {
       console.log('🔄 Reordering note containers:', { 
-        collectionId, 
+        collectionId: targetCollectionId, 
         fromIndex, 
         toIndex 
       });
 
       // Call the service to reorder containers - this returns the updated list from server
       const updatedContainers = await NoteService.reorderNoteContainers(
-        collectionId,
+        targetCollectionId,
         fromIndex,
         toIndex
       );
@@ -36,6 +45,8 @@ export function useNoteContainerDnD(options: UseNoteContainerDnDOptions) {
         onSuccess(updatedContainers);
       }
 
+      return updatedContainers;
+
     } catch (error) {
       console.error('❌ Failed to reorder note containers:', error);
       
@@ -43,6 +54,8 @@ export function useNoteContainerDnD(options: UseNoteContainerDnDOptions) {
       if (onError) {
         onError(error as Error);
       }
+      
+      throw error;
     }
   }
 
@@ -51,17 +64,27 @@ export function useNoteContainerDnD(options: UseNoteContainerDnDOptions) {
    */
   async function moveToPosition(
     noteContainerId: string, 
-    newPosition: number
+    newPosition: number,
+    collectionId?: string
   ): Promise<void> {
+    const targetCollectionId = collectionId || options.collectionId;
+    
+    if (!targetCollectionId) {
+      const error = new Error('Collection ID is required for container positioning');
+      console.error('❌ Missing collection ID for container move');
+      if (onError) onError(error);
+      throw error;
+    }
+
     try {
       console.log('🎯 Moving note container to position:', { 
         noteContainerId, 
         newPosition, 
-        collectionId 
+        collectionId: targetCollectionId 
       });
 
       const updatedContainers = await NoteService.moveNoteContainerToPosition(
-        collectionId,
+        targetCollectionId,
         noteContainerId,
         newPosition
       );
@@ -72,17 +95,29 @@ export function useNoteContainerDnD(options: UseNoteContainerDnDOptions) {
         onSuccess(updatedContainers);
       }
 
+      return updatedContainers;
+
     } catch (error) {
       console.error('❌ Failed to move note container:', error);
       
       if (onError) {
         onError(error as Error);
       }
+      
+      throw error;
     }
+  }
+
+  /**
+   * Set the collection ID for this instance
+   */
+  function setCollectionId(collectionId: string) {
+    options.collectionId = collectionId;
   }
 
   return {
     handleReorder,
-    moveToPosition
+    moveToPosition,
+    setCollectionId
   };
 }

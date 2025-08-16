@@ -1,24 +1,28 @@
 // src/lib/stores/dragStore.ts
 import { writable } from 'svelte/store';
-import type { NoteSection } from '$lib/types';
+import type { NoteSection, NoteContainer } from '$lib/types';
+
+export type DragItemType = 'section' | 'container';
 
 export interface DragState {
   isDragging: boolean;
-  draggedItem: NoteSection | null;
+  draggedItem: NoteSection | NoteContainer | null;
+  itemType: DragItemType | null; // NEW: Track what type of item is being dragged
   draggedFromContainer: string | null;
   dragStartPosition: { x: number; y: number } | null;
   currentPosition: { x: number; y: number } | null;
   dragOverContainer: string | null;
   dragOverIndex: number | null;
   dragStartTime: number | null;
-  // NEW: Cross-container support
-  dragOverTargetContainer: string | null; // Different from dragOverContainer - this is for sidebar containers
-  dragOverTargetType: 'section' | 'container' | null; // What type of target we're over
+  // Cross-container support (mainly for sections)
+  dragOverTargetContainer: string | null;
+  dragOverTargetType: 'section' | 'container' | null;
 }
 
 const initialState: DragState = {
   isDragging: false,
   draggedItem: null,
+  itemType: null,
   draggedFromContainer: null,
   dragStartPosition: null,
   currentPosition: null,
@@ -32,11 +36,17 @@ const initialState: DragState = {
 export const dragStore = writable<DragState>(initialState);
 
 export const dragActions = {
-  startDrag: (item: NoteSection, fromContainer: string, position: { x: number; y: number }) => {
+  startDrag: (
+    item: NoteSection | NoteContainer, 
+    itemType: DragItemType,
+    fromContainer: string, 
+    position: { x: number; y: number }
+  ) => {
     dragStore.update(state => ({
       ...state,
       isDragging: true,
       draggedItem: item,
+      itemType,
       draggedFromContainer: fromContainer,
       dragStartPosition: position,
       currentPosition: position,
@@ -52,6 +62,10 @@ export const dragActions = {
   },
 
   setDragOver: (container: string | null, index: number | null) => {
+    if (index === null) {
+      console.log('🎯 No valid drop target found, setting to null in DragStore 1');
+      console.trace()
+    }
     dragStore.update(state => ({
       ...state,
       dragOverContainer: container,
@@ -60,16 +74,21 @@ export const dragActions = {
     }));
   },
 
-  // NEW: Set cross-container target
+  // Cross-container target (mainly for sections moving to different containers)
   setDragOverTarget: (targetContainer: string | null, targetType: 'container' | null) => {
-    dragStore.update(state => ({
-      ...state,
-      dragOverTargetContainer: targetContainer,
-      dragOverTargetType: targetType,
-      // Clear section-level drag over when targeting containers
-      dragOverContainer: targetType === 'container' ? null : state.dragOverContainer,
-      dragOverIndex: targetType === 'container' ? null : state.dragOverIndex
-    }));
+    dragStore.update(state => {
+      console.log("setDragOverTarget targetContainer:", targetContainer, "targetType", targetType);
+      console.log("state.dragOverContainer:", state.dragOverContainer, "state.dragOverIndex", state.dragOverIndex);
+      console.trace();
+      return {
+        ...state,
+        dragOverTargetContainer: targetContainer,
+        dragOverTargetType: targetType,
+        // Clear section-level drag over when targeting containers
+        dragOverContainer: state.dragOverContainer, // Assign the value
+        dragOverIndex: state.dragOverIndex
+      };
+    });
   },
 
   endDrag: () => {
