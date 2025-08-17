@@ -1,5 +1,7 @@
 // src/lib/dnd/core/DragDetection.ts
 import type { Point, DropTarget } from './DragCore';
+import { DragTargetDetection } from './DragTargetDetection';
+import { DragHighlighting } from './DragHighlighting';
 
 export interface DragConfig {
   item: any;
@@ -34,10 +36,20 @@ export class DragDetection {
   private shouldTriggerClick?: () => boolean;
   private updateDropTargetCallback: (target: DropTarget | null) => void = () => {};
 
+  // NEW: Modular components
+  private targetDetection: DragTargetDetection;
+  private highlighting: DragHighlighting;
+
   constructor(private callbacks: DragCallbacks) {
     // Store references to DragCore decision methods
     this.shouldStartDrag = callbacks.shouldStartDrag;
     this.shouldTriggerClick = callbacks.shouldTriggerClick;
+    
+    // Initialize modular components
+    this.highlighting = new DragHighlighting();
+    this.targetDetection = new DragTargetDetection((target) => {
+      this.updateDropTargetCallback(target);
+    });
   }
 
   // Attach drag detection to an element
@@ -61,6 +73,10 @@ export class DragDetection {
   // Method to set the drop target callback (will be set by DragProvider)
   setDropTargetCallback(callback: (target: DropTarget | null) => void): void {
     this.updateDropTargetCallback = callback;
+    // Also update the target detection module
+    this.targetDetection = new DragTargetDetection((target) => {
+      this.updateDropTargetCallback(target);
+    });
   }
 
   private handlePointerDown(event: PointerEvent, config: DragConfig): void {
@@ -115,6 +131,12 @@ export class DragDetection {
       if (shouldStart) {
         this.hasDragStarted = true;
         console.log('🚀 DragDetection: Starting drag!');
+        
+        // NEW: Highlight all valid drop targets when drag starts
+        if (this.activeConfig.itemType === 'section') {
+          this.highlighting.highlightAllValidContainers(this.activeConfig);
+        }
+        
         this.callbacks.onDragStart();
       }
     }
@@ -175,130 +197,25 @@ export class DragDetection {
   };
 
   private updateDragTarget(event: PointerEvent): void {
-    console.log('🔄 updateDragTarget called for itemType:', this.activeConfig?.itemType);
+    if (!this.activeConfig) return;
     
-    // Find the element under the pointer
-    const elementBelow = document.elementFromPoint(event.clientX, event.clientY);
+    console.log('🔄 updateDragTarget called for itemType:', this.activeConfig.itemType);
     
-    // 🎯 Look for card-sized drop zones (DraggableContainers)
-    const dropZone = elementBelow?.closest('[data-drop-zone]');
-
-    console.log('🔍 CARD DROP ZONE Detection:', {
-      elementBelow: elementBelow?.tagName,
-      dropZone: dropZone?.tagName,
-      insertPosition: dropZone?.getAttribute('data-insert-position'),
-      zoneId: dropZone?.getAttribute('data-drop-zone'),
-      itemId: dropZone?.getAttribute('data-item-id')
-    });
+    // Use the modular target detection
+    const result = this.targetDetection.detectTarget(event, this.activeConfig);
     
-    if (dropZone && this.activeConfig) {
-      const zoneId = dropZone.getAttribute('data-drop-zone');
-      const insertPosition = dropZone.getAttribute('data-insert-position');
-      const targetItemId = dropZone.getAttribute('data-item-id');
-      
-      if (zoneId && insertPosition) {
-        // Don't target ourselves UNLESS this is a valid reorder operation
-        // During live reordering, the dragged item moves to new positions, so we need to allow targeting it
-        if (targetItemId === this.activeConfig.item.id) {
-          // Only ignore if we're at the original source position 
-          // (i.e., no reordering has happened)
-          const isAtOriginalPosition = zoneId === this.activeConfig.zoneId && 
-                                     parseInt(insertPosition) === this.activeConfig.itemIndex;
-          
-          if (isAtOriginalPosition) {
-            console.log('🎯 Ignoring self-target at original position');
-            this.clearDropTarget();
-            return;
-          } else {
-            console.log('🎯 Allowing self-target during live reorder - item moved to new position');
-            // Continue with normal targeting logic
-          }
-        }
-        
-        // TYPE-AWARE LOGIC: Different behavior based on what's being dragged
-        if (this.activeConfig.itemType === 'section') {
-          this.handleSectionCardTarget(zoneId, insertPosition);
-        } else if (this.activeConfig.itemType === 'container') {
-          this.handleContainerCardTarget(zoneId, insertPosition);
-        }
+    if (result.isValidTarget && result.dropTarget) {
+      // Handle highlighting based on target type
+      if (result.shouldHighlight && result.highlightType === 'container' && result.dropTarget.containerId) {
+        this.highlighting.addContainerHighlight(result.dropTarget.containerId, 'active');
+      } else if (result.shouldHighlight && result.highlightType === 'section' && result.dropTarget.itemIndex !== undefined) {
+        this.highlighting.addSectionReorderHighlight(result.dropTarget.zoneId, result.dropTarget.itemIndex);
       }
     } else {
-      // No drop zone found - clear any existing drop target
-      console.log('🎯 No valid drop zone found, clearing target');
-      this.clearDropTarget();
+      // Clear any active highlights (but keep available ones)
+      this.highlighting.removeHighlightsByType('active');
+      this.highlighting.removeHighlightsByType('section-reorder');
     }
-  }
-
-  private handleSectionCardTarget(zoneId: string, insertPosition: string): void {
-    if (!this.activeConfig) return;
-
-    const targetIndex = parseInt(insertPosition);
-    
-    if (!isNaN(targetIndex)) {
-      const sourceIndex = this.activeConfig.itemIndex;
-      
-      console.log('🎯 Section CARD targeting:', {
-        sourceIndex,
-        targetIndex,
-        zoneId,
-        sourceZone: this.activeConfig.zoneId,
-        isSameZone: zoneId === this.activeConfig.zoneId
-      });
-      
-      // Same-container reordering
-      if (zoneId === this.activeConfig.zoneId) {
-        // Target the hovered card's position
-        if (targetIndex !== sourceIndex) {
-          console.log('🎯 Section reordering: target position', targetIndex);
-          this.updateDropTargetCallback({
-            zoneId,
-            itemIndex: targetIndex,
-            targetType: 'reorder'
-          });
-        } else {
-          console.log('🎯 No order change needed - targeting self');
-          this.clearDropTarget();
-        }
-      }
-      // Cross-container moves would be handled separately
-    }
-  }
-
-  private handleContainerCardTarget(zoneId: string, insertPosition: string): void {
-    if (!this.activeConfig) return;
-
-    const targetIndex = parseInt(insertPosition);
-    
-    if (!isNaN(targetIndex)) {
-      const sourceIndex = this.activeConfig.itemIndex;
-      
-      console.log('🎯 Container CARD targeting:', {
-        sourceIndex,
-        targetIndex,
-        zoneId,
-        sourceZone: this.activeConfig.zoneId
-      });
-      
-      // Same logic as sections - target the hovered card's position
-      if (zoneId === this.activeConfig.zoneId) {
-        if (targetIndex !== sourceIndex) {
-          console.log('🎯 Container reordering: target position', targetIndex);
-          this.updateDropTargetCallback({
-            zoneId,
-            itemIndex: targetIndex,
-            targetType: 'reorder'
-          });
-        } else {
-          this.clearDropTarget();
-        }
-      }
-    }
-  }
-
-  private clearDropTarget(): void {
-    // 🔧 FIX: Actually clear the drop target properly
-    console.log('🎯 Clearing drop target');
-    this.updateDropTargetCallback(null);
   }
 
   // Fallback distance calculation if DragCore method not available
@@ -342,5 +259,8 @@ export class DragDetection {
     this.activeConfig = null;
     this.startTime = 0;
     this.hasDragStarted = false;
+    
+    // Clean up all highlights
+    this.highlighting.cleanup();
   }
 }

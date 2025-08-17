@@ -87,7 +87,7 @@
 </script>
 
 <div class="section-grid">
-  <!-- List layout with DraggableContainers and live reordering -->
+  <!-- Grid layout with DraggableContainers and live reordering -->
   <div 
     class="section-list"
     data-section-grid={zoneId}
@@ -132,16 +132,19 @@
   .section-grid {
     position: relative;
     width: 100%;
+    overflow: visible; /* Prevent grid container from creating scrollbars */
   }
 
-  /* List layout */
+  /* Grid layout with auto-fit columns */
   .section-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+    gap: 1.5rem;
     width: 100%;
-    max-width: 800px;
+    /* Removed max-width - use full container width */
     margin: 0 auto;
+    padding: 0 1rem; /* Add consistent padding */
+    box-sizing: border-box; /* Include padding in width calculations */
   }
 
   /* Empty state */
@@ -160,17 +163,41 @@
 
   /* DraggableContainer specific styles */
   :global(.section-draggable-container) {
-    min-height: 120px;
+    width: 100%; /* Fill grid cell */
+    min-height: 200px; /* Minimum height */
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 12px; /* Slightly more rounded for grid */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column; /* Ensure proper content flow */
+    box-sizing: border-box; /* Include borders in size calculations */
   }
 
-  /* Responsive */
-  @media (max-width: 768px) {
+  /* Hover effect for grid cards */
+  :global(.section-draggable-container:not(.being-dragged):hover) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Responsive grid adjustments */
+  @media (max-width: 1024px) {
     .section-list {
-      max-width: 100%;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
       padding: 0 1rem;
+      gap: 1rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .section-list {
+      grid-template-columns: 1fr; /* Single column on mobile */
+      padding: 0 0.5rem;
+    }
+    
+    :global(.section-draggable-container) {
+      min-height: 180px; /* Shorter minimum on mobile */
     }
   }
 </style>

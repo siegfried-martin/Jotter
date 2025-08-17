@@ -68,8 +68,9 @@ export class SectionDragBehavior implements DragBehavior {
       draggedItem: draggedItem?.id
     });
 
-    // Cross-container highlight
+    // Cross-container highlight (Note Container drops)
     if (targetZone.startsWith('container-') && targetZone !== sourceZone) {
+      console.log('🎨 Creating cross-container highlight preview');
       return {
         type: 'highlight',
         targetZone
@@ -78,6 +79,7 @@ export class SectionDragBehavior implements DragBehavior {
 
     // Same-container reorder
     if (targetZone === sourceZone && targetIndex !== undefined && draggedItem) {
+      console.log('🎨 Creating same-container reorder preview');
       const visualLayout = this.createReorderLayout(items, targetIndex, draggedItem);
       
       return {
@@ -88,8 +90,9 @@ export class SectionDragBehavior implements DragBehavior {
       };
     }
 
-    // Different section grid (cross-container)
+    // Different section grid (cross-container section move)
     if (targetZone.startsWith('section-grid-') && targetZone !== sourceZone) {
+      console.log('🎨 Creating cross-section-grid highlight preview');
       return {
         type: 'highlight',
         targetZone
@@ -131,13 +134,32 @@ export class SectionDragBehavior implements DragBehavior {
   validateDrop(result: DropResult): boolean {
     // Basic validation
     if (!result.item || !result.sourceZone || !result.targetZone) {
+      console.warn('🚫 Invalid drop: missing required fields');
       return false;
     }
 
     // Can't drop on same position
     if (result.sourceZone === result.targetZone && 
         result.sourceIndex === result.targetIndex) {
+      console.warn('🚫 Invalid drop: same position');
       return false;
+    }
+
+    // Validate cross-container drops
+    if (result.targetZone.startsWith('container-')) {
+      const sourceContainerId = result.sourceZone.replace('section-grid-', '');
+      const targetContainerId = result.targetZone.replace('container-', '');
+      
+      if (sourceContainerId === targetContainerId) {
+        console.warn('🚫 Invalid drop: same container');
+        return false;
+      }
+      
+      console.log('✅ Valid cross-container drop:', {
+        from: sourceContainerId,
+        to: targetContainerId,
+        section: result.item.id
+      });
     }
 
     return true;
@@ -146,14 +168,21 @@ export class SectionDragBehavior implements DragBehavior {
   async onDrop(result: DropResult): Promise<void> {
     console.log('🎯 SectionDragBehavior handling drop:', result);
 
+    if (!this.validateDrop(result)) {
+      console.error('🚫 Drop validation failed');
+      return;
+    }
+
     if (result.targetType === 'highlight') {
-      // Cross-container move
+      // Cross-container move (either to container or different section grid)
+      console.log('🚀 Executing cross-container move');
       await this.onCrossContainerMove(result);
     } else if (result.targetType === 'reorder') {
       // Same-container reorder
+      console.log('🚀 Executing same-container reorder');
       await this.onReorder(result);
     } else {
-      console.warn('Unknown drop type:', result.targetType);
+      console.warn('❓ Unknown drop type:', result.targetType);
     }
   }
 }
@@ -166,12 +195,37 @@ export function createSectionDragBehavior(
   
   const handleReorder = async (result: DropResult) => {
     const containerId = result.sourceZone.replace('section-grid-', '');
+    console.log('🔄 Handling section reorder:', {
+      fromIndex: result.sourceIndex,
+      toIndex: result.targetIndex,
+      containerId
+    });
     await onReorder(result.sourceIndex, result.targetIndex!, containerId);
   };
 
   const handleCrossContainerMove = async (result: DropResult) => {
-    const fromContainer = result.sourceZone.replace('section-grid-', '');
-    const toContainer = result.targetZone.replace('container-', '');
+    let fromContainer: string;
+    let toContainer: string;
+    
+    // Handle both container-to-container and section-grid-to-container moves
+    if (result.sourceZone.startsWith('section-grid-')) {
+      fromContainer = result.sourceZone.replace('section-grid-', '');
+    } else {
+      fromContainer = result.sourceZone.replace('container-', '');
+    }
+    
+    if (result.targetZone.startsWith('container-')) {
+      toContainer = result.targetZone.replace('container-', '');
+    } else {
+      toContainer = result.targetZone.replace('section-grid-', '');
+    }
+    
+    console.log('🔄 Handling cross-container move:', {
+      sectionId: result.item.id,
+      fromContainer,
+      toContainer
+    });
+    
     await onCrossContainerMove(result.item.id, fromContainer, toContainer);
   };
 

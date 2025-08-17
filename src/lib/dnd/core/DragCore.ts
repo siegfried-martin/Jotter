@@ -1,5 +1,4 @@
 // src/lib/dnd/core/DragCore.ts
-import { writable, type Writable } from 'svelte/store';
 
 export interface Point {
   x: number;
@@ -10,204 +9,233 @@ export interface DropTarget {
   zoneId: string;
   itemIndex?: number;
   targetType: 'reorder' | 'highlight';
-}
-
-export interface DragState {
-  phase: 'idle' | 'detecting' | 'dragging';
-  item: any | null;
-  itemType: string | null;
-  sourceZone: string | null;
-  sourceIndex: number | null;
-  startPosition: Point | null;
-  currentPosition: Point | null;
-  dropTarget: DropTarget | null;
-  dragStartTime: number | null;
-  dragDistance: number; // NEW: Track total drag distance
+  containerId?: string; // NEW: For cross-container drops
 }
 
 export interface DropResult {
   item: any;
-  itemType: string;
+  itemType: string; // NEW: Include itemType for behavior registry
   sourceZone: string;
   sourceIndex: number;
   targetZone: string;
   targetIndex?: number;
   targetType: 'reorder' | 'highlight';
+  containerId?: string; // NEW: For cross-container drops
 }
 
-const initialState: DragState = {
-  phase: 'idle',
-  item: null,
-  itemType: null,
-  sourceZone: null,
-  sourceIndex: null,
-  startPosition: null,
-  currentPosition: null,
-  dropTarget: null,
-  dragStartTime: null,
-  dragDistance: 0,
-};
+export interface DragState {
+  phase: 'idle' | 'detection' | 'dragging';
+  item: any | null;
+  itemType: string | null;
+  sourceZone: string | null;
+  sourceIndex: number;
+  startPosition: Point | null;
+  currentPosition: Point | null;
+  dragDistance: number;
+  dropTarget: DropTarget | null;
+  ghostElement: HTMLElement | null;
+}
 
 export class DragCore {
-  private state: Writable<DragState> = writable(initialState);
-  private callbacks: Set<(state: DragState) => void> = new Set();
+  private state: DragState = {
+    phase: 'idle',
+    item: null,
+    itemType: null,
+    sourceZone: null,
+    sourceIndex: -1,
+    startPosition: null,
+    currentPosition: null,
+    dragDistance: 0,
+    dropTarget: null,
+    ghostElement: null
+  };
 
-  // Drag thresholds
-  private readonly DRAG_START_THRESHOLD = 5; // pixels to start drag
-  private readonly CLICK_MAX_DISTANCE = 8; // pixels - if total distance is less, consider it a click
+  private stateSubscribers: Array<(state: DragState) => void> = [];
+  private readonly DRAG_THRESHOLD = 8;
 
-  constructor() {
-    // Subscribe to state changes and notify callbacks
-    this.state.subscribe(state => {
-      this.callbacks.forEach(callback => callback(state));
-    });
-  }
-
-  // Public API for subscribing to state changes
-  subscribe(callback: (state: DragState) => void): () => void {
-    this.callbacks.add(callback);
-    return () => this.callbacks.delete(callback);
-  }
-
-  // Get current state (for Svelte store compatibility)
+  // Svelte store interface
   get store() {
-    return this.state;
+    return {
+      subscribe: (callback: (state: DragState) => void) => {
+        this.stateSubscribers.push(callback);
+        callback(this.state); // Send current state immediately
+        
+        return () => {
+          const index = this.stateSubscribers.indexOf(callback);
+          if (index > -1) {
+            this.stateSubscribers.splice(index, 1);
+          }
+        };
+      }
+    };
   }
 
-  // Start drag detection phase
-  startDetection(
-    item: any,
-    itemType: string,
-    sourceZone: string,
-    sourceIndex: number,
-    position: Point
-  ): void {
-    console.log('🎯 DragCore: Starting detection for', itemType, item.id || item.title);
+  private notifySubscribers(): void {
+    this.stateSubscribers.forEach(callback => callback({ ...this.state }));
+  }
+
+  startDetection(item: any, itemType: string, zoneId: string, itemIndex: number, position: Point): void {
+    console.log('🎯 DragCore: Starting detection phase', { item: item.id, itemType, zoneId, itemIndex });
     
-    this.state.update(state => ({
-      ...state,
-      phase: 'detecting',
+    this.state = {
+      phase: 'detection',
       item,
       itemType,
-      sourceZone,
-      sourceIndex,
+      sourceZone: zoneId,
+      sourceIndex: itemIndex,
       startPosition: position,
       currentPosition: position,
-      dragStartTime: Date.now(),
       dragDistance: 0,
-    }));
-  }
-
-  // Upgrade from detection to actual dragging
-  startDrag(): void {
-    console.log('🎯 DragCore: Upgrading to drag phase');
+      dropTarget: null,
+      ghostElement: null
+    };
     
-    this.state.update(state => {
-      if (state.phase !== 'detecting') {
-        console.warn('Cannot start drag from phase:', state.phase);
-        return state;
-      }
-      
-      return {
-        ...state,
-        phase: 'dragging',
-      };
-    });
+    this.notifySubscribers();
   }
 
-  // Update current mouse/touch position and calculate distance
   updatePosition(position: Point): void {
-    this.state.update(state => {
-      const distance = state.startPosition 
-        ? Math.sqrt(
-            Math.pow(position.x - state.startPosition.x, 2) + 
-            Math.pow(position.y - state.startPosition.y, 2)
-          )
-        : 0;
-
-      return {
-        ...state,
-        currentPosition: position,
-        dragDistance: distance,
-      };
-    });
+    if (this.state.phase === 'idle') return;
+    
+    this.state.currentPosition = position;
+    
+    if (this.state.startPosition) {
+      const deltaX = position.x - this.state.startPosition.x;
+      const deltaY = position.y - this.state.startPosition.y;
+      this.state.dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    }
+    
+    this.notifySubscribers();
   }
 
-  // Set the current drop target
-  setDropTarget(target: DropTarget | null): void {
-    this.state.update(state => ({
-      ...state,
-      dropTarget: target,
-    }));
-  }
-
-  // Check if the total drag distance qualifies as a click
-  shouldTriggerClick(): boolean {
-    const state = this.getCurrentState();
-    return state.dragDistance < this.CLICK_MAX_DISTANCE;
-  }
-
-  // Check if drag distance exceeds start threshold
   shouldStartDrag(): boolean {
-    const state = this.getCurrentState();
-    return state.dragDistance >= this.DRAG_START_THRESHOLD;
+    return this.state.phase === 'detection' && this.state.dragDistance >= this.DRAG_THRESHOLD;
   }
 
-  // End drag and return result
-  endDrag(): DropResult | null {
-    let result: DropResult | null = null;
+  shouldTriggerClick(): boolean {
+    return this.state.phase === 'detection' && this.state.dragDistance < this.DRAG_THRESHOLD;
+  }
+
+  startDrag(): void {
+    if (this.state.phase !== 'detection') return;
     
-    this.state.update(state => {
-      if (state.phase === 'dragging' && state.dropTarget && state.item) {
-        result = {
-          item: state.item,
-          itemType: state.itemType!,
-          sourceZone: state.sourceZone!,
-          sourceIndex: state.sourceIndex!,
-          targetZone: state.dropTarget.zoneId,
-          targetIndex: state.dropTarget.itemIndex,
-          targetType: state.dropTarget.targetType,
-        };
-        
-        console.log('🎯 DragCore: Drag ended with result:', result);
-      }
-      
-      return initialState;
+    console.log('🚀 DragCore: Starting drag phase', { 
+      item: this.state.item?.id, 
+      distance: this.state.dragDistance 
     });
     
+    this.state.phase = 'dragging';
+    this.notifySubscribers();
+  }
+
+  updateDropTarget(target: DropTarget | null): void {
+    if (this.state.phase !== 'dragging') return;
+    
+    console.log('🎯 DragCore: Updating drop target', target);
+    this.state.dropTarget = target;
+    this.notifySubscribers();
+  }
+
+  // Alias for backward compatibility
+  setDropTarget(target: DropTarget | null): void {
+    this.updateDropTarget(target);
+  }
+
+  setGhostElement(element: HTMLElement | null): void {
+    this.state.ghostElement = element;
+    this.notifySubscribers();
+  }
+
+  endDrag(): DropResult | null {
+    if (this.state.phase !== 'dragging') {
+      console.warn('⚠️ DragCore: Attempted to end drag when not dragging');
+      return null;
+    }
+
+    const result: DropResult | null = this.state.dropTarget ? {
+      item: this.state.item,
+      itemType: this.state.itemType!, // NEW: Include itemType in result
+      sourceZone: this.state.sourceZone!,
+      sourceIndex: this.state.sourceIndex,
+      targetZone: this.state.dropTarget.zoneId,
+      targetIndex: this.state.dropTarget.itemIndex,
+      targetType: this.state.dropTarget.targetType,
+      containerId: this.state.dropTarget.containerId // NEW: Include container ID
+    } : null;
+
+    console.log('🏁 DragCore: Ending drag', { result });
+
+    // Reset state
+    this.state = {
+      phase: 'idle',
+      item: null,
+      itemType: null,
+      sourceZone: null,
+      sourceIndex: -1,
+      startPosition: null,
+      currentPosition: null,
+      dragDistance: 0,
+      dropTarget: null,
+      ghostElement: null
+    };
+
+    this.notifySubscribers();
     return result;
   }
 
-  // Cancel drag without result
+  cancel(): void {
+    console.log('❌ DragCore: Canceling drag operation');
+    
+    this.state = {
+      phase: 'idle',
+      item: null,
+      itemType: null,
+      sourceZone: null,
+      sourceIndex: -1,
+      startPosition: null,
+      currentPosition: null,
+      dragDistance: 0,
+      dropTarget: null,
+      ghostElement: null
+    };
+    
+    this.notifySubscribers();
+  }
+
+  // Alias for backward compatibility
   cancelDrag(): void {
-    console.log('🎯 DragCore: Drag cancelled');
-    this.state.set(initialState);
+    this.cancel();
   }
 
-  // Get current state snapshot
+  // Getter methods for external access
+  get currentState(): DragState {
+    return { ...this.state };
+  }
+
+  // Method for backward compatibility with DragProvider
   getCurrentState(): DragState {
-    let currentState: DragState = initialState;
-    this.state.subscribe(state => { currentState = state; })();
-    return currentState;
+    return { ...this.state };
   }
 
-  // Check if currently dragging a specific item type
+  // Method overload for backward compatibility with DragProvider
   isDragging(itemType?: string): boolean {
-    const state = this.getCurrentState();
-    return state.phase === 'dragging' && 
-           (itemType ? state.itemType === itemType : true);
+    if (itemType) {
+      return this.state.phase === 'dragging' && this.state.itemType === itemType;
+    }
+    return this.state.phase === 'dragging';
   }
 
-  // Check if currently detecting a specific item type
   isDetecting(itemType?: string): boolean {
-    const state = this.getCurrentState();
-    return state.phase === 'detecting' && 
-           (itemType ? state.itemType === itemType : true);
+    if (itemType) {
+      return this.state.phase === 'detection' && this.state.itemType === itemType;
+    }
+    return this.state.phase === 'detection';
   }
 
-  // Check if in any active drag state
-  isActive(): boolean {
-    const state = this.getCurrentState();
-    return state.phase !== 'idle';
+  get draggedItem(): any | null {
+    return this.state.item;
+  }
+
+  get draggedItemType(): string | null {
+    return this.state.itemType;
   }
 }

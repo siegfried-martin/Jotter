@@ -1,8 +1,13 @@
 <!-- src/lib/components/containers/ContainerItem.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { dragStore, dragActions, type DragItemType } from '$lib/stores/dragStore.DELETE';
+  import { dragStore } from '$lib/stores/dragStore.DELETE';
   import type { NoteContainer } from '$lib/types';
+  
+  // Import helper modules
+  import { createContainerItemLogic } from './ContainerItemLogic';
+  import { createContainerItemStyles } from './ContainerItemStyles';
+  import { createContainerItemDrop } from './ContainerItemDrop';
 
   export let container: NoteContainer;
   export let isSelected: boolean = false;
@@ -11,116 +16,58 @@
   export let isDragOver: boolean = false;
   export let itemIndex: number;
 
-  const dispatch = createEventDispatcher<{
-    select: NoteContainer;
-    delete: string;
-    crossContainerDrop: {
-      sectionId: string;
-      fromContainer: string;
-      toContainer: string;
-    };
-  }>();
+  const dispatch = createEventDispatcher();
 
-  // Cross-container drop support
-  $: isDragTarget = $dragStore.isDragging && 
-                   $dragStore.dragOverTargetContainer === container.id && 
-                   $dragStore.dragOverTargetType === 'container';
-  $: isReceivingDrag = $dragStore.isDragging && 
-                      $dragStore.draggedFromContainer !== container.id &&
-                      $dragStore.draggedItem;
+  // Initialize helper modules
+  const logic = createContainerItemLogic(container, dispatch);
+  const styles = createContainerItemStyles(container);
+  const drop = createContainerItemDrop(container, itemIndex);
 
-  // Handle clicks - this will be called by DraggableItem's click handler
-  function handleClick() {
-    if (!$dragStore.isDragging) {
-      dispatch('select', container);
-    }
-  }
+  // Reactive state calculations using helpers
+  $: isDragTarget = logic.getIsDragTarget();
+  $: isReceivingDrag = logic.getIsReceivingDrag();
+  $: isAnyItemBeingDragged = logic.getIsAnyItemBeingDragged();
 
-  // Handle container selection when clicked via DraggableItem
-  function handleContainerClick() {
-    handleClick();
-  }
+  // Style calculations
+  $: styleConfig = {
+    isSelected,
+    isCollapsed,
+    isDragging,
+    isDragOver,
+    isDragTarget,
+    isReceivingDrag,
+    isAnyItemBeingDragged
+  };
+  
+  $: containerClasses = styles.getContainerClasses(styleConfig);
+  $: wrapperClasses = styles.getWrapperClasses(styleConfig);
+  $: contentWrapperClasses = styles.getContentWrapperClasses(styleConfig);
+  $: containerColor = styles.getContainerColor();
+  $: avatarConfig = styles.getAvatarConfig(isCollapsed);
+  
+  // Drop attributes
+  $: dropAttributes = drop.getDropAttributes();
+  $: dropTitle = drop.getDropTitle(isCollapsed, isReceivingDrag);
 
-  function handleMouseEnter() {
-    if (isReceivingDrag) {
-      //dragActions.setDragOverTarget(container.id, 'container');
-    }
-  }
-
-  function handleMouseLeave() {
-    if (isDragTarget) {
-      //dragActions.setDragOverTarget(null, null);
-    }
-  }
-
-  function handleDeleteClick(event: MouseEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    dispatch('delete', container.id);
-  }
-
-  // Handle cross-container drop when in receiving mode
-  function handleDropTarget() {
-    if (isDragTarget && $dragStore.draggedItem) {
-      dispatch('crossContainerDrop', {
-        sectionId: $dragStore.draggedItem.id,
-        fromContainer: $dragStore.draggedFromContainer!,
-        toContainer: container.id
-      });
-      
-      dragActions.endDrag();
-    }
-  }
-
-  function formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${Math.floor(diffHours)} hours ago`;
-    if (diffDays < 2) return 'Yesterday';
-    return `${Math.floor(diffDays)} days ago`;
-  }
-
-  // Get a color based on the container title for consistency
-  function getContainerColor(title: string): string {
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 
-      'bg-yellow-500', 'bg-indigo-500', 'bg-red-500', 'bg-teal-500'
-    ];
-    const hash = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }
-
-  $: containerColor = getContainerColor(container.title);
+  // Visibility helpers
+  $: showDeleteButton = styles.shouldShowDeleteButton(styleConfig);
+  $: showDragHandle = styles.shouldShowDragHandle(styleConfig);
+  $: showDropIndicator = styles.shouldShowDropIndicator(styleConfig);
+  $: showDragIndicator = styles.shouldShowDragIndicator(styleConfig);
+  $: showActivityIndicator = styles.shouldShowActivityIndicator(styleConfig);
 </script>
 
-<div class="group relative">
+<div class={wrapperClasses}>
   <div 
-    class="container-item {
-      isSelected 
-        ? 'selected' 
-        : isDragTarget
-        ? 'drag-target'
-        : isReceivingDrag
-        ? 'receiving-drag'
-        : 'default'
-    } {isCollapsed ? 'collapsed' : 'expanded'}"
-    class:dragging={isDragging}
-    class:drag-over={isDragOver}
-    data-drop-zone="container"
-    data-container-id="container-list"
-    data-item-index={itemIndex}
-    on:click={handleContainerClick}
-    on:mouseenter={handleMouseEnter}
-    on:mouseleave={handleMouseLeave}
-    title={isCollapsed ? container.title : ''}
+    class={containerClasses}
+    {...dropAttributes}
+    on:click={logic.handleContainerClick}
+    on:mouseenter={logic.handleMouseEnter}
+    on:mouseleave={logic.handleMouseLeave}
+    title={dropTitle}
   >
     {#if isCollapsed}
-      <!-- Improved Collapsed View -->
+      <!-- Collapsed View -->
       <div class="collapsed-content">
         <div class="avatar {containerColor}">
           <span class="avatar-text">
@@ -129,10 +76,12 @@
         </div>
         
         <!-- Activity indicator -->
-        <div class="activity-indicator {isSelected ? 'active' : ''}"></div>
+        {#if showActivityIndicator}
+          <div class="activity-indicator {isSelected ? 'active' : ''}"></div>
+        {/if}
         
         <!-- Drag indicator for receiving drag -->
-        {#if isReceivingDrag}
+        {#if showDragIndicator}
           <div class="drag-indicator">
             <svg class="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -144,7 +93,7 @@
       <!-- Expanded View -->
       <div class="expanded-content">
         <!-- Drag Handle (visible on hover, hidden during section drag) -->
-        {#if !isReceivingDrag}
+        {#if showDragHandle}
           <div class="drag-handle">
             <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 6h2v2H8V6zm6 0h2v2h-2V6zM8 10h2v2H8v-2zm6 0h2v2h-2v-2zM8 14h2v2H8v-2zm6 0h2v2h-2v-2z"/>
@@ -152,7 +101,7 @@
           </div>
         {/if}
         
-        <div class="content-wrapper {!isReceivingDrag ? 'with-handle' : 'no-handle'}">
+        <div class={contentWrapperClasses}>
           <div class="title-section">
             <div class="avatar-small {containerColor}">
               <span class="avatar-text-small">
@@ -164,23 +113,23 @@
             </div>
           </div>
           <div class="date-text">
-            {formatDate(container.updated_at)}
+            {logic.formatDate(container.updated_at)}
           </div>
         </div>
         
         <!-- Drop target indicator -->
-        {#if isDragTarget}
-          <div class="drop-indicator" on:click={handleDropTarget}></div>
+        {#if showDropIndicator}
+          <div class="drop-indicator" on:click={logic.handleDropTarget}></div>
         {/if}
       </div>
     {/if}
   </div>
   
   <!-- Delete button for expanded mode -->
-  {#if !isCollapsed && !isReceivingDrag}
+  {#if showDeleteButton}
     <button 
       class="delete-button"
-      on:click={handleDeleteClick}
+      on:click={logic.handleDeleteClick}
       title="Delete note"
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,7 +151,7 @@
   /* Base States */
   .container-item.default {
     background: white;
-    border: 1px solid #e5e7eb;
+    border: 2px solid transparent; /* Always have a 2px border, just transparent */
   }
 
   .container-item.default:hover {
@@ -212,21 +161,55 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
+  /* Disable hover effects when any item is being dragged */
+  .dragging-disabled .container-item.default:hover {
+    background: white !important;
+    border-color: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Disable delete button visibility when dragging */
+  .dragging-disabled .delete-button {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Disable drag handle visibility when section is being dragged */
+  .dragging-disabled .drag-handle {
+    opacity: 0 !important;
+  }
+
   .container-item.selected {
     background: #eff6ff;
-    border: 1px solid #3b82f6;
+    border: 2px solid #3b82f6; /* Keep 2px border */
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
   .container-item.drag-target {
     background: #eff6ff;
-    border: 2px solid #3b82f6;
+    border: 2px solid #3b82f6; /* Keep 2px border */
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
   }
 
   .container-item.receiving-drag {
     background: #f0f9ff;
-    border: 2px dashed #0ea5e9;
+    border: 2px dashed #0ea5e9; /* Keep 2px border */
+  }
+
+  /* NEW: Two-stage cross-container drop highlighting */
+  .container-item.section-drop-target-available {
+    background: #f0f9ff !important;
+    border: 2px dashed #3b82f6 !important; /* Keep 2px border */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+    transform: scale(1.01);
+  }
+
+  .container-item.section-drop-target-active {
+    background: #dbeafe !important;
+    border: 2px solid #3b82f6 !important; /* Keep 2px border, make it solid and thicker shadow */
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
+    transform: scale(1.03);
   }
 
   /* Drag states from DraggableItem */
@@ -236,7 +219,6 @@
   }
 
   .container-item.drag-over {
-    /* Visual feedback for drag over - can customize as needed */
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
   }
 
@@ -318,7 +300,7 @@
 
   .content-wrapper {
     flex: 1;
-    min-width: 0; /* Allow text truncation */
+    min-width: 0;
   }
 
   .content-wrapper.with-handle {
@@ -362,7 +344,7 @@
   .date-text {
     font-size: 12px;
     color: #6b7280;
-    margin-left: 28px; /* Align with title text */
+    margin-left: 28px;
   }
 
   .drop-indicator {

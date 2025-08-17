@@ -74,6 +74,14 @@
     position: relative;
     transition: opacity 0.2s ease, transform 0.2s ease;
     width: 100%;
+    
+    /* 🔧 UNIVERSAL FIX: Hide any content that overflows container boundaries */
+    visibility: hidden;
+  }
+
+  /* Make the slot content visible */
+  .draggable-container > :global(*) {
+    visibility: visible;
   }
 
   /* Being dragged - semi-transparent but stays in place */

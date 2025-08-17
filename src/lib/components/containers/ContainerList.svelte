@@ -50,7 +50,7 @@
       return originalContainers;
     }
 
-    console.log('🔄 Creating visual layout preview:', {
+    console.log('ðŸ”„ Creating visual layout preview:', {
       draggedId,
       dragOverIndex,
       originalLength: originalContainers.length
@@ -67,7 +67,7 @@
     const newContainers = [...containersWithoutDragged];
     newContainers.splice(dragOverIndex, 0, draggedContainer);
 
-    console.log('✅ Visual preview created:', newContainers.map(c => c.title));
+    console.log('âœ… Visual preview created:', newContainers.map(c => c.title));
 
     return newContainers;
   }
@@ -84,12 +84,12 @@
   const containerDnD = useNoteContainerDnD({
     collectionId,
     onSuccess: (updatedContainers) => {
-      console.log('✅ Container reorder completed from server, updating containers');
+      console.log('âœ… Container reorder completed from server, updating containers');
       // Update local state with server response
       containers = updatedContainers;
     },
     onError: (error) => {
-      console.error('❌ Container reorder failed:', error);
+      console.error('âŒ Container reorder failed:', error);
       isReordering = false;
     }
   });
@@ -102,7 +102,7 @@
     toContainer: string;
     toIndex: number;
   }>) {
-    console.log('🎯 Container reorder event received:', event.detail);
+    console.log('ðŸŽ¯ Container reorder event received:', event.detail);
 
     if (isReordering || isReceivingSectionDrag) return;
     
@@ -110,7 +110,7 @@
     
     // Same container reordering only for now
     if (fromIndex === toIndex) {
-      console.log('👆 No reorder needed - same position');
+      console.log('ðŸ‘† No reorder needed - same position');
       return;
     }
 
@@ -120,13 +120,13 @@
     const originalContainers = [...containers];
 
     try {
-      console.log(`🎯 Optimistically reordering container from ${fromIndex} to ${toIndex}`);
+      console.log(`ðŸŽ¯ Optimistically reordering container from ${fromIndex} to ${toIndex}`);
       
       // 1. OPTIMISTICALLY update local state first (prevents flicker)
       const newContainers = reorderArray(containers, fromIndex, toIndex);
       containers = newContainers;
       
-      console.log('🎯 Optimistic reorder applied, now updating server...');
+      console.log('ðŸŽ¯ Optimistic reorder applied, now updating server...');
       
       // 2. Dispatch the reorder event immediately for UI responsiveness
       dispatch('reorder', { fromIndex, toIndex });
@@ -134,13 +134,13 @@
       // 3. THEN update server via composable
       await containerDnD.handleReorder(fromIndex, toIndex);
       
-      console.log('✅ Container reorder completed on server');
+      console.log('âœ… Container reorder completed on server');
       
     } catch (error) {
-      console.error('❌ Failed to reorder containers:', error);
+      console.error('âŒ Failed to reorder containers:', error);
       
       // ROLLBACK optimistic update on error
-      console.log('🔄 Rolling back optimistic reorder due to error');
+      console.log('ðŸ”„ Rolling back optimistic reorder due to error');
       containers = originalContainers;
       
     } finally {
@@ -199,7 +199,7 @@
         containerId="container-list"
         disabled={false}
         on:reorder={handleReorder}
-        on:click={(e) => console.log('🖱️ DraggableItem click:', e.detail)}
+        on:click={(e) => console.log('ðŸ–±ï¸ DraggableItem click:', e.detail)}
       >
         <svelte:fragment slot="default" let:item let:isDragging let:isDragOver let:itemIndex>
           <ContainerItem
