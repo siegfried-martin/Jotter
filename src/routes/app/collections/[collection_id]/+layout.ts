@@ -1,5 +1,6 @@
 // src/routes/app/collections/[collection_id]/+layout.ts
-import { error, redirect } from '@sveltejs/kit';
+import { browser } from '$app/environment';
+import { error } from '@sveltejs/kit';
 import { CollectionService } from '$lib/services/collectionService';
 import { NoteService } from '$lib/services/noteService';
 import { UserService } from '$lib/services/userService';
@@ -8,6 +9,19 @@ import type { LayoutLoad } from './$types';
 export const load: LayoutLoad = async ({ params }) => {
   const collectionId = params.collection_id;
   console.log('🔍 Layout loader started for collection:', collectionId);
+  
+  // Only run data loading in the browser where auth tokens are available
+  if (!browser) {
+    console.log('📄 Server-side render: returning minimal data');
+    return {
+      collection: null,
+      containers: [],
+      collections: [],
+      lastVisitedContainerId: null,
+      collectionId,
+      isServerSide: true
+    };
+  }
   
   try {
     // Load each service individually with specific error handling
@@ -18,13 +32,6 @@ export const load: LayoutLoad = async ({ params }) => {
       console.log('✅ Collection loaded:', collection?.name || 'null');
     } catch (err) {
       console.error('❌ Collection loading failed:', err);
-      
-      // If user not authenticated, redirect to login instead of showing error
-      if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-        console.log('🔄 User not authenticated, redirecting to login');
-        throw redirect(302, '/');
-      }
-      
       throw error(404, `Collection not found: ${err.message}`);
     }
 
@@ -40,14 +47,6 @@ export const load: LayoutLoad = async ({ params }) => {
       console.log('✅ Containers loaded:', containers?.length || 0, 'containers');
     } catch (err) {
       console.error('❌ Containers loading failed:', err);
-      
-      // If user not authenticated, redirect to login
-      if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-        console.log('🔄 User not authenticated, redirecting to login');
-        throw redirect(302, '/');
-      }
-      
-      // For other errors, use empty array
       containers = [];
       console.warn('⚠️ Using empty containers array due to error');
     }
@@ -59,14 +58,6 @@ export const load: LayoutLoad = async ({ params }) => {
       console.log('✅ Collections list loaded:', collections?.length || 0, 'collections');
     } catch (err) {
       console.error('❌ Collections list loading failed:', err);
-      
-      // If user not authenticated, redirect to login
-      if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-        console.log('🔄 User not authenticated, redirecting to login');
-        throw redirect(302, '/');
-      }
-      
-      // For other errors, use empty array
       collections = [];
       console.warn('⚠️ Using empty collections array due to error');
     }
@@ -78,14 +69,6 @@ export const load: LayoutLoad = async ({ params }) => {
       console.log('✅ Last visited container:', lastVisitedContainerId || 'none');
     } catch (err) {
       console.warn('⚠️ Could not get last visited container:', err);
-      
-      // If user not authenticated, redirect to login
-      if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-        console.log('🔄 User not authenticated, redirecting to login');
-        throw redirect(302, '/');
-      }
-      
-      // This is non-critical, continue without it
     }
 
     const result = {
@@ -93,7 +76,8 @@ export const load: LayoutLoad = async ({ params }) => {
       containers: containers || [],
       collections: collections || [],
       lastVisitedContainerId,
-      collectionId
+      collectionId,
+      isServerSide: false
     };
     
     console.log('✅ Layout loader completed successfully:', {
@@ -112,7 +96,7 @@ export const load: LayoutLoad = async ({ params }) => {
       collectionId
     });
     
-    // Re-throw SvelteKit errors (including redirects)
+    // Re-throw SvelteKit errors
     if (err.status) throw err;
     
     // Convert unknown errors to 500

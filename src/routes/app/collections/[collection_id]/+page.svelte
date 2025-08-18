@@ -34,28 +34,8 @@
       if (containers.length === 0) {
         console.log('📝 Collection is empty, showing create first note UI');
         
-        // If we have a last visited container, it's in a different collection
-        if (lastVisitedContainerId) {
-          console.log('🔄 Last visited container is in different collection, checking...');
-          
-          try {
-            // Check which collection the last visited container belongs to
-            const containerCollectionId = await UserService.getContainerCollection(lastVisitedContainerId);
-            
-            if (containerCollectionId && containerCollectionId !== collectionId) {
-              console.log('🚀 Redirecting to correct collection for last visited container');
-              redirectStatus = 'Redirecting to your last visited note...';
-              
-              // Redirect to the correct collection with the container
-              const correctUrl = `/app/collections/${containerCollectionId}/containers/${lastVisitedContainerId}`;
-              await goto(correctUrl, { replaceState: true });
-              return; // Exit early
-            }
-          } catch (error) {
-            console.warn('⚠️ Could not check container collection:', error);
-            // Continue with empty collection logic
-          }
-        }
+        // REMOVED: No longer redirect to different collections
+        // Users who navigate to an empty collection should see the empty state
         
         redirectStatus = 'No notes found. Please create your first note.';
         isRedirecting = false;
@@ -66,7 +46,7 @@
       let targetContainerId: string;
       
       if (lastVisitedContainerId) {
-        // Check if last visited container exists IN THIS COLLECTION
+        // Check if last visited container exists IN THIS COLLECTION ONLY
         const lastVisitedContainer = containers.find(c => c.id === lastVisitedContainerId);
         
         if (lastVisitedContainer) {
@@ -74,29 +54,12 @@
           redirectStatus = `Redirecting to last visited note: ${lastVisitedContainer.title}...`;
           console.log('✅ Using last visited container in this collection:', lastVisitedContainer.title);
         } else {
-          console.log('🔄 Last visited container not in this collection, checking if it exists elsewhere...');
+          // CHANGED: Don't check other collections - just use first container in THIS collection
+          console.log('🔄 Last visited container not in this collection, using first container');
           
-          try {
-            // Check if the last visited container exists in a different collection
-            const containerCollectionId = await UserService.getContainerCollection(lastVisitedContainerId);
-            
-            if (containerCollectionId && containerCollectionId !== collectionId) {
-              console.log('🚀 Last visited container found in different collection, redirecting...');
-              redirectStatus = 'Redirecting to your last visited note...';
-              
-              // Redirect to the correct collection
-              const correctUrl = `/app/collections/${containerCollectionId}/containers/${lastVisitedContainerId}`;
-              await goto(correctUrl, { replaceState: true });
-              return; // Exit early
-            }
-          } catch (error) {
-            console.warn('⚠️ Could not check container collection:', error);
-          }
-          
-          // Last visited container doesn't exist or error occurred, use first container
           targetContainerId = containers[0].id;
           redirectStatus = `Redirecting to first note: ${containers[0].title}...`;
-          console.log('⚠️ Using first container in this collection');
+          console.log('ℹ️ Using first container in this collection');
           
           // Update last visited to the first container in this collection
           try {

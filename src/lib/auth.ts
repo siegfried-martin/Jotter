@@ -1,70 +1,62 @@
-// src/lib/auth.ts
+// src/lib/auth.ts - SIMPLIFIED VERSION
 import { supabase } from './supabase';
 import { writable } from 'svelte/store';
 import type { User, Session } from '@supabase/supabase-js';
-import { goto } from '$app/navigation';
-import { NavigationService } from '$lib/services/navigationService';
 import { browser } from '$app/environment';
 
-// Auth store
+// Auth store - ONLY handles authentication state
 interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  initialized: boolean;
 }
 
 export const authStore = writable<AuthState>({
   user: null,
   session: null,
-  loading: true
+  loading: true,
+  initialized: false
 });
 
-// Track initialization to prevent navigation loops
-let isInitialized = false;
-
-// Initialize auth state
+// Initialize auth state - NO NAVIGATION LOGIC
 export const initAuth = async () => {
   try {
+    console.log('🔐 Initializing auth system...');
+    
+    // Get initial session
     const { data: { session } } = await supabase.auth.getSession();
+    
+    // Set initial state
     authStore.set({
       user: session?.user ?? null,
       session,
-      loading: false
+      loading: false,
+      initialized: true
     });
+    
+    console.log('🔐 Auth initialized:', { hasUser: !!session?.user });
 
-    // Listen for auth changes
+    // Listen for auth changes - ONLY update state
     supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔐 Auth state change:', event, !!session?.user);
+      console.log('🔐 Auth state change:', event, { hasUser: !!session?.user });
       
       authStore.set({
         user: session?.user ?? null,
         session,
-        loading: false
+        loading: false,
+        initialized: true
       });
-      // Only navigate on actual sign-in/sign-out events, not token refreshes
-      if (browser && isInitialized) {
-        if (event === 'INITIAL_SESSION') {
-          console.log('🔐 Redirecting to app after sign-in');
-          // Redirect now handled by the app page onMount
-          // NavigationService.redirectToLastVisited();
-        } else if (event === 'SIGNED_OUT') {
-          console.log('🔐 Redirecting to home after sign-out');
-          goto('/');
-        }
-        // Ignore TOKEN_REFRESHED, INITIAL_SESSION, and other events
-      }
     });
     
-    // Mark as initialized after the first auth check
-    isInitialized = true;
   } catch (error) {
-    console.error('Auth initialization error:', error);
+    console.error('🔐 Auth initialization error:', error);
     authStore.set({
       user: null,
       session: null,
-      loading: false
+      loading: false,
+      initialized: true
     });
-    isInitialized = true;
   }
 };
 
@@ -104,7 +96,7 @@ export const signOut = async () => {
 
 // Helper to check if user is authenticated
 export const isAuthenticated = (authState: AuthState): boolean => {
-  return !authState.loading && authState.user !== null;
+  return authState.initialized && !authState.loading && authState.user !== null;
 };
 
 // Helper to get user info

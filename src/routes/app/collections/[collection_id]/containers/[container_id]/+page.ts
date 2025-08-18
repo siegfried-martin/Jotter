@@ -1,5 +1,6 @@
 // src/routes/app/collections/[collection_id]/containers/[container_id]/+page.ts
-import { error, redirect } from '@sveltejs/kit';
+import { browser } from '$app/environment';
+import { error } from '@sveltejs/kit';
 import { NoteService } from '$lib/services/noteService';
 import { SectionService } from '$lib/services/sectionService';
 import { UserService } from '$lib/services/userService';
@@ -10,6 +11,19 @@ export const load: PageLoad = async ({ params, parent }) => {
     collectionId: params.collection_id,
     containerId: params.container_id
   });
+  
+  // Only run data loading in the browser where auth tokens are available
+  if (!browser) {
+    console.log('📄 Server-side render: returning minimal data');
+    return {
+      container: null,
+      sections: [],
+      collection: null,
+      containers: [],
+      collectionId: params.collection_id,
+      isServerSide: true
+    };
+  }
   
   try {
     const collectionId = params.collection_id;
@@ -33,18 +47,27 @@ export const load: PageLoad = async ({ params, parent }) => {
       console.log('✅ Layout data loaded:', {
         hasCollection: !!layoutData.collection,
         containerCount: layoutData.containers?.length || 0,
-        collectionName: layoutData.collection?.name
+        collectionName: layoutData.collection?.name,
+        isServerSide: layoutData.isServerSide
       });
     } catch (err) {
       console.error('❌ Parent layout data failed:', err);
-      
-      // If authentication issue, redirect to login
-      if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-        console.log('🔄 User not authenticated, redirecting to login');
-        throw redirect(302, '/');
-      }
-      
       throw err; // Re-throw other errors
+    }
+    
+    // If parent was server-side rendered, we need to load the data client-side
+    if (layoutData.isServerSide) {
+      console.log('📡 Parent was server-side, loading layout data client-side...');
+      // This will re-trigger the layout loader in the browser
+      window.location.reload();
+      return {
+        container: null,
+        sections: [],
+        collection: null,
+        containers: [],
+        collectionId,
+        isServerSide: true
+      };
     }
     
     // Verify the container exists in this collection
@@ -67,13 +90,6 @@ export const load: PageLoad = async ({ params, parent }) => {
       })
       .catch(err => {
         console.error('❌ Container loading failed:', err);
-        
-        // If authentication issue, redirect to login
-        if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-          console.log('🔄 User not authenticated, redirecting to login');
-          throw redirect(302, '/');
-        }
-        
         throw err;
       });
     
@@ -84,13 +100,6 @@ export const load: PageLoad = async ({ params, parent }) => {
       })
       .catch(err => {
         console.error('❌ Sections loading failed:', err);
-        
-        // If authentication issue, redirect to login
-        if (err.message?.includes('User not authenticated') || err.message?.includes('not authenticated')) {
-          console.log('🔄 User not authenticated, redirecting to login');
-          throw redirect(302, '/');
-        }
-        
         throw err;
       });
     
@@ -115,7 +124,8 @@ export const load: PageLoad = async ({ params, parent }) => {
       sections: sections || [],
       collection: layoutData.collection,
       containers: layoutData.containers,
-      collectionId
+      collectionId,
+      isServerSide: false
     };
     
     console.log('✅ Container page loader completed successfully:', {
@@ -133,7 +143,7 @@ export const load: PageLoad = async ({ params, parent }) => {
       params
     });
     
-    // Re-throw SvelteKit errors (including redirects)
+    // Re-throw SvelteKit errors
     if (err.status) throw err;
     
     throw error(500, `Failed to load container: ${err.message}`);
