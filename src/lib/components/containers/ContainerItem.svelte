@@ -1,13 +1,11 @@
 <!-- src/lib/components/containers/ContainerItem.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { dragStore } from '$lib/stores/dragStore.DELETE';
+  import { createEventDispatcher, getContext } from 'svelte';
   import type { NoteContainer } from '$lib/types';
   
-  // Import helper modules
+  // Import helper modules (keeping the ones that don't conflict)
   import { createContainerItemLogic } from './ContainerItemLogic';
   import { createContainerItemStyles } from './ContainerItemStyles';
-  import { createContainerItemDrop } from './ContainerItemDrop';
 
   export let container: NoteContainer;
   export let isSelected: boolean = false;
@@ -18,25 +16,38 @@
 
   const dispatch = createEventDispatcher();
 
-  // Initialize helper modules
+  // Get drag context to detect section drags
+  const dragContext = getContext('drag');
+  const { dragCore } = dragContext || {};
+  $: dragState = dragCore?.store;
+
+  // Initialize helper modules (but skip drop module since DraggableContainer handles container drops)
   const logic = createContainerItemLogic(container, dispatch);
   const styles = createContainerItemStyles(container);
-  const drop = createContainerItemDrop(container, itemIndex);
 
-  // Reactive state calculations using helpers
-  $: isDragTarget = logic.getIsDragTarget();
-  $: isReceivingDrag = logic.getIsReceivingDrag();
-  $: isAnyItemBeingDragged = logic.getIsAnyItemBeingDragged();
+  // Section drop detection - only for sections being dragged to this container
+  $: isReceivingSectionDrag = $dragState?.phase === 'dragging' && 
+                              $dragState?.itemType === 'section';
+  
+  // Check if this container is a valid drop target for the dragged section
+  $: isSectionDropTarget = isReceivingSectionDrag && 
+                          $dragState?.sourceZone && 
+                          $dragState.sourceZone !== `container-${container.id}`;
+  
+  // Check if actively hovering over this container during section drag
+  $: isSectionDropActive = isSectionDropTarget &&
+                          $dragState?.dropTarget?.zoneId === `container-${container.id}`;
 
-  // Style calculations
+  // Style calculations (updated to handle section drop states)
   $: styleConfig = {
     isSelected,
     isCollapsed,
     isDragging,
     isDragOver,
-    isDragTarget,
-    isReceivingDrag,
-    isAnyItemBeingDragged
+    isDragTarget: isSectionDropTarget, // Available for section drop
+    isReceivingDrag: isReceivingSectionDrag,
+    isAnyItemBeingDragged: $dragState?.phase === 'dragging',
+    isSectionDropActive // Actively being hovered during section drag
   };
   
   $: containerClasses = styles.getContainerClasses(styleConfig);
@@ -45,25 +56,52 @@
   $: containerColor = styles.getContainerColor();
   $: avatarConfig = styles.getAvatarConfig(isCollapsed);
   
-  // Drop attributes
-  $: dropAttributes = drop.getDropAttributes();
-  $: dropTitle = drop.getDropTitle(isCollapsed, isReceivingDrag);
+  // Section drop attributes (keep these for section → container drops)
+  $: sectionDropAttributes = isReceivingSectionDrag ? {
+    'data-drop-zone': `container-${container.id}`,
+    'data-container-id': container.id
+  } : {};
+  
+  $: dropTitle = isReceivingSectionDrag && isCollapsed 
+    ? `Drop section in ${container.title}` 
+    : container.title;
 
   // Visibility helpers
   $: showDeleteButton = styles.shouldShowDeleteButton(styleConfig);
-  $: showDragHandle = styles.shouldShowDragHandle(styleConfig);
-  $: showDropIndicator = styles.shouldShowDropIndicator(styleConfig);
-  $: showDragIndicator = styles.shouldShowDragIndicator(styleConfig);
+  $: showDragHandle = false; // DraggableContainer handles this now
+  $: showDropIndicator = isReceivingSectionDrag && !isCollapsed && isSectionDropActive;
+  $: showDragIndicator = isReceivingSectionDrag && isCollapsed && isSectionDropActive;
   $: showActivityIndicator = styles.shouldShowActivityIndicator(styleConfig);
+
+  // Handle section drops (keep this functionality)
+  function handleSectionDrop(event: MouseEvent) {
+    if (isReceivingSectionDrag && $dragState?.item) {
+      const fromContainer = $dragState.sourceZone?.replace('section-grid-', '');
+      if (fromContainer && fromContainer !== container.id) {
+        dispatch('crossContainerDrop', {
+          sectionId: $dragState.item.id,
+          fromContainer,
+          toContainer: container.id
+        });
+      }
+    }
+  }
+
+  // Container selection (simplified - no conflict with drag events)
+  function handleContainerClick(event: MouseEvent) {
+    // Only allow selection if not currently dragging containers
+    if (!($dragState?.phase === 'dragging' && $dragState?.itemType === 'container')) {
+      dispatch('select', container);
+    }
+  }
 </script>
 
 <div class={wrapperClasses}>
   <div 
     class={containerClasses}
-    {...dropAttributes}
-    on:click={logic.handleContainerClick}
-    on:mouseenter={logic.handleMouseEnter}
-    on:mouseleave={logic.handleMouseLeave}
+    {...sectionDropAttributes}
+    on:click={handleContainerClick}
+    on:mouseup={handleSectionDrop}
     title={dropTitle}
   >
     {#if isCollapsed}
@@ -80,7 +118,7 @@
           <div class="activity-indicator {isSelected ? 'active' : ''}"></div>
         {/if}
         
-        <!-- Drag indicator for receiving drag -->
+        <!-- Section drag indicator -->
         {#if showDragIndicator}
           <div class="drag-indicator">
             <svg class="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
@@ -92,15 +130,6 @@
     {:else}
       <!-- Expanded View -->
       <div class="expanded-content">
-        <!-- Drag Handle (visible on hover, hidden during section drag) -->
-        {#if showDragHandle}
-          <div class="drag-handle">
-            <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 6h2v2H8V6zm6 0h2v2h-2V6zM8 10h2v2H8v-2zm6 0h2v2h-2v-2zM8 14h2v2H8v-2zm6 0h2v2h-2v-2z"/>
-            </svg>
-          </div>
-        {/if}
-        
         <div class={contentWrapperClasses}>
           <div class="title-section">
             <div class="avatar-small {containerColor}">
@@ -117,9 +146,9 @@
           </div>
         </div>
         
-        <!-- Drop target indicator -->
+        <!-- Section drop indicator (only for section drops) -->
         {#if showDropIndicator}
-          <div class="drop-indicator" on:click={logic.handleDropTarget}></div>
+          <div class="drop-indicator" on:click={handleSectionDrop}></div>
         {/if}
       </div>
     {/if}
@@ -129,7 +158,7 @@
   {#if showDeleteButton}
     <button 
       class="delete-button"
-      on:click={logic.handleDeleteClick}
+      on:click|stopPropagation={logic.handleDeleteClick}
       title="Delete note"
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +180,7 @@
   /* Base States */
   .container-item.default {
     background: white;
-    border: 2px solid transparent; /* Always have a 2px border, just transparent */
+    border: 2px solid transparent;
   }
 
   .container-item.default:hover {
@@ -161,7 +190,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  /* Disable hover effects when any item is being dragged */
+  /* Disable hover when dragging containers */
   .dragging-disabled .container-item.default:hover {
     background: white !important;
     border-color: transparent !important;
@@ -169,50 +198,34 @@
     box-shadow: none !important;
   }
 
-  /* Disable delete button visibility when dragging */
+  /* Disable delete button when dragging */
   .dragging-disabled .delete-button {
     opacity: 0 !important;
     pointer-events: none !important;
   }
 
-  /* Disable drag handle visibility when section is being dragged */
-  .dragging-disabled .drag-handle {
-    opacity: 0 !important;
-  }
-
   .container-item.selected {
     background: #eff6ff;
-    border: 2px solid #3b82f6; /* Keep 2px border */
+    border: 2px solid #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  .container-item.drag-target {
-    background: #eff6ff;
-    border: 2px solid #3b82f6; /* Keep 2px border */
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-  }
-
-  .container-item.receiving-drag {
-    background: #f0f9ff;
-    border: 2px dashed #0ea5e9; /* Keep 2px border */
-  }
-
-  /* NEW: Two-stage cross-container drop highlighting */
+  /* SECTION drop target highlighting (keep this) */
   .container-item.section-drop-target-available {
     background: #f0f9ff !important;
-    border: 2px dashed #3b82f6 !important; /* Keep 2px border */
+    border: 2px dashed #3b82f6 !important;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
     transform: scale(1.01);
   }
 
   .container-item.section-drop-target-active {
     background: #dbeafe !important;
-    border: 2px solid #3b82f6 !important; /* Keep 2px border, make it solid and thicker shadow */
+    border: 2px solid #3b82f6 !important;
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
     transform: scale(1.03);
   }
 
-  /* Drag states from DraggableItem */
+  /* DraggableContainer drag states (these come from parent component now) */
   .container-item.dragging {
     opacity: 0.5;
     transform: scale(0.95);
@@ -288,23 +301,9 @@
     gap: 12px;
   }
 
-  .drag-handle {
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .group:hover .drag-handle {
-    opacity: 1;
-  }
-
   .content-wrapper {
     flex: 1;
     min-width: 0;
-  }
-
-  .content-wrapper.with-handle {
-    margin-left: 4px;
   }
 
   .title-section {

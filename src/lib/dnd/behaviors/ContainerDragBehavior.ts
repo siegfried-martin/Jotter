@@ -7,8 +7,7 @@ export class ContainerDragBehavior implements DragBehavior {
   readonly itemType = 'container';
 
   constructor(
-    private onReorder: (result: DropResult) => Promise<void>,
-    private onMoveToCollection: (result: DropResult) => Promise<void>
+    private onReorder: (result: DropResult) => Promise<void>
   ) {}
 
   canDragFrom(zoneId: string): boolean {
@@ -17,11 +16,8 @@ export class ContainerDragBehavior implements DragBehavior {
   }
 
   canDropTo(zoneId: string, sourceZone: string, itemIndex?: number): boolean {
-    // Containers can drop to:
-    // 1. Same container list (reorder)
-    // 2. Collection zones (move to different collection)
-    return zoneId === 'container-list' || 
-           zoneId.startsWith('collection-');
+    // Containers can only drop to the same container list (reorder only)
+    return zoneId === 'container-list' && zoneId === sourceZone;
   }
 
   createGhost(item: NoteContainer): GhostConfig {
@@ -58,23 +54,27 @@ export class ContainerDragBehavior implements DragBehavior {
     sourceZone: string,
     targetZone: string,
     targetIndex: number | undefined,
-    items: NoteContainer[]
+    items: NoteContainer[],
+    draggedItem?: NoteContainer
   ): PreviewConfig {
-    // Collection highlight
-    if (targetZone.startsWith('collection-') && targetZone !== sourceZone) {
-      return {
-        type: 'highlight',
-        targetZone
-      };
-    }
+    console.log('🎨 ContainerDragBehavior.createPreview called:', {
+      sourceZone,
+      targetZone,
+      targetIndex,
+      itemCount: items.length,
+      draggedItem: draggedItem?.id
+    });
 
-    // Same-list reorder
-    if (targetZone === sourceZone && targetIndex !== undefined) {
+    // Same-list reorder (only supported operation)
+    if (targetZone === sourceZone && targetIndex !== undefined && draggedItem) {
+      console.log('🎨 Creating container reorder preview');
+      const visualLayout = this.createReorderLayout(items, targetIndex, draggedItem);
+      
       return {
         type: 'reorder',
         targetZone,
         targetIndex,
-        visualLayout: this.createReorderLayout(items, targetIndex)
+        visualLayout
       };
     }
 
@@ -83,11 +83,31 @@ export class ContainerDragBehavior implements DragBehavior {
 
   private createReorderLayout(
     originalItems: NoteContainer[],
-    targetIndex: number
+    targetIndex: number,
+    draggedItem: NoteContainer
   ): NoteContainer[] {
-    // For containers, we'll implement this when we integrate with the actual drag state
-    // For now, return original items
-    return originalItems;
+    if (!originalItems || originalItems.length === 0) {
+      console.warn('No containers provided for reorder layout');
+      return originalItems;
+    }
+
+    console.log('🎨 Creating container reorder layout:', {
+      originalCount: originalItems.length,
+      targetIndex,
+      draggedContainerId: draggedItem.id
+    });
+
+    // Create reordered layout
+    const itemsWithoutDragged = originalItems.filter(item => item.id !== draggedItem.id);
+    const newLayout = [...itemsWithoutDragged];
+    newLayout.splice(targetIndex, 0, draggedItem);
+
+    console.log('✅ Container reorder layout created:', {
+      originalOrder: originalItems.map(i => i.title),
+      newOrder: newLayout.map(i => i.title)
+    });
+
+    return newLayout;
   }
 
   private getContainerColor(title: string): string {
@@ -102,14 +122,27 @@ export class ContainerDragBehavior implements DragBehavior {
   validateDrop(result: DropResult): boolean {
     // Basic validation
     if (!result.item || !result.sourceZone || !result.targetZone) {
+      console.warn('🚫 Invalid drop: missing required fields');
+      return false;
+    }
+
+    // Must be same zone (reorder only)
+    if (result.sourceZone !== result.targetZone) {
+      console.warn('🚫 Invalid drop: different zones not supported');
       return false;
     }
 
     // Can't drop on same position
-    if (result.sourceZone === result.targetZone && 
-        result.sourceIndex === result.targetIndex) {
+    if (result.sourceIndex === result.targetIndex) {
+      console.warn('🚫 Invalid drop: same position');
       return false;
     }
+
+    console.log('✅ Valid container reorder drop:', {
+      container: result.item.title,
+      from: result.sourceIndex,
+      to: result.targetIndex
+    });
 
     return true;
   }
@@ -117,37 +150,34 @@ export class ContainerDragBehavior implements DragBehavior {
   async onDrop(result: DropResult): Promise<void> {
     console.log('🎯 ContainerDragBehavior handling drop:', result);
 
-    if (result.targetType === 'highlight') {
-      // Move to collection
-      await this.onMoveToCollection(result);
-    } else if (result.targetType === 'reorder') {
-      // Same-list reorder
+    if (!this.validateDrop(result)) {
+      console.error('🚫 Drop validation failed');
+      return;
+    }
+
+    // Only reorder supported for now
+    if (result.targetType === 'reorder') {
+      console.log('🚀 Executing container reorder');
       await this.onReorder(result);
     } else {
-      console.warn('Unknown drop type:', result.targetType);
+      console.warn('❓ Unknown drop type:', result.targetType);
     }
   }
 }
 
 // Factory function to create behavior with page-specific handlers
 export function createContainerDragBehavior(
-  onReorder: (fromIndex: number, toIndex: number) => Promise<void>,
-  onMoveToCollection?: (containerId: string, fromCollection: string, toCollection: string) => Promise<void>
+  onReorder: (fromIndex: number, toIndex: number) => Promise<void>
 ): ContainerDragBehavior {
   
   const handleReorder = async (result: DropResult) => {
+    console.log('📄 Handling container reorder:', {
+      fromIndex: result.sourceIndex,
+      toIndex: result.targetIndex,
+      container: result.item.title
+    });
     await onReorder(result.sourceIndex, result.targetIndex!);
   };
 
-  const handleMoveToCollection = async (result: DropResult) => {
-    if (onMoveToCollection) {
-      const fromCollection = 'current'; // TODO: Get from context
-      const toCollection = result.targetZone.replace('collection-', '');
-      await onMoveToCollection(result.item.id, fromCollection, toCollection);
-    } else {
-      console.warn('Move to collection not implemented');
-    }
-  };
-
-  return new ContainerDragBehavior(handleReorder, handleMoveToCollection);
+  return new ContainerDragBehavior(handleReorder);
 }

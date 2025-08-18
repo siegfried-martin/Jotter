@@ -39,6 +39,47 @@ export class NoteService {
     return data || [];
   }
 
+  // Get a single note container by ID - ENHANCED with user ownership check
+  static async getNoteContainer(containerId: string): Promise<NoteContainer | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('note_container')
+      .select(`
+        *,
+        collections (
+          id,
+          name,
+          color
+        )
+      `)
+      .eq('id', containerId)
+      .eq('user_id', user.id) // Security: Ensure user owns this note
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned
+        return null;
+      }
+      console.error('Error loading note container:', error);
+      throw error;
+    }
+
+    return data;
+  }
+
+  // Convenience method: Create a new note container with just title and collection
+  static async createSimpleNoteContainer(
+    collectionId: string,
+    title: string = 'Untitled Note'
+  ): Promise<NoteContainer> {
+    return await this.createNoteContainer({
+      title: title.trim()
+    }, collectionId);
+  }
+
   // Create a new note container - ENHANCED with default collection logic
   static async createNoteContainer(
     container: CreateNoteContainer, 

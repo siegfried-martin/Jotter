@@ -10,9 +10,28 @@
   let collections: Collection[] = [];
   let loading = true;
   let error: string | null = null;
+  let isRedirecting = false;
 
   onMount(async () => {
-    // Don't redirect - this is the collection management page
+    // Check if we should redirect to last visited note first - do this immediately
+    try {
+      console.log('📱 App page mounted, checking for redirect...');
+      const shouldRedirect = await NavigationService.shouldRedirectToLastVisited();
+      
+      if (shouldRedirect) {
+        console.log('🚀 Should redirect, showing loading state');
+        isRedirecting = true;
+        await NavigationService.redirectToLastVisited();
+        return; // Exit early, redirect will handle navigation
+      }
+      
+      console.log('ℹ️ No redirect needed, loading collections');
+    } catch (err) {
+      console.warn('Could not check for redirect:', err);
+      // Continue to show collections page
+    }
+    
+    isRedirecting = false;
     await loadCollections();
   });
 
@@ -87,11 +106,11 @@
 </script>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-  {#if loading}
+  {#if loading || isRedirecting}
     <LoadingSpinner 
       centered={true} 
       size="lg" 
-      text="Loading collections..." 
+      text={isRedirecting ? "Loading your notes..." : "Loading collections..."} 
     />
   {:else if error}
     <div class="text-center py-12">

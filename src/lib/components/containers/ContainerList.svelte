@@ -1,18 +1,14 @@
 <!-- src/lib/components/containers/ContainerList.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { dragStore, dragActions, type DragItemType } from '$lib/stores/dragStore.DELETE';
-  import DraggableItem from '../ui/DraggableItem.DELETE.svelte';
+  import { createEventDispatcher, getContext } from 'svelte';
+  import DraggableContainer from '$lib/dnd/components/DraggableContainer.svelte';
   import ContainerItem from './ContainerItem.svelte';
-  import { useNoteContainerDnD } from '$lib/composables/useNoteContainerDnD';
   import type { NoteContainer } from '$lib/types';
   
   export let containers: NoteContainer[] = [];
   export let selectedContainer: NoteContainer | null = null;
   export let isCollapsed = true;
   export let collectionId: string;
-  
-  let isReordering = false;
   
   const dispatch = createEventDispatcher<{
     selectContainer: NoteContainer;
@@ -25,137 +21,56 @@
     };
   }>();
   
-  // Check if we're receiving a section drag
-  $: isReceivingSectionDrag = $dragStore.isDragging && $dragStore.itemType === 'section';
+  // Get drag context from DragProvider
+  const dragContext = getContext('drag');
+  const { dragCore } = dragContext || {};
   
-  // Create visual preview of reordered items during drag
-  $: visualContainers = createVisualLayout(containers, $dragStore);
-
-  function createVisualLayout(originalContainers: NoteContainer[], dragState: any) {
-    if (!dragState.isDragging || !dragState.draggedItem) {
-      return originalContainers;
-    }
-
-    // Only show preview for container drags, not section drags
-    if (dragState.itemType !== 'container') {
-      return originalContainers;
-    }
-
-    const draggedId = dragState.draggedItem.id;
-    const dragOverIndex = dragState.dragOverIndex;
-    const dragOverContainer = dragState.dragOverContainer;
-
-    // FIXED: Check for the shared container ID like sections do
-    if (dragOverContainer !== 'container-list' || dragOverIndex === null) {
-      return originalContainers;
-    }
-
-    console.log('ðŸ”„ Creating visual layout preview:', {
-      draggedId,
-      dragOverIndex,
-      originalLength: originalContainers.length
+  // Create zone ID for this container list
+  $: zoneId = `container-list`;
+  
+  // Subscribe to drag state for live reordering and mode detection
+  $: dragState = dragCore?.store;
+  $: isReceivingSectionDrag = $dragState?.phase === 'dragging' && $dragState?.itemType === 'section';
+  $: isCurrentlyDraggingContainer = $dragState?.phase === 'dragging' && 
+                                    $dragState?.itemType === 'container' &&
+                                    $dragState?.sourceZone === zoneId;
+  
+  // Calculate display order based on drag state (live reordering preview)
+  $: displayContainers = isCurrentlyDraggingContainer && $dragState?.dropTarget?.targetType === 'reorder' 
+    ? reorderContainersForPreview(containers, $dragState)
+    : containers;
+    
+  function reorderContainersForPreview(originalContainers: NoteContainer[], dragState: any) {
+    if (!dragState.dropTarget || !dragState.item) return originalContainers;
+    
+    const sourceIndex = dragState.sourceIndex;
+    const targetIndex = dragState.dropTarget.itemIndex;
+    
+    console.log('🎨 Live reordering container preview:', {
+      sourceIndex,
+      targetIndex,
+      draggedContainer: dragState.item.id
     });
-
-    // Create a copy and remove the dragged item
-    const containersWithoutDragged = originalContainers.filter(c => c.id !== draggedId);
     
-    // Find the dragged container
-    const draggedContainer = originalContainers.find(c => c.id === draggedId);
-    if (!draggedContainer) return originalContainers;
-
-    // Insert at the new position
-    const newContainers = [...containersWithoutDragged];
-    newContainers.splice(dragOverIndex, 0, draggedContainer);
-
-    console.log('âœ… Visual preview created:', newContainers.map(c => c.title));
-
-    return newContainers;
-  }
-
-  // Helper function to reorder array
-  function reorderArray(array: NoteContainer[], fromIndex: number, toIndex: number): NoteContainer[] {
-    const newArray = [...array];
-    const [movedItem] = newArray.splice(fromIndex, 1);
-    newArray.splice(toIndex, 0, movedItem);
-    return newArray;
-  }
-
-  // Initialize the DnD composable with the collection ID
-  const containerDnD = useNoteContainerDnD({
-    collectionId,
-    onSuccess: (updatedContainers) => {
-      console.log('âœ… Container reorder completed from server, updating containers');
-      // Update local state with server response
-      containers = updatedContainers;
-    },
-    onError: (error) => {
-      console.error('âŒ Container reorder failed:', error);
-      isReordering = false;
-    }
-  });
-
-  async function handleReorder(event: CustomEvent<{
-    itemId: string;
-    item: NoteContainer;
-    fromContainer: string;
-    fromIndex: number;
-    toContainer: string;
-    toIndex: number;
-  }>) {
-    console.log('ðŸŽ¯ Container reorder event received:', event.detail);
-
-    if (isReordering || isReceivingSectionDrag) return;
+    // Create new array with container moved to target position
+    const result = [...originalContainers];
+    const [draggedContainer] = result.splice(sourceIndex, 1);
+    result.splice(targetIndex, 0, draggedContainer);
     
-    const { itemId, fromIndex, toIndex } = event.detail;
-    
-    // Same container reordering only for now
-    if (fromIndex === toIndex) {
-      console.log('ðŸ‘† No reorder needed - same position');
-      return;
-    }
-
-    isReordering = true;
-
-    // Store original order for rollback
-    const originalContainers = [...containers];
-
-    try {
-      console.log(`ðŸŽ¯ Optimistically reordering container from ${fromIndex} to ${toIndex}`);
-      
-      // 1. OPTIMISTICALLY update local state first (prevents flicker)
-      const newContainers = reorderArray(containers, fromIndex, toIndex);
-      containers = newContainers;
-      
-      console.log('ðŸŽ¯ Optimistic reorder applied, now updating server...');
-      
-      // 2. Dispatch the reorder event immediately for UI responsiveness
-      dispatch('reorder', { fromIndex, toIndex });
-      
-      // 3. THEN update server via composable
-      await containerDnD.handleReorder(fromIndex, toIndex);
-      
-      console.log('âœ… Container reorder completed on server');
-      
-    } catch (error) {
-      console.error('âŒ Failed to reorder containers:', error);
-      
-      // ROLLBACK optimistic update on error
-      console.log('ðŸ”„ Rolling back optimistic reorder due to error');
-      containers = originalContainers;
-      
-    } finally {
-      isReordering = false;
-    }
+    console.log('🎨 Container preview order:', result.map(c => c.title));
+    return result;
   }
-
-  function handleSelectContainer(event: CustomEvent<NoteContainer>) {
-    if (!isReordering && !isReceivingSectionDrag) {
-      dispatch('selectContainer', event.detail);
+  
+  function handleContainerClick(event: CustomEvent<{ item: NoteContainer; itemType: string }>) {
+    console.log('🎯 Container clicked from DragContainer:', event.detail.item.title);
+    if (event.detail.itemType === 'container' && !isCurrentlyDraggingContainer) {
+      dispatch('selectContainer', event.detail.item);
     }
   }
 
   function handleDeleteContainer(event: CustomEvent<string>) {
-    if (!isReordering && !isReceivingSectionDrag) {
+    // Only allow deletion when not dragging
+    if (!dragCore?.isDragging('container')) {
       dispatch('deleteContainer', event.detail);
     }
   }
@@ -165,57 +80,73 @@
     fromContainer: string;
     toContainer: string;
   }>) {
-    if (!isReordering) {
-      dispatch('crossContainerDrop', event.detail);
-    }
+    // Always allow cross-container drops for sections
+    dispatch('crossContainerDrop', event.detail);
   }
+
+  // Debug logging
+  $: console.log('🔧 ContainerList rendered with live reordering:', {
+    zoneId,
+    originalCount: containers.length,
+    displayCount: displayContainers.length,
+    isCurrentlyDraggingContainer,
+    isReceivingSectionDrag,
+    dragState: $dragState ? {
+      phase: $dragState.phase,
+      itemType: $dragState.itemType,
+      sourceIndex: $dragState.sourceIndex,
+      targetIndex: $dragState.dropTarget?.itemIndex
+    } : null
+  });
 </script>
 
 {#if isReceivingSectionDrag}
-  <!-- When receiving section drag, disable container DnD -->
+  <!-- When receiving section drag, disable container DnD and show containers as drop targets -->
   <div class="section-receiving-mode">
     {#each containers as container (container.id)}
       <ContainerItem
         {container}
         isSelected={selectedContainer?.id === container.id}
         {isCollapsed}
-        on:select={handleSelectContainer}
+        itemIndex={containers.findIndex(c => c.id === container.id)}
+        on:select={(e) => dispatch('selectContainer', e.detail)}
         on:delete={handleDeleteContainer}
         on:crossContainerDrop={handleCrossContainerDrop}
       />
     {/each}
   </div>
 {:else}
-  <!-- Normal container DnD mode using custom system -->
+  <!-- Normal container DnD mode using new system with grid layout -->
   <div class="container-grid">
-    {#each visualContainers as container, index (container.id)}
-      {@const originalIndex = containers.findIndex(c => c.id === container.id)}
-      <DraggableItem
-        item={container}
-        itemId={container.id}
-        itemType="container"
-        containerIndex={0}
-        itemIndex={originalIndex}
-        containerId="container-list"
-        disabled={false}
-        on:reorder={handleReorder}
-        on:click={(e) => console.log('ðŸ–±ï¸ DraggableItem click:', e.detail)}
-      >
-        <svelte:fragment slot="default" let:item let:isDragging let:isDragOver let:itemIndex>
-          <ContainerItem
-            container={item}
-            isSelected={selectedContainer?.id === item.id}
-            {isCollapsed}
-            isDragging={isDragging}
-            isDragOver={isDragOver}
-            itemIndex={itemIndex}
-            on:select={handleSelectContainer}
-            on:delete={handleDeleteContainer}
-            on:crossContainerDrop={handleCrossContainerDrop}
-          />
-        </svelte:fragment>
-      </DraggableItem>
-    {/each}
+    <div 
+      class="container-list"
+      data-section-grid={zoneId}
+    >
+      {#each displayContainers as container, index (container.id)}
+        <DraggableContainer
+          item={container}
+          itemType="container"
+          itemIndex={index}
+          {zoneId}
+          disabled={false}
+          className="container-draggable-wrapper"
+          on:click={handleContainerClick}
+        >
+          <svelte:fragment slot="default" let:item let:isDragging let:isBeingDragged let:isDragOver>
+            <ContainerItem 
+              container={item}
+              isSelected={selectedContainer?.id === item.id}
+              {isCollapsed}
+              isDragging={isBeingDragged}
+              isDragOver={isDragOver}
+              itemIndex={index}
+              on:delete={handleDeleteContainer}
+              on:crossContainerDrop={handleCrossContainerDrop}
+            />
+          </svelte:fragment>
+        </DraggableContainer>
+      {/each}
+    </div>
   </div>
 {/if}
 
@@ -226,28 +157,40 @@
 {/if}
 
 <style>
-  /* Container grid - single column like sections but vertical */
   .container-grid {
+    position: relative;
+    width: 100%;
+    overflow: visible;
+  }
+
+  /* Single-column grid layout for containers */
+  .container-list {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Single column - width determined by sidebar */
     gap: 8px; /* Equivalent to space-y-2 */
-    min-height: 100px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
-  .container-grid.dragging {
-    /* Add any global drag state styling here */
-  }
-
-  /* Section receiving mode - fallback to flexbox */
+  /* Section receiving mode - flexbox layout for simple drop targets */
   .section-receiving-mode {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
-  /* Dragging state for grid items */
-  .container-grid > :global(.draggable-item.dragging) {
-    opacity: 0.5;
-    transform: scale(0.95);
+  /* DraggableContainer wrapper styling */
+  :global(.container-draggable-wrapper) {
+    width: 100%; /* Fill grid cell */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+
+  /* Hover effect for container cards when not being dragged */
+  :global(.container-draggable-wrapper:not(.being-dragged):hover) {
+    transform: translateY(-1px);
   }
 </style>

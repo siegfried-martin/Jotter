@@ -12,7 +12,7 @@
 - **Developer-centric** - Optimized for pseudocode, algorithms, and structured thinking
 - **Minimal but powerful** - No bloat, just essential features done exceptionally well
 
-## 🏗️ Current Architecture
+## 🗏️ Current Architecture
 
 **Tech Stack**:
 
@@ -29,7 +29,7 @@
 note_container (id, title, user_id, collection_id, sequence, created_at, updated_at)
 note_section (id, note_container_id, user_id, type, title, content, sequence, meta, checklist_data, created_at, updated_at)
 collections (id, name, description, color, is_default, user_id, sequence, created_at, updated_at)
-user_preferences (id, user_id, theme, default_editor, auto_save_delay, keyboard_shortcuts, last_visited_collection_id, created_at, updated_at)
+user_preferences (id, user_id, theme, default_editor, auto_save_delay, keyboard_shortcuts, last_visited_collection_id, last_visited_container_id, created_at, updated_at)
 
 -- Database functions for sequence management
 get_next_collection_sequence(user_id)
@@ -37,7 +37,7 @@ get_next_note_container_sequence(collection_id)
 get_next_note_section_sequence(note_container_id)
 ```
 
-## ✅ Current Status - August 11, 2025
+## ✅ Current Status - August 17, 2025
 
 ### **Core Features**
 
@@ -49,105 +49,98 @@ get_next_note_section_sequence(note_container_id)
 - ✅ Auto-save with local draft recovery
 - ✅ Keyboard shortcuts (Ctrl+M, Ctrl+Shift+M, etc.)
 
-### **UI/UX Improvements**
+### **Route Architecture Refactor**
 
-- ✅ **Sidebar enhancements**: Auto-expand on desktop, custom scroll indicators, improved collapsed view
-- ✅ **Optimistic updates**: Fixed UI flicker for title changes and drag operations
-- ✅ **Event handling**: Resolved clickable area issues for section cards
-- ✅ **Responsive design**: Proper mobile collapsed sidebar behavior
+- ✅ **New URL structure**: `/collections/[id]/containers/[id]` with persistent sidebar
+- ✅ **Bookmarkable container URLs**: Direct links to specific notes work on refresh
+- ✅ **Optimistic navigation**: Instant visual feedback when switching containers
+- ✅ **Cross-collection redirect**: Smart routing to last visited container regardless of collection
+- ✅ **Authentication race condition fixes**: Proper handling of server-side auth timing
 
-### **Drag & Drop System**
+### **DnD System Implementation**
 
-- ✅ Custom DnD implementation for note sections
-- ✅ Cross-container section movement
-- ✅ Optimistic UI updates with server persistence
-- ✅ Visual feedback and error handling
+- ✅ **New modular DnD architecture**: Custom Svelte-native drag & drop system
+- ✅ **Section reordering**: Live preview with optimistic updates
+- ✅ **Cross-container moves**: Drag sections between different note containers
+- ✅ **Container reordering**: Drag containers within sidebar (new DnD system)
+- ⚠️ **Legacy DnD remnants**: Collections and checklist items still use old `svelte-dnd-action`
 
-## 🚀 Recent Session Updates - August 11, 2025
+## 🚀 Recent Session Updates - August 17, 2025
 
-### **UI Fixes**
+### **Route Refactor**
 
-- Fixed sidebar auto-expand behavior on desktop vs mobile
-- Implemented custom scroll indicators replacing default scrollbars
-- Improved collapsed sidebar design with colorful avatars and activity indicators
-- Resolved clickable area issues for section cards
+- Implemented new `/collections/[id]/containers/[id]` URL structure
+- Fixed 500/404 errors on page refresh caused by auth/data loading race conditions
+- Added cross-collection navigation with automatic redirection to correct collection
+- Optimized initial page load to skip intermediate collection redirect page
 
-### **Optimistic Updates**
+### **DnD Migration**
 
-- Fixed title editing flicker by implementing optimistic updates in `useNoteOperations.ts`
-- Applied same pattern to drag & drop operations in `SectionGrid.svelte`
-- Added proper error rollback for failed operations
+- Completed migration from `svelte-dnd-action` to custom DnD system for sections and containers
+- Implemented `DragProvider`, `DraggableContainer` components with behavior system
+- Added live reordering previews and optimistic updates
+- Container sidebar now uses new DnD system for reordering
 
-### **Event Chain Fixes**
+### **Data Flow Improvements**
 
-- Corrected section title event forwarding in `SectionCardHeader.svelte`
-- Fixed missing `handleTitleUpdate` function in main page component
+- Fixed collection tabs not appearing by properly syncing layout data to `collectionStore`
+- Implemented proper parent-child data loading between layout and page components
+- Added comprehensive error handling and authentication state management
 
 ## 🎯 Next Session Priorities
 
-### **Phase 1: DnD Architecture Refactor**
+### **Complete DnD Migration**
 
-**Current Tightly-Coupled Structure:**
+**Remaining Legacy DnD Usage:**
 
-```
-Current Issues:
-- Business logic mixed in +page.svelte
-- Each component needs specific event forwarding
-- Hard to reuse DnD in other contexts
-- Sections-specific implementation
-```
+- Collection tabs reordering (if implemented)
+- Checklist item reordering within sections
+- Any other `svelte-dnd-action` imports
 
-**Proposed Modular Structure:**
+**Files to Review:**
 
-```
-DnD Core (reusable):
-├── DraggableItem.svelte (✅ already exists)
-├── useDragOperations.ts (NEW - extract business logic)
-├── DragProvider.svelte (NEW - context provider)
-└── dragStore.ts (✅ already exists)
+- `src/lib/components/sections/ChecklistSection.svelte` - May use old DnD for checklist items
+- `src/lib/components/layout/CollectionTabs.svelte` - Check for any DnD usage
+- Search codebase for `svelte-dnd-action` imports to identify remaining usage
 
-Application Layer:
-├── useSectionDrag.ts (NEW - section-specific logic)
-├── useContainerDrag.ts (NEW - container-specific logic)
-└── useCollectionDrag.ts (FUTURE - collection tabs)
-```
+### **Container Cross-Collection Movement**
 
-**Files to Review/Refactor:**
+**Goal**: Drag containers between different collections
 
-- `src/routes/app/collections/[collection_id]/+page.svelte` - Extract DnD logic
-- `src/lib/components/sections/SectionGrid.svelte` - Simplify to use composables
-- `src/lib/composables/useNoteOperations.ts` - Move drag logic to new composables
-- `src/lib/components/ui/DraggableItem.svelte` - Ensure true reusability
+**Key Files to Review:**
 
-### **Phase 2: Container DnD Implementation**
+- `src/lib/components/containers/ContainerList.svelte` - Current container DnD implementation
+- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Container drag behavior logic
+- `src/routes/app/collections/[collection_id]/+layout.svelte` - Container reorder handling
+- `src/lib/services/noteService.ts` - `moveToCollection()` method exists for backend
+- `src/lib/components/layout/CollectionTabs.svelte` - Potential drop targets for cross-collection moves
 
-**Replace Legacy Implementation:**
+**Implementation Strategy:**
 
-- `src/lib/components/containers/ContainerList.svelte` - Currently uses `svelte-dnd-action`
-- Apply refactored DnD system to note containers
-- Implement container reordering with optimistic updates
-- Add cross-collection container movement
-
-### **Phase 3: Validation**
-
-- Test DnD system across all implementations
-- Ensure consistent behavior and performance
-- Verify mobile touch support
+1. Extend `ContainerDragBehavior` to detect drops on collection tabs
+2. Add drop zones to collection tabs in header
+3. Implement cross-collection move logic using existing `noteService.moveToCollection()`
+4. Update container lists in both source and target collections
 
 ## 🔧 Architecture Goals
 
-**Immediate Priority**: Refactor DnD into reusable composables before implementing container DnD
+**Current Priority**: Implement cross-collection container movement to complete DnD feature set
+
+**Next Session Files to Review**:
+
+- `src/lib/components/containers/ContainerList.svelte` - Current container DnD implementation
+- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Container drag behavior logic
+- `src/lib/components/layout/CollectionTabs.svelte` - Collection tabs as drop targets
+- `src/lib/services/noteService.ts` - `moveToCollection()` backend method
+- `src/routes/app/collections/[collection_id]/+layout.svelte` - Container management
 
 **Success Criteria**:
 
-1. DnD logic extracted from page components
-2. Reusable across different entity types (sections, containers, collections)
-3. Container DnD implemented using new modular system
-4. No functionality regressions
+1. Containers can be dragged between collections via header tabs
+2. Real-time updates in both source and target collection sidebars
+3. Optimistic UI updates with server persistence and error handling
 
-**Future Considerations**: Feature documentation and testing will follow after DnD migration is complete.
-
-## 🔧 Deployment Information
+## 📧 Deployment Information
 
 **Production Environment**:
 
@@ -173,4 +166,4 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 
 ---
 
-**Current Priority**: Refactor DnD into modular composables, then implement container DnD using the new architecture
+**Current Priority**: Implement cross-collection container movement using existing DnD system and backend methods

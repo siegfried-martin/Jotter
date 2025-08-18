@@ -9,6 +9,7 @@ export interface ContainerItemStyleConfig {
   isDragTarget: boolean;
   isReceivingDrag: boolean;
   isAnyItemBeingDragged: boolean;
+  isSectionDropActive?: boolean; // NEW: Active section drop state
 }
 
 export function createContainerItemStyles(container: NoteContainer) {
@@ -27,12 +28,20 @@ export function createContainerItemStyles(container: NoteContainer) {
   function getContainerClasses(config: ContainerItemStyleConfig): string {
     const classes = ['container-item'];
     
-    // State-based classes
+    // Priority order for state classes (most specific first)
     if (config.isSelected) {
       classes.push('selected');
+    } else if (config.isSectionDropActive) {
+      // Active section drop (currently hovering during section drag)
+      classes.push('section-drop-target-active');
+    } else if (config.isDragTarget && config.isReceivingDrag) {
+      // Available section drop target (section being dragged, this is valid target)
+      classes.push('section-drop-target-available');
     } else if (config.isDragTarget) {
+      // Generic drag target (container drag)
       classes.push('drag-target');
     } else if (config.isReceivingDrag) {
+      // Generic receiving drag
       classes.push('receiving-drag');
     } else {
       classes.push('default');
@@ -41,7 +50,7 @@ export function createContainerItemStyles(container: NoteContainer) {
     // Layout classes
     classes.push(config.isCollapsed ? 'collapsed' : 'expanded');
     
-    // Drag state classes
+    // Drag state classes (from DraggableContainer)
     if (config.isDragging) {
       classes.push('dragging');
     }
@@ -101,15 +110,18 @@ export function createContainerItemStyles(container: NoteContainer) {
   }
 
   function shouldShowDragHandle(config: ContainerItemStyleConfig): boolean {
+    // Hide drag handle during section drag (no container dragging while sections are being dragged)
     return !config.isReceivingDrag;
   }
 
   function shouldShowDropIndicator(config: ContainerItemStyleConfig): boolean {
-    return config.isDragTarget;
+    // Show drop indicator for active section drops in expanded mode
+    return config.isSectionDropActive && !config.isCollapsed;
   }
 
   function shouldShowDragIndicator(config: ContainerItemStyleConfig): boolean {
-    return config.isReceivingDrag && config.isCollapsed;
+    // Show drag indicator for active section drops in collapsed mode
+    return config.isSectionDropActive && config.isCollapsed;
   }
 
   function shouldShowActivityIndicator(config: ContainerItemStyleConfig): boolean {

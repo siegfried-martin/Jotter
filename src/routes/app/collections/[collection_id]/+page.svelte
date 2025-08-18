@@ -1,330 +1,247 @@
 <!-- src/routes/app/collections/[collection_id]/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  
-  // Composables
-  import { useCollectionPageManager } from '$lib/composables/useCollectionPageManager';
-  import { useNoteOperations } from '$lib/composables/useNoteOperations';
-  
-  // Stores
-  import { noteStore, noteActions } from '$lib/stores/noteStore';
-  
-  // Types
+  import { NoteService } from '$lib/services/noteService';
+  import { UserService } from '$lib/services/userService';
+  import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import type { PageData } from './$types';
-  import type { NoteSection, NoteContainer } from '$lib/types';
-  
-  // NEW: DnD System
-  import DragProvider from '$lib/dnd/components/DragProvider.svelte';
-  import { createSectionDragBehavior } from '$lib/dnd/behaviors/SectionDragBehavior';
-  import { createContainerDragBehavior } from '$lib/dnd/behaviors/ContainerDragBehavior';
-  
-  // Components
-  import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
-  import SectionGridWrapper from '$lib/components/sections/SectionGridWrapper.svelte';
-  import ContainerSidebar from '$lib/components/containers/ContainerSidebar.svelte';
-  import CreateNoteSectionForm from '$lib/components/sections/CreateNoteSectionForm.svelte';
   
   export let data: PageData;
   
-  // Initialize composables
-  const pageManager = useCollectionPageManager();
-  const noteOperations = useNoteOperations();
-  
-  // Reactive values from stores
-  $: ({ containers, selectedContainer, selectedContainerSections, loading } = $noteStore);
-  $: currentCollectionId = $page.params.collection_id;
-  $: currentCollection = pageManager.getCurrentCollection();
-  
-  // Handle route changes reactively
-  $: if ($pageManager.isInitialized) {
-    pageManager.handleRouteChange(currentCollectionId, $pageManager);
-  }
+  let isRedirecting = false;
+  let redirectStatus = 'Loading...';
   
   onMount(async () => {
-    await pageManager.initialize(data);
+    await handleCollectionRedirect();
   });
-
-  // Helper function for array reordering
-  function reorderArray<T>(array: T[], fromIndex: number, toIndex: number): T[] {
-    const newArray = [...array];
-    const [movedItem] = newArray.splice(fromIndex, 1);
-    newArray.splice(toIndex, 0, movedItem);
-    return newArray;
-  }
-
-  // NEW: Create drag behaviors
-  $: sectionBehavior = createSectionDragBehavior(
-    // Section reorder handler
-    async (fromIndex: number, toIndex: number, containerId: string) => {
-      console.log('🎯 Section reorder:', fromIndex, '→', toIndex, 'in', containerId);
-      
-      if (!selectedContainerSections || fromIndex === toIndex) return;
-      
-      // Store original order for potential rollback
-      const originalSections = [...selectedContainerSections];
-      
-      // Optimistically update UI
-      const reorderedSections = reorderArray(selectedContainerSections, fromIndex, toIndex);
-      noteActions.setSelectedSections(reorderedSections);
-      
-      try {
-        // Use the existing SectionService method (similar to how old SectionGrid worked)
-        const { SectionService } = await import('$lib/services/sectionService');
-        const updatedSections = await SectionService.reorderSections(
-          containerId, 
-          fromIndex, 
-          toIndex
-        );
-        
-        // Update with server response
-        noteActions.setSelectedSections(updatedSections);
-        console.log('✅ Section reorder completed');
-      } catch (error) {
-        console.error('❌ Section reorder failed:', error);
-        // Rollback on error
-        noteActions.setSelectedSections(originalSections);
-      }
-    },
-    
-    // Cross-container move handler  
-    async (sectionId: string, fromContainer: string, toContainer: string) => {
-      console.log('🎯 Section cross-container move:', sectionId, fromContainer, '→', toContainer);
-      
-      // Use existing cross-container logic
-      await handleCrossContainerMove({ 
-        detail: { sectionId, fromContainer, toContainer } 
-      } as CustomEvent);
-    }
-  );
-
-  $: containerBehavior = createContainerDragBehavior(
-    // Container reorder handler
-    async (fromIndex: number, toIndex: number) => {
-      console.log('🎯 Container reorder:', fromIndex, '→', toIndex);
-      
-      if (fromIndex === toIndex) return;
-      
-      // Optimistically update UI
-      const reorderedContainers = reorderArray(containers, fromIndex, toIndex);
-      noteActions.updateContainers(reorderedContainers);
-      
-      try {
-        // Use existing container reorder logic
-        await handleContainersReordered({ 
-          detail: { fromIndex, toIndex } 
-        } as CustomEvent);
-        console.log('✅ Container reorder completed');
-      } catch (error) {
-        console.error('❌ Container reorder failed:', error);
-        // Rollback on error
-        noteActions.updateContainers(containers);
-      }
-    }
-  );
   
-  // Note operations with bound context
-  async function createNewNote() {
-    await noteOperations.createNewNote(currentCollectionId, pageManager.selectContainer);
-  }
-  
-  async function createNewNoteWithCode() {
-    await noteOperations.createNewNoteWithCode(currentCollectionId, pageManager.selectContainer);
-  }
-  
-  async function createSection(event: CustomEvent<'checklist' | 'code' | 'wysiwyg' | 'diagram'>) {
-    await noteOperations.createSection(
-      event.detail,
-      selectedContainer,
-      selectedContainerSections,
-      currentCollectionId,
-      pageManager.selectContainer
-    );
-  }
-  
-  function handleEdit(event: CustomEvent<string>) {
-    noteOperations.handleEdit(event.detail, currentCollectionId);
-  }
-  
-  async function deleteSection(event: CustomEvent<string>) {
-    await noteOperations.deleteSection(event.detail, selectedContainer, pageManager.selectContainer);
-  }
-  
-  async function deleteContainer(event: CustomEvent<string>) {
-    await noteOperations.deleteContainer(event.detail, containers, pageManager.selectContainer);
-  }
-  
-  async function handleCheckboxChange(event: CustomEvent<{sectionId: string; checked: boolean; lineIndex: number}>) {
-    await noteOperations.handleCheckboxChange(event, selectedContainerSections, selectedContainer);
-  }
-  
-  // Handle section title updates
-  async function handleSectionTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
-    await noteOperations.handleSectionTitleSave(event, selectedContainerSections, pageManager.selectContainer, selectedContainer);
-  }
-  
-  // Handle note container title updates
-  async function handleTitleUpdate(event: CustomEvent<{ containerId: string; newTitle: string }>) {
-    if (!selectedContainer) {
-      console.warn('No selected container to update title');
-      return;
-    }
-    
+  async function handleCollectionRedirect() {
     try {
-      const { containerId, newTitle } = event.detail;
+      isRedirecting = true;
       
-      if (!newTitle?.trim() || newTitle.trim() === selectedContainer.title) {
-        return; // No change needed
+      const { collection, containers, lastVisitedContainerId, collectionId } = data;
+      
+      console.log('🔄 Collection redirect logic:', {
+        collectionId,
+        containerCount: containers.length,
+        lastVisitedContainerId,
+        currentUrl: $page.url.href
+      });
+      
+      // If no containers exist, show create first note state
+      if (containers.length === 0) {
+        console.log('📝 Collection is empty, showing create first note UI');
+        
+        // If we have a last visited container, it's in a different collection
+        if (lastVisitedContainerId) {
+          console.log('🔄 Last visited container is in different collection, checking...');
+          
+          try {
+            // Check which collection the last visited container belongs to
+            const containerCollectionId = await UserService.getContainerCollection(lastVisitedContainerId);
+            
+            if (containerCollectionId && containerCollectionId !== collectionId) {
+              console.log('🚀 Redirecting to correct collection for last visited container');
+              redirectStatus = 'Redirecting to your last visited note...';
+              
+              // Redirect to the correct collection with the container
+              const correctUrl = `/app/collections/${containerCollectionId}/containers/${lastVisitedContainerId}`;
+              await goto(correctUrl, { replaceState: true });
+              return; // Exit early
+            }
+          } catch (error) {
+            console.warn('⚠️ Could not check container collection:', error);
+            // Continue with empty collection logic
+          }
+        }
+        
+        redirectStatus = 'No notes found. Please create your first note.';
+        isRedirecting = false;
+        return;
       }
       
-      const trimmedTitle = newTitle.trim();
+      // Collection has containers - determine target
+      let targetContainerId: string;
       
-      console.log('🏷️ Updating container title:', containerId, 'to:', trimmedTitle);
-      
-      await noteOperations.updateNoteTitle(containerId, trimmedTitle);
-      
-      console.log('✅ Container title updated successfully');
-    } catch (error) {
-      console.error('❌ Failed to update container title:', error);
-    }
-  }
-
-  async function handleContainersReordered(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
-    console.log('✅ Note containers reordered successfully:', event.detail);
-    
-    const { fromIndex, toIndex } = event.detail;
-    
-    // Create the reordered array locally
-    const reorderedContainers = [...containers];
-    const [movedContainer] = reorderedContainers.splice(fromIndex, 1);
-    reorderedContainers.splice(toIndex, 0, movedContainer);
-    
-    console.log('📦 New containers order:', reorderedContainers.map(c => c.title));
-    
-    // Update the note store with the new container order
-    noteActions.updateContainers(reorderedContainers);
-    
-    console.log('📦 Store updated, current containers:', containers.map(c => c.title));
-    
-    // If the selected container is still in the list, make sure it stays selected
-    if (selectedContainer) {
-      const stillExists = reorderedContainers.find(c => c.id === selectedContainer.id);
-      if (!stillExists) {
-        // If somehow the selected container was removed, select the first one
-        if (reorderedContainers.length > 0) {
-          pageManager.selectContainer(reorderedContainers[0]);
+      if (lastVisitedContainerId) {
+        // Check if last visited container exists IN THIS COLLECTION
+        const lastVisitedContainer = containers.find(c => c.id === lastVisitedContainerId);
+        
+        if (lastVisitedContainer) {
+          targetContainerId = lastVisitedContainerId;
+          redirectStatus = `Redirecting to last visited note: ${lastVisitedContainer.title}...`;
+          console.log('✅ Using last visited container in this collection:', lastVisitedContainer.title);
+        } else {
+          console.log('🔄 Last visited container not in this collection, checking if it exists elsewhere...');
+          
+          try {
+            // Check if the last visited container exists in a different collection
+            const containerCollectionId = await UserService.getContainerCollection(lastVisitedContainerId);
+            
+            if (containerCollectionId && containerCollectionId !== collectionId) {
+              console.log('🚀 Last visited container found in different collection, redirecting...');
+              redirectStatus = 'Redirecting to your last visited note...';
+              
+              // Redirect to the correct collection
+              const correctUrl = `/app/collections/${containerCollectionId}/containers/${lastVisitedContainerId}`;
+              await goto(correctUrl, { replaceState: true });
+              return; // Exit early
+            }
+          } catch (error) {
+            console.warn('⚠️ Could not check container collection:', error);
+          }
+          
+          // Last visited container doesn't exist or error occurred, use first container
+          targetContainerId = containers[0].id;
+          redirectStatus = `Redirecting to first note: ${containers[0].title}...`;
+          console.log('⚠️ Using first container in this collection');
+          
+          // Update last visited to the first container in this collection
+          try {
+            await UserService.updateLastVisitedContainer(targetContainerId);
+            console.log('✅ Updated last visited to first container in this collection');
+          } catch (error) {
+            console.warn('⚠️ Could not update last visited container:', error);
+          }
+        }
+      } else {
+        // No last visited container, use first one
+        targetContainerId = containers[0].id;
+        redirectStatus = `Redirecting to first note: ${containers[0].title}...`;
+        console.log('ℹ️ No last visited container, using first container');
+        
+        // Set this as the last visited
+        try {
+          await UserService.updateLastVisitedContainer(targetContainerId);
+          console.log('✅ Set first container as last visited');
+        } catch (error) {
+          console.warn('⚠️ Could not set last visited container:', error);
         }
       }
+      
+      // Redirect to container route in this collection
+      const targetUrl = `/app/collections/${collectionId}/containers/${targetContainerId}`;
+      console.log('🚀 Redirecting to container in this collection:', targetUrl);
+      
+      await goto(targetUrl, { replaceState: true });
+      
+    } catch (error) {
+      console.error('❌ Collection redirect failed:', error);
+      redirectStatus = 'Error loading collection. Please try again.';
+      isRedirecting = false;
     }
   }
   
-  // Handle cross-container section moves
-  async function handleCrossContainerMove(event: CustomEvent<{ sectionId: string; fromContainer: string; toContainer: string }>) {
-    await noteOperations.handleCrossContainerMove(event, pageManager.selectContainer, containers);
+  async function createFirstNote() {
+    try {
+      redirectStatus = 'Creating your first note...';
+      
+      // Create new note container
+      const newContainer = await NoteService.createSimpleNoteContainer(
+        data.collectionId,
+        'My First Note'
+      );
+      
+      console.log('✅ Created first note:', newContainer.title);
+      
+      // Update last visited
+      await UserService.updateLastVisitedContainer(newContainer.id);
+      
+      // Redirect to new container
+      const targetUrl = `/app/collections/${data.collectionId}/containers/${newContainer.id}`;
+      await goto(targetUrl, { replaceState: true });
+      
+    } catch (error) {
+      console.error('❌ Failed to create first note:', error);
+      redirectStatus = 'Failed to create note. Please try again.';
+      isRedirecting = false;
+    }
   }
-  
-  // Handle cross-container drops from sidebar
-  async function handleCrossContainerDrop(event: CustomEvent<{ sectionId: string; fromContainer: string; toContainer: string }>) {
-    await noteOperations.handleCrossContainerMove(event, pageManager.selectContainer, containers);
-  }
-  
-  // Create keyboard handler
-  const handleKeydown = noteOperations.createKeyboardHandler(
-    currentCollectionId,
-    createNewNote,
-    createNewNoteWithCode
-  );
-
-  $: console.log('🔧 +page.svelte debug:', {
-    hasSelectedContainer: !!selectedContainer,
-    selectedContainerSections: selectedContainerSections?.length || 0,
-    sections: selectedContainerSections
-  });
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:head>
+  <title>{data.collection.name} - Jotter</title>
+</svelte:head>
 
-<!-- NEW: Wrap everything in DragProvider -->
-<DragProvider behaviors={[sectionBehavior, containerBehavior]}>
-
-  <!-- Main Content Layout -->
-  <div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
-    <!-- Improved Sidebar with Auto-Expand -->
-    <ContainerSidebar 
-      {containers}
-      {selectedContainer}
-      collectionId={currentCollectionId}
-      on:selectContainer={(e) => pageManager.selectContainer(e.detail)}
-      on:createNew={createNewNote}
-      on:deleteContainer={deleteContainer}
-      on:containersReordered={handleContainersReordered}
-      on:crossContainerDrop={handleCrossContainerDrop}
-    />
-
-    <!-- Main Content Area -->
-    <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
-      {#if loading}
-        <div class="flex items-center justify-center h-64">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+<div class="min-h-screen bg-gray-50 flex items-center justify-center">
+  <div class="max-w-md w-full mx-auto p-6">
+    
+    {#if isRedirecting}
+      <!-- Redirecting State -->
+      <div class="text-center">
+        <LoadingSpinner />
+        <h2 class="mt-4 text-lg font-semibold text-gray-800">
+          {data.collection.name}
+        </h2>
+        <p class="mt-2 text-sm text-gray-600">
+          {redirectStatus}
+        </p>
+      </div>
+      
+    {:else if data.containers.length === 0}
+      <!-- No Containers State -->
+      <div class="text-center">
+        <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+          <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+          </svg>
         </div>
-      {:else}
-        <CollectionPageHeader 
-          {selectedContainer}
-          {loading}
-          on:refresh={pageManager.refreshNotes}
-          on:updateTitle={handleTitleUpdate}
-        />
         
-        <SectionGridWrapper 
-          sections={selectedContainerSections}
-          collectionName={currentCollection?.name}
-          hasSelectedContainer={!!selectedContainer}
-          noteContainerId={selectedContainer?.id || ''}
-          on:edit={handleEdit}
-          on:delete={deleteSection}
-          on:checkboxChange={handleCheckboxChange}
-          on:titleSave={handleSectionTitleSave}
-        />
-      {/if}
-    </div>
-
-    <!-- Floating Add Section Area -->
-    {#if !loading && selectedContainer}
-      <div class="floating-add-section">
-        <div class="floating-add-section-content">
-          <CreateNoteSectionForm on:createSection={createSection} />
+        <h2 class="text-xl font-semibold text-gray-800 mb-2">
+          Welcome to {data.collection.name}
+        </h2>
+        
+        <p class="text-gray-600 mb-6">
+          This collection is empty. Create your first note to get started!
+        </p>
+        
+        <button 
+          on:click={createFirstNote}
+          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
+        >
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+          </svg>
+          Create First Note
+        </button>
+        
+        <div class="mt-4">
+          <a 
+            href="/app" 
+            class="text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200"
+          >
+            ← Back to Collections
+          </a>
         </div>
       </div>
+      
+    {:else}
+      <!-- Error State -->
+      <div class="text-center">
+        <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        
+        <h2 class="text-xl font-semibold text-gray-800 mb-2">
+          Something went wrong
+        </h2>
+        
+        <p class="text-gray-600 mb-6">
+          {redirectStatus}
+        </p>
+        
+        <button 
+          on:click={handleCollectionRedirect}
+          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
+        >
+          Try Again
+        </button>
+      </div>
     {/if}
+    
   </div>
-
-</DragProvider>
-
-<style>
-  .floating-add-section {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    left: 280px; /* Account for sidebar width */
-    z-index: 50;
-    pointer-events: none; /* Allow clicking through the container */
-  }
-
-  .floating-add-section-content {
-    background: linear-gradient(to top, rgba(249, 250, 251, 0.95) 60%, transparent);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid rgba(229, 231, 235, 0.8);
-    padding: 12px 16px;
-    margin: 0 16px 16px 16px;
-    border-radius: 8px 8px 0 0;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-    pointer-events: auto; /* Re-enable clicks for the content */
-  }
-
-  /* Responsive adjustments */
-  @media (max-width: 1024px) {
-    .floating-add-section {
-      left: 0; /* Full width on smaller screens */
-    }
-  }
-</style>
+</div>

@@ -24,6 +24,30 @@ export class CollectionService {
     return data || [];
   }
 
+  // Get single collection by ID - WITH PROPER USER FILTERING
+  static async getCollection(collectionId: string): Promise<Collection | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('id', collectionId)
+      .eq('user_id', user.id) // SECURITY: Ensure user owns this collection
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - collection not found or user doesn't have access
+        return null;
+      }
+      console.error('Error loading collection:', error);
+      throw error;
+    }
+
+    return data;
+}
+
   // Get default collection for current user - NOW WITH PROPER USER FILTERING
   static async getDefaultCollection(): Promise<Collection | null> {
     const { data: { user } } = await supabase.auth.getUser();

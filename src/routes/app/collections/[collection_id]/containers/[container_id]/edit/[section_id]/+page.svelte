@@ -1,4 +1,4 @@
-<!-- src/routes/app/collections/[collection_id]/edit/[section_id]/+page.svelte -->
+<!-- src/routes/app/collections/[collection_id]/containers/[container_id]/edit/[section_id]/+page.svelte -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto, beforeNavigate } from '$app/navigation';

@@ -1,4 +1,4 @@
-// src/routes/app/collections/[collection_id]/edit/[section_id]/+page.ts
+// src/routes/app/collections/[collection_id]/containers/[container_id]/edit/[section_id]/+page.ts
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params }) => {

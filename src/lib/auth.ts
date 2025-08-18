@@ -45,7 +45,8 @@ export const initAuth = async () => {
       if (browser && isInitialized) {
         if (event === 'INITIAL_SESSION') {
           console.log('🔐 Redirecting to app after sign-in');
-          NavigationService.redirectToLastVisited();
+          // Redirect now handled by the app page onMount
+          // NavigationService.redirectToLastVisited();
         } else if (event === 'SIGNED_OUT') {
           console.log('🔐 Redirecting to home after sign-out');
           goto('/');
