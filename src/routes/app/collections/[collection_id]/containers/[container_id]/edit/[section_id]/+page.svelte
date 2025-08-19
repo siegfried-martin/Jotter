@@ -24,7 +24,9 @@
 	let checklistData: import('$lib/types').ChecklistItem[] = [];
 	
 	$: sectionId = $page.params.section_id;
+	$: containerId = $page.params.container_id;
 	$: collectionId = $page.params.collection_id;
+	
 	
 	onMount(async () => {
 		await loadSection();
@@ -73,46 +75,45 @@
 	}
 	
 	async function saveSection() {
-		if (!section) return;
-		
-		saving = true;
-		
-		try {
-			const updateData: any = {
-				content,
-			};
-			
-			if (section.type === 'code') {
-				updateData.meta = { ...section.meta, language };
-			} else if (section.type === 'checklist') {
-				updateData.checklist_data = checklistData;
-			}
-			
-			await SectionService.updateSection(section.id, updateData);
-			
-			// Clear draft and mark as saved
-			try {
-				localStorage?.removeItem(`draft_${section.id}`);
-			} catch (e) {
-				// localStorage not available, continue
-			}
-			hasUnsavedChanges = false;
-			
-			// Navigate back to collection page
-			goto(`/app/collections/${collectionId}`);
-			
-		} catch (saveError) {
-			console.error('Error saving section:', saveError);
-			error = 'Failed to save changes';
-		} finally {
-			saving = false;
-		}
-	}
+    if (!section) return;
+    
+    saving = true;
+    
+    try {
+      const updateData: any = {
+        content,
+      };
+      
+      if (section.type === 'code') {
+        updateData.meta = { ...section.meta, language };
+      } else if (section.type === 'checklist') {
+        updateData.checklist_data = checklistData;
+      }
+      
+      await SectionService.updateSection(section.id, updateData);
+      
+      // Clear draft and mark as saved
+      try {
+        localStorage?.removeItem(`draft_${section.id}`);
+      } catch (e) {
+        // localStorage not available, continue
+      }
+      hasUnsavedChanges = false;
+      
+      // FIX: Navigate back to container page with correct route
+      goto(`/app/collections/${collectionId}/containers/${containerId}`);
+      
+    } catch (saveError) {
+      console.error('Error saving section:', saveError);
+      error = 'Failed to save changes';
+    } finally {
+      saving = false;
+    }
+  }
 	
 	function handleCancel() {
-		// Cancel without saving - just go back to collection
-		goto(`/app/collections/${collectionId}`);
-	}
+    goto(`/app/collections/${collectionId}/containers/${containerId}`);
+  }
 	
 	function handleContentChange(event: CustomEvent<string>) {
 		content = event.detail;

@@ -218,7 +218,7 @@
   <div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
     
     <!-- Persistent Sidebar -->
-    <ContainerSidebar 
+    <!-- <ContainerSidebar 
       {containers}
       {selectedContainer}
       collectionId={currentCollectionId}
@@ -227,7 +227,7 @@
       on:deleteContainer={deleteContainer}
       on:containersReordered={() => {}}
       on:crossContainerDrop={handleCrossContainerDrop}
-    />
+    /> -->
 
     <!-- Content Area (Child Routes) -->
     <div class="flex-1 overflow-hidden">

@@ -1,61 +1,51 @@
-<!-- src/routes/app/+layout.svelte (Updated to use Navigation Guard) -->
+<!-- src/routes/app/+layout.svelte (Updated with App Initialization) -->
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { authStore, isAuthenticated } from '$lib/auth';
-  import { initNavigationGuard, destroyNavigationGuard } from '$lib/navigation/navigationGuard';
+  import { appStore } from '$lib/stores/appStore';
+  import { goto } from '$app/navigation';
   import { collectionStore, collectionActions } from '$lib/stores/collectionStore';
   import AppHeader from '$lib/components/layout/AppHeader.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
 
   let user = null;
+  let hasLoadedOnce = false;
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
-  $: authState = $authStore;
-  $: userAuthenticated = isAuthenticated(authState);
+  $: currentRoute = $page.url.pathname;
   
-  console.log('🏗️ Layout - currentCollectionId changed:', currentCollectionId);
+  // Initialize app state when layout first loads
+  $: if ($authStore.initialized && !$authStore.loading && $appStore && !$appStore.hasInitialized) {
+    console.log('🚀 App layout initializing with route:', currentRoute);
+    appStore.initialize(currentRoute);
+  }
 
   onMount(async () => {
-    console.log('🏗️ App layout mounted, initializing navigation guard');
-    
-    // Initialize the navigation guard to handle auth-based redirects
-    initNavigationGuard();
-    
-    // Subscribe to auth changes for component state
-    const unsubscribeAuth = authStore.subscribe((auth) => {
+    const unsubscribe = authStore.subscribe((auth) => {
+      if (!auth.loading && !isAuthenticated(auth)) {
+        goto('/');
+        return;
+      }
       user = auth.user;
+      if (!auth.loading) {
+        hasLoadedOnce = true;
+      }
     });
 
-    return () => {
-      unsubscribeAuth();
-    };
-  });
-
-  onDestroy(() => {
-    console.log('🏗️ App layout destroyed, cleaning up navigation guard');
-    destroyNavigationGuard();
+    return unsubscribe;
   });
 </script>
 
-<!-- Show loading while auth is initializing -->
-{#if !authState.initialized || authState.loading}
+<!-- Only show loading on initial load -->
+{#if $authStore.loading && !hasLoadedOnce}
   <LoadingSpinner 
     fullScreen={true} 
     size="lg" 
     text="Loading..." 
   />
-{:else if !userAuthenticated}
-  <!-- This shouldn't happen due to navigation guard, but just in case -->
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div class="text-center">
-      <h2 class="text-xl font-semibold text-gray-800 mb-2">Access Denied</h2>
-      <p class="text-gray-600">Please sign in to continue.</p>
-    </div>
-  </div>
 {:else}
-  <!-- User is authenticated, show app -->
   <div class="min-h-screen bg-gray-50">
     <AppHeader 
       {user} 

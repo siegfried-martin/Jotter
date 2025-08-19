@@ -1,9 +1,9 @@
-<!-- src/routes/app/+page.svelte (Updated with Smart Redirect Logic) -->
+<!-- src/routes/app/+page.svelte (Simplified with App Store) -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
   import { CollectionService } from '$lib/services/collectionService';
   import { NavigationService } from '$lib/services/navigationService';
+  import { appStore } from '$lib/stores/appStore';
   import CollectionGrid from '$lib/components/collections/CollectionGrid.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import type { Collection } from '$lib/types';
@@ -14,9 +14,8 @@
   let shouldShowCollections = false;
 
   onMount(async () => {
-    console.log('📱 Collections page loaded, checking if should redirect...');
-    console.log('📱 Current URL:', window.location.href);
-    console.log('📱 Current pathname:', window.location.pathname);
+    console.log('📱 Collections page loaded');
+    console.log('📱 App state:', $appStore);
     
     // Check if we should redirect to last visited location
     const shouldRedirect = await NavigationService.shouldRedirectToLastVisited();

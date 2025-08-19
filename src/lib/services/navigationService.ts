@@ -1,5 +1,7 @@
 // src/lib/services/navigationService.ts
 import { goto } from '$app/navigation';
+import { get } from 'svelte/store';
+import { appStore } from '$lib/stores/appStore';
 import { CollectionService } from './collectionService';
 import { UserService } from './userService';
 import { NoteService } from './noteService';
@@ -7,9 +9,68 @@ import type { Collection } from '$lib/types';
 
 export class NavigationService {
   /**
+   * Check if we should redirect to last visited location
+   * Only redirect if:
+   * 1. This is the initial app load (user's first route was /app)
+   * 2. We haven't already handled initial redirect logic
+   */
+  static async shouldRedirectToLastVisited(): Promise<boolean> {
+    const appState = get(appStore);
+    
+    console.log('🔍 Checking redirect conditions:', {
+      hasInitialized: appState.hasInitialized,
+      initialRoute: appState.initialRoute,
+      currentPath: window.location.pathname
+    });
+
+    // Only redirect if:
+    // 1. App has initialized (we know the initial route)
+    // 2. User's initial route was /app (not a specific container/collection)
+    // 3. We're currently on /app
+    const shouldRedirect = (
+      appState.hasInitialized &&
+      appState.initialRoute === '/app' &&
+      window.location.pathname === '/app'
+    );
+
+    if (!shouldRedirect) {
+      console.log('🛡️ Not redirecting - conditions not met');
+      return false;
+    }
+
+    try {
+      // Check for last visited container first
+      const lastVisitedContainerId = await UserService.getLastVisitedContainerId();
+      if (lastVisitedContainerId) {
+        const containerCollectionId = await UserService.getContainerCollection(lastVisitedContainerId);
+        if (containerCollectionId) {
+          console.log('✅ Found valid last visited container for redirect');
+          return true;
+        }
+      }
+      
+      // Check for last visited collection
+      const lastVisitedCollectionId = await UserService.getLastVisitedCollectionId();
+      if (lastVisitedCollectionId) {
+        const userCollections = await CollectionService.getCollections();
+        const exists = userCollections.some(c => c.id === lastVisitedCollectionId);
+        if (exists) {
+          console.log('✅ Found valid last visited collection for redirect');
+          return exists;
+        }
+      }
+      
+      console.log('ℹ️ No valid last visited location found');
+      return false;
+    } catch (error) {
+      console.warn('Could not check last visited location:', error);
+      return false;
+    }
+  }
+
+  /**
    * Redirect user to their last visited container
-   * If no last visited container exists, redirect to last visited collection
-   * If no last visited collection exists, return false (stay on /app page)
+   * After successful redirect, update app state to prevent future redirects
    */
   static async redirectToLastVisited(): Promise<boolean> {
     try {
@@ -34,7 +95,12 @@ export class NavigationService {
             
             if (container) {
               console.log('🚀 Redirecting directly to container:', container.title);
-              goto(`/app/collections/${containerCollectionId}/containers/${lastVisitedContainerId}`, { replaceState: true });
+              
+              // Update app state to mark initial redirect as handled
+              const targetRoute = `/app/collections/${containerCollectionId}/containers/${lastVisitedContainerId}`;
+              appStore.initialize(targetRoute);
+              
+              goto(targetRoute, { replaceState: true });
               return true;
             } else {
               console.log('⚠️ Last visited container no longer exists in collection');
@@ -58,48 +124,26 @@ export class NavigationService {
         
         if (lastVisitedCollection) {
           console.log('🚀 Redirecting to collection:', lastVisitedCollection.name);
-          goto(`/app/collections/${lastVisitedCollectionId}`, { replaceState: true });
+          
+          // Update app state to mark initial redirect as handled
+          const targetRoute = `/app/collections/${lastVisitedCollectionId}`;
+          appStore.initialize(targetRoute);
+          
+          goto(targetRoute, { replaceState: true });
           return true;
         } else {
           console.log('⚠️ Last visited collection no longer exists');
         }
       }
       
-      // No valid last visited location - don't redirect, let user stay on /app
+      // No valid last visited location - update app state and don't redirect
       console.log('ℹ️ No valid last visited location, staying on app page');
+      appStore.initialize('/app');
       return false;
     } catch (error) {
       console.error('Failed to redirect to last visited location:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Check if we should redirect to last visited location
-   * Returns true if there's a valid last visited container or collection
-   */
-  static async shouldRedirectToLastVisited(): Promise<boolean> {
-    try {
-      // Check for last visited container first
-      const lastVisitedContainerId = await UserService.getLastVisitedContainerId();
-      if (lastVisitedContainerId) {
-        const containerCollectionId = await UserService.getContainerCollection(lastVisitedContainerId);
-        if (containerCollectionId) {
-          return true;
-        }
-      }
-      
-      // Check for last visited collection
-      const lastVisitedCollectionId = await UserService.getLastVisitedCollectionId();
-      if (lastVisitedCollectionId) {
-        const userCollections = await CollectionService.getCollections();
-        const exists = userCollections.some(c => c.id === lastVisitedCollectionId);
-        return exists;
-      }
-      
-      return false;
-    } catch (error) {
-      console.warn('Could not check last visited location:', error);
+      // Update app state even on error to prevent infinite retry
+      appStore.initialize('/app');
       return false;
     }
   }

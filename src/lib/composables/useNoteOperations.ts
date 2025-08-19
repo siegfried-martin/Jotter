@@ -48,7 +48,8 @@ export function useNoteOperations() {
       
       noteActions.addContainer(newContainer);
       await selectContainerFn(newContainer);
-      goto(`/app/collections/${collectionId}/edit/${newSection.id}`);
+      
+      goto(`/app/collections/${collectionId}/containers/${newContainer.id}/edit/${newSection.id}`);
     } catch (error) {
       console.error('Failed to create note with code:', error);
       throw error;
@@ -100,7 +101,8 @@ export function useNoteOperations() {
       
       const createdSection = await SectionService.createSection(newSection);
       await selectContainerFn(selectedContainer); // Refresh sections
-      goto(`/app/collections/${collectionId}/edit/${createdSection.id}`);
+      
+      goto(`/app/collections/${collectionId}/containers/${selectedContainer.id}/edit/${createdSection.id}`);
     } catch (error) {
       console.error('Failed to create section:', error);
       throw error;
@@ -110,8 +112,8 @@ export function useNoteOperations() {
   /**
    * Navigate to edit a section
    */
-  function handleEdit(sectionId: string, collectionId: string): void {
-    goto(`/app/collections/${collectionId}/edit/${sectionId}`);
+  function handleEdit(sectionId: string, collectionId: string, containerId: string): void {
+    goto(`/app/collections/${collectionId}/containers/${containerId}/edit/${sectionId}`);
   }
 
   /**
@@ -217,7 +219,7 @@ export function useNoteOperations() {
   }
 
   /**
-   * Handle section title updates - FIXED: No unnecessary refetch
+   * Handle section title updates
    */
   async function handleSectionTitleSave(
     event: CustomEvent<{ sectionId: string; title: string | null }>,
