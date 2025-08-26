@@ -23,12 +23,12 @@
   // Create drag detection callbacks
   const dragCallbacks: DragCallbacks = {
     onDetectionStart: (item, itemType, zoneId, itemIndex, position) => {
-      console.log('🎯 DragProvider: Detection started', itemType, item.id || item.title);
+      //console.log('🎯 DragProvider: Detection started', itemType, item.id || item.title);
       dragCore.startDetection(item, itemType, zoneId, itemIndex, position);
     },
 
     onDragStart: () => {
-      console.log('🎯 DragProvider: Drag started');
+      //console.log('🎯 DragProvider: Drag started');
       dragCore.startDrag();
     },
 
@@ -37,25 +37,25 @@
     },
 
     onDragEnd: () => {
-      console.log('🎯 DragProvider: Drag ended');
+      //console.log('🎯 DragProvider: Drag ended');
       previewRenderer.clearPreview();
       
       const result = dragCore.endDrag();
       if (result) {
         registry.handleDrop(result).catch(error => {
-          console.error('❌ Drop handling failed:', error);
+          //console.error('❌ Drop handling failed:', error);
         });
       }
     },
 
     onCancel: () => {
-      console.log('🎯 DragProvider: Drag cancelled');
+      //console.log('🎯 DragProvider: Drag cancelled');
       previewRenderer.clearPreview();
       dragCore.cancelDrag();
     },
 
     onClick: (item, itemType) => {
-      console.log('🎯 DragProvider: Item clicked', itemType, item.id || item.title);
+      //console.log('🎯 DragProvider: Item clicked', itemType, item.id || item.title);
       dispatch('itemClick', { item, itemType });
     },
 
@@ -72,7 +72,7 @@
     if (currentState.phase === 'dragging' && currentState.itemType) {
       if (target === null) {
         // Clear drop target
-        console.log('🎯 Clearing drop target in provider');
+        //console.log('🎯 Clearing drop target in provider');
         dragCore.setDropTarget(null);
         previewRenderer.clearPreview();
         return;
@@ -100,7 +100,7 @@
           currentState.item // Pass the dragged item
         );
         
-        console.log('🎨 Applying preview config:', previewConfig);
+        //console.log('🎨 Applying preview config:', previewConfig);
         previewRenderer.applyPreview(previewConfig, currentState.sourceZone!);
       } else {
         dragCore.setDropTarget(null);
@@ -149,7 +149,7 @@
   // Register behaviors on mount
   onMount(() => {
     behaviors.forEach(behavior => {
-      console.log('🎯 DragProvider: Registering behavior', behavior.itemType);
+      //console.log('🎯 DragProvider: Registering behavior', behavior.itemType);
       registry.register(behavior);
     });
   });

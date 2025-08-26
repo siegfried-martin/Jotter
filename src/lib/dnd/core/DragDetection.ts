@@ -121,16 +121,16 @@ export class DragDetection {
         ? this.shouldStartDrag() 
         : this.calculateShouldStartDrag(currentPosition);
         
-      console.log('🔍 DragDetection: Should start drag?', shouldStart, {
-        hasDragStarted: this.hasDragStarted,
-        hasCallback: !!this.shouldStartDrag,
-        currentPos: currentPosition,
-        startPos: this.startPosition
-      });
+      // console.log('🔍 DragDetection: Should start drag?', shouldStart, {
+      //   hasDragStarted: this.hasDragStarted,
+      //   hasCallback: !!this.shouldStartDrag,
+      //   currentPos: currentPosition,
+      //   startPos: this.startPosition
+      // });
         
       if (shouldStart) {
         this.hasDragStarted = true;
-        console.log('🚀 DragDetection: Starting drag!');
+        //console.log('🚀 DragDetection: Starting drag!');
         
         // NEW: Highlight all valid drop targets when drag starts
         if (this.activeConfig.itemType === 'section') {
@@ -159,11 +159,11 @@ export class DragDetection {
 
     if (shouldClick && !this.hasDragStarted) {
       // This was a click
-      console.log('🎯 Processing as click - no significant movement detected');
+      //console.log('🎯 Processing as click - no significant movement detected');
       this.callbacks.onClick(this.activeConfig.item, this.activeConfig.itemType);
     } else if (this.hasDragStarted) {
       // This was a drag - end it and prevent any click events
-      console.log('🎯 Processing as drag end - PREVENTING CLICK');
+      //console.log('🎯 Processing as drag end - PREVENTING CLICK');
       this.callbacks.onDragEnd();
       
       // 🔧 PREVENT MOUSEUP EVENT: Prevent the mouseup event from bubbling
@@ -174,7 +174,7 @@ export class DragDetection {
       // 🔧 GLOBAL CLICK CAPTURE: Add temporary global click prevention
       // This catches clicks that fire after DOM reordering
       const preventGlobalClick = (e: Event) => {
-        console.log('🛑 BLOCKING post-drag click event');
+        //console.log('🛑 BLOCKING post-drag click event');
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -189,7 +189,7 @@ export class DragDetection {
         document.removeEventListener('click', preventGlobalClick, { capture: true });
       }, 300);
     } else {
-      console.log('🎯 Ignoring - movement detected but not enough for drag');
+      //console.log('🎯 Ignoring - movement detected but not enough for drag');
       // Don't trigger click OR drag - this prevents click bleeding
     }
 
@@ -199,7 +199,7 @@ export class DragDetection {
   private updateDragTarget(event: PointerEvent): void {
     if (!this.activeConfig) return;
     
-    console.log('🔄 updateDragTarget called for itemType:', this.activeConfig.itemType);
+    //console.log('🔄 updateDragTarget called for itemType:', this.activeConfig.itemType);
     
     // Use the modular target detection
     const result = this.targetDetection.detectTarget(event, this.activeConfig);

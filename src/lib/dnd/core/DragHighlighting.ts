@@ -26,7 +26,7 @@ export class DragHighlighting {
       const className = this.getHighlightClassName(type);
       containerElement.classList.add(className);
       this.activeHighlights.add(`${containerId}-${type}`);
-      console.log(`🎨 Added ${type} highlight to container:`, containerId);
+      //console.log(`🎨 Added ${type} highlight to container:`, containerId);
     }
   }
 
@@ -35,11 +35,11 @@ export class DragHighlighting {
     if (!activeConfig) return;
     
     const sourceContainerId = activeConfig.zoneId.replace('section-grid-', '');
-    console.log('🎨 Highlighting all valid containers, source:', sourceContainerId);
+    //console.log('🎨 Highlighting all valid containers, source:', sourceContainerId);
     
     // Find all container elements
     const allContainers = document.querySelectorAll('[data-container-id]');
-    console.log('🎨 Found containers:', allContainers.length);
+    //console.log('🎨 Found containers:', allContainers.length);
     
     allContainers.forEach(containerElement => {
       const containerId = containerElement.getAttribute('data-container-id');
@@ -49,9 +49,9 @@ export class DragHighlighting {
         const className = this.getHighlightClassName('available');
         containerElement.classList.add(className);
         this.activeHighlights.add(`${containerId}-available`);
-        console.log('🎨 Added available highlight to container:', containerId);
+        //console.log('🎨 Added available highlight to container:', containerId);
       } else {
-        console.log('🎨 Skipping source container:', containerId);
+        //console.log('🎨 Skipping source container:', containerId);
       }
     });
   }
@@ -82,7 +82,7 @@ export class DragHighlighting {
     // Clear the tracking set
     this.activeHighlights.clear();
     
-    console.log('🧹 Removed all highlights');
+    //console.log('🧹 Removed all highlights');
   }
 
   // Get the appropriate CSS class name for a highlight type
@@ -132,7 +132,7 @@ export class DragHighlighting {
         const className = this.getHighlightClassName('section-reorder');
         targetSection.classList.add(className);
         this.activeHighlights.add(`${zoneId}-${targetIndex}-section-reorder`);
-        console.log('🎨 Added section reorder highlight at index:', targetIndex);
+        //console.log('🎨 Added section reorder highlight at index:', targetIndex);
       }
     }
   }
@@ -140,6 +140,6 @@ export class DragHighlighting {
   // Cleanup method to ensure no highlights are left behind
   cleanup(): void {
     this.removeAllHighlights();
-    console.log('🧹 DragHighlighting cleanup completed');
+    //console.log('🧹 DragHighlighting cleanup completed');
   }
 }

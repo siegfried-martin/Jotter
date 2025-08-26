@@ -54,13 +54,14 @@
   // Get current container ID from URL
   $: currentContainerId = $page.params.container_id || null;
   
-  // Sync selected container from URL
-  $: if (currentContainerId && containers.length > 0) {
-    const containerFromUrl = containers.find(c => c.id === currentContainerId);
-    if (containerFromUrl && selectedContainer?.id !== containerFromUrl.id) {
-      noteActions.setSelectedContainer(containerFromUrl);
-    }
-  }
+  // ❌ REMOVED: Problematic URL sync that was clearing sections
+  // The page component now handles URL→container sync properly with sections
+  // $: if (currentContainerId && containers.length > 0) {
+  //   const containerFromUrl = containers.find(c => c.id === currentContainerId);
+  //   if (containerFromUrl && selectedContainer?.id !== containerFromUrl.id) {
+  //     noteActions.setSelectedContainer(containerFromUrl);  // ← This was clearing sections!
+  //   }
+  // }
 
   // Helper function for array reordering
   function reorderArray<T>(array: T[], fromIndex: number, toIndex: number): T[] {
@@ -126,23 +127,20 @@
     const container = event.detail;
     console.log('🎯 Container selected:', container.title);
     
-    // 1. IMMEDIATE: Optimistically update the UI
-    noteActions.setSelectedContainer(container);
-    noteActions.setSelectedSections([]); // Clear sections immediately to show loading
+    // ✅ FIXED: Don't manually update store here - let page component handle it
+    // The page loader will handle setting container + sections atomically
     
-    // 2. IMMEDIATE: Visual feedback - no delay
     try {
       // Update last visited container (fire and forget)
       UserService.updateLastVisitedContainer(container.id).catch(error => {
         console.warn('⚠️ Could not update last visited container:', error);
       });
       
-      // 3. Navigate (this will trigger the page loader)
+      // Navigate (this will trigger the page loader which handles store updates)
       await goto(`/app/collections/${currentCollectionId}/containers/${container.id}`);
       
     } catch (error) {
       console.error('❌ Navigation failed:', error);
-      // Could revert optimistic update here if needed
     }
   }
   

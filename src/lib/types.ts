@@ -100,3 +100,106 @@ export interface ReorderRequest {
   toIndex: number;
   items: SequenceUpdate[];
 }
+
+// ===== NEW: CACHE SYSTEM TYPES =====
+
+/**
+ * Cache entry for sections of a specific container
+ */
+export interface CachedSections {
+  sections: NoteSection[];
+  lastFetched: number;
+  lastModified: string; // Server's updated_at timestamp for staleness detection
+  isStale: boolean;
+  version?: number; // For conflict resolution in multi-user scenarios
+}
+
+/**
+ * Cache storage for all section data
+ */
+export interface SectionCache {
+  [containerId: string]: CachedSections;
+}
+
+/**
+ * Collection-level cache metadata
+ */
+export interface CollectionCacheEntry {
+  recentContainers: string[];  // Container IDs ordered by recency
+  lastUpdated: number;         // When we last fetched container list
+  preloadedCount: number;      // How many containers we successfully preloaded
+  serverTimestamp?: string;    // For server sync comparison
+}
+
+/**
+ * Collection cache storage
+ */
+export interface CollectionCache {
+  [collectionId: string]: CollectionCacheEntry;
+}
+
+/**
+ * Cache configuration and behavior
+ */
+export interface CachePolicy {
+  maxAge: number;              // Cache TTL in milliseconds
+  preloadCount: number;        // How many recent containers to preload
+  staleWhileRevalidate: boolean; // Serve stale data while fetching fresh
+  maxCacheSize: number;        // Maximum number of containers to cache
+  batchSize: number;           // Concurrent preload batch size
+}
+
+/**
+ * Cache statistics for monitoring and debugging
+ */
+export interface CacheStats {
+  totalCachedContainers: number;
+  totalCachedSections: number;
+  collectionsWithCache: number;
+  staleCacheCount: number;
+  cacheHitRate?: number;       // For future analytics
+  totalCacheSize: number;      // Memory usage estimation
+}
+
+// ===== FUTURE: REAL-TIME COLLABORATION TYPES =====
+
+/**
+ * Server sync event for polling/WebSocket updates
+ */
+export interface SyncEvent {
+  type: 'container_updated' | 'section_updated' | 'section_deleted' | 'container_deleted';
+  containerId: string;
+  sectionId?: string;
+  timestamp: string;
+  userId?: string;             // Who made the change
+  data?: Partial<NoteContainer | NoteSection>; // Updated data
+}
+
+/**
+ * Polling configuration
+ */
+export interface PollingConfig {
+  enabled: boolean;
+  interval: number;            // Polling interval in milliseconds
+  maxRetries: number;
+  backoffMultiplier: number;
+}
+
+/**
+ * WebSocket configuration for future use
+ */
+export interface WebSocketConfig {
+  enabled: boolean;
+  url: string;
+  reconnectAttempts: number;
+  heartbeatInterval: number;
+}
+
+/**
+ * Real-time sync configuration
+ */
+export interface SyncConfig {
+  polling?: PollingConfig;
+  websocket?: WebSocketConfig;
+  conflictResolution: 'server_wins' | 'client_wins' | 'merge' | 'prompt_user';
+}

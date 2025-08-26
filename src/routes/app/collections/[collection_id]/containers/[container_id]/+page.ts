@@ -1,8 +1,7 @@
 // src/routes/app/collections/[collection_id]/containers/[container_id]/+page.ts
 import { browser } from '$app/environment';
 import { error } from '@sveltejs/kit';
-import { NoteService } from '$lib/services/noteService';
-import { SectionService } from '$lib/services/sectionService';
+import { SectionCacheManager } from '$lib/stores/sectionCacheStore';
 import { UserService } from '$lib/services/userService';
 import type { PageLoad } from './$types';
 
@@ -14,7 +13,7 @@ export const load: PageLoad = async ({ params, parent }) => {
   
   // Only run data loading in the browser where auth tokens are available
   if (!browser) {
-    console.log('📄 Server-side render: returning minimal data');
+    console.log('🔄 Server-side render: returning minimal data');
     return {
       container: null,
       sections: [],
@@ -52,13 +51,12 @@ export const load: PageLoad = async ({ params, parent }) => {
       });
     } catch (err) {
       console.error('❌ Parent layout data failed:', err);
-      throw err; // Re-throw other errors
+      throw err;
     }
     
     // If parent was server-side rendered, we need to load the data client-side
     if (layoutData.isServerSide) {
       console.log('📡 Parent was server-side, loading layout data client-side...');
-      // This will re-trigger the layout loader in the browser
       window.location.reload();
       return {
         container: null,
@@ -80,58 +78,68 @@ export const load: PageLoad = async ({ params, parent }) => {
       throw error(404, 'Container not found in this collection');
     }
     
-    console.log('📡 Loading container and sections...');
+    console.log('📡 Loading container and sections via enhanced cache...');
     
-    // Load container data and its sections in parallel
-    const containerPromise = NoteService.getNoteContainer(containerId)
+    // ✅ ENHANCED CACHE: Use cache-first for complete container data
+    const containerDataPromise = SectionCacheManager.getContainerData(containerId)
       .then(result => {
-        console.log('✅ Container loaded:', result?.title || 'null');
+        if (!result) {
+          throw new Error('Container data not found');
+        }
+        console.log('✅ Container data loaded from cache:', {
+          containerTitle: result.container.title,
+          sectionsCount: result.sections.length,
+          fromCache: true
+        });
         return result;
       })
-      .catch(err => {
-        console.error('❌ Container loading failed:', err);
-        throw err;
+      .catch(async err => {
+        console.error('❌ Cache failed, falling back to direct API:', err);
+        
+        // Fallback: Direct API calls (should be rare)
+        const { NoteService } = await import('$lib/services/noteService');
+        const { SectionService } = await import('$lib/services/sectionService');
+        
+        const [container, sections] = await Promise.all([
+          NoteService.getNoteContainer(containerId),
+          SectionService.getSections(containerId)
+        ]);
+        
+        if (!container) {
+          throw new Error('Container not found');
+        }
+        
+        console.log('✅ Container data loaded via fallback API:', {
+          containerTitle: container.title,
+          sectionsCount: sections.length,
+          fromCache: false
+        });
+        
+        return { container, sections };
       });
-    
-    const sectionsPromise = SectionService.getSections(containerId)
-      .then(result => {
-        console.log('✅ Sections loaded:', result?.length || 0, 'sections');
-        return result;
-      })
-      .catch(err => {
-        console.error('❌ Sections loading failed:', err);
-        throw err;
-      });
-    
-    const [container, sections] = await Promise.all([
-      containerPromise,
-      sectionsPromise
-    ]);
 
-    if (!container) {
-      console.error('❌ Container not found after loading');
-      throw error(404, 'Container not found');
-    }
+    const containerData = await containerDataPromise;
 
     console.log('🔄 Updating last visited container...');
-    // Update last visited container (fire and forget)
+    // Update last visited container (fire and forget - this should be the ONLY network call)
     UserService.updateLastVisitedContainer(containerId).catch(error => {
       console.warn('⚠️ Failed to update last visited container:', error);
     });
 
     const result = {
-      container,
-      sections: sections || [],
+      container: containerData.container,
+      sections: containerData.sections,
       collection: layoutData.collection,
       containers: layoutData.containers,
       collectionId,
       isServerSide: false
     };
     
-    console.log('✅ Container page loader completed successfully:', {
+    console.log('✅ Container page loader completed successfully (cache-first):', {
       containerTitle: result.container.title,
       sectionCount: result.sections.length,
-      collectionName: result.collection.name
+      collectionName: result.collection.name,
+      cacheStats: SectionCacheManager.getCacheStats()
     });
 
     return result;
