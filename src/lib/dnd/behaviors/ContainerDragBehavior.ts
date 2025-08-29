@@ -1,4 +1,4 @@
-// src/lib/dnd/behaviors/ContainerDragBehavior.ts
+// src/lib/dnd/behaviors/ContainerDragBehavior.ts - Enhanced with cross-collection support
 import type { DragBehavior, PreviewConfig, GhostConfig } from './DragBehavior';
 import type { DropResult } from '../core/DragCore';
 import type { NoteContainer } from '$lib/types';
@@ -7,7 +7,8 @@ export class ContainerDragBehavior implements DragBehavior {
   readonly itemType = 'container';
 
   constructor(
-    private onReorder: (result: DropResult) => Promise<void>
+    private onReorder: (result: DropResult) => Promise<void>,
+    private onMoveToCollection?: (result: DropResult) => Promise<void>
   ) {}
 
   canDragFrom(zoneId: string): boolean {
@@ -16,8 +17,11 @@ export class ContainerDragBehavior implements DragBehavior {
   }
 
   canDropTo(zoneId: string, sourceZone: string, itemIndex?: number): boolean {
-    // Containers can only drop to the same container list (reorder only)
-    return zoneId === 'container-list' && zoneId === sourceZone;
+    // Containers can drop to:
+    // 1. Same container list (reorder)
+    // 2. Collection tabs (move to different collection)
+    return (zoneId === 'container-list' && zoneId === sourceZone) || // Reorder
+           zoneId.startsWith('collection-tab-'); // Cross-collection move
   }
 
   createGhost(item: NoteContainer): GhostConfig {
@@ -31,6 +35,9 @@ export class ContainerDragBehavior implements DragBehavior {
               <span class="ghost-avatar-text">${item.title.charAt(0).toUpperCase()}</span>
             </div>
             <span class="ghost-title">${item.title}</span>
+          </div>
+          <div class="ghost-action-hint">
+            Move to collection
           </div>
         </div>
       `,
@@ -65,7 +72,20 @@ export class ContainerDragBehavior implements DragBehavior {
       draggedItem: draggedItem?.id
     });
 
-    // Same-list reorder (only supported operation)
+    // Cross-collection move
+    if (targetZone.startsWith('collection-tab-') && draggedItem) {
+      const targetCollectionId = targetZone.replace('collection-tab-', '');
+      console.log('🎨 Creating cross-collection move preview for collection:', targetCollectionId);
+      
+      return {
+        type: 'move-to-collection',
+        targetZone,
+        targetCollectionId,
+        visualLayout: [] // No layout change needed for collection move
+      };
+    }
+
+    // Same-list reorder
     if (targetZone === sourceZone && targetIndex !== undefined && draggedItem) {
       console.log('🎨 Creating container reorder preview');
       const visualLayout = this.createReorderLayout(items, targetIndex, draggedItem);
@@ -126,9 +146,26 @@ export class ContainerDragBehavior implements DragBehavior {
       return false;
     }
 
-    // Must be same zone (reorder only)
+    // Cross-collection move validation
+    if (result.targetZone.startsWith('collection-tab-')) {
+      const targetCollectionId = result.targetZone.replace('collection-tab-', '');
+      
+      if (!targetCollectionId) {
+        console.warn('🚫 Invalid drop: no target collection ID');
+        return false;
+      }
+      
+      console.log('✅ Valid cross-collection drop:', {
+        container: result.item.title,
+        targetCollection: targetCollectionId
+      });
+      
+      return true;
+    }
+
+    // Same-zone reorder validation
     if (result.sourceZone !== result.targetZone) {
-      console.warn('🚫 Invalid drop: different zones not supported');
+      console.warn('🚫 Invalid drop: unsupported zone combination');
       return false;
     }
 
@@ -155,19 +192,28 @@ export class ContainerDragBehavior implements DragBehavior {
       return;
     }
 
-    // Only reorder supported for now
+    // Cross-collection move
+    if (result.targetZone.startsWith('collection-tab-') && this.onMoveToCollection) {
+      console.log('🚀 Executing cross-collection move');
+      await this.onMoveToCollection(result);
+      return;
+    }
+
+    // Container reorder
     if (result.targetType === 'reorder') {
       console.log('🚀 Executing container reorder');
       await this.onReorder(result);
-    } else {
-      console.warn('❓ Unknown drop type:', result.targetType);
+      return;
     }
+
+    console.warn('❓ Unknown drop type:', result.targetType);
   }
 }
 
 // Factory function to create behavior with page-specific handlers
 export function createContainerDragBehavior(
-  onReorder: (fromIndex: number, toIndex: number) => Promise<void>
+  onReorder: (fromIndex: number, toIndex: number) => Promise<void>,
+  onMoveToCollection?: (containerId: string, targetCollectionId: string) => Promise<void>
 ): ContainerDragBehavior {
   
   const handleReorder = async (result: DropResult) => {
@@ -179,5 +225,15 @@ export function createContainerDragBehavior(
     await onReorder(result.sourceIndex, result.targetIndex!);
   };
 
-  return new ContainerDragBehavior(handleReorder);
+  const handleMoveToCollection = onMoveToCollection ? async (result: DropResult) => {
+    const targetCollectionId = result.targetZone.replace('collection-tab-', '');
+    console.log('📄 Handling cross-collection move:', {
+      container: result.item.title,
+      containerId: result.item.id,
+      targetCollectionId
+    });
+    await onMoveToCollection(result.item.id, targetCollectionId);
+  } : undefined;
+
+  return new ContainerDragBehavior(handleReorder, handleMoveToCollection);
 }

@@ -29,13 +29,20 @@
                            $dragState?.itemType === 'section' &&
                            $dragState?.sourceZone === zoneId;
   
-  // Calculate display order based on drag state
+  // Calculate display order based on drag state with safety checks
   $: displaySections = isCurrentlyDragging && $dragState?.dropTarget?.targetType === 'reorder' 
     ? reorderSectionsForPreview(sections, $dragState)
     : sections;
 
+  // Filter out any undefined sections and ensure all have valid IDs
+  $: safeSections = (displaySections || []).filter(section => 
+    section && 
+    typeof section === 'object' && 
+    section.id
+  );
+
   function reorderSectionsForPreview(originalSections: NoteSection[], dragState: any) {
-    if (!dragState.dropTarget || !dragState.item) return originalSections;
+    if (!dragState.dropTarget || !dragState.item || !originalSections) return originalSections;
     
     const sourceIndex = dragState.sourceIndex;
     const targetIndex = dragState.dropTarget.itemIndex;
@@ -49,9 +56,13 @@
     // Create new array with item moved to target position
     const result = [...originalSections];
     const [draggedItem] = result.splice(sourceIndex, 1);
-    result.splice(targetIndex, 0, draggedItem);
     
-    console.log('🎨 Preview order:', result.map(s => s.id));
+    // Safety check: ensure draggedItem exists before inserting
+    if (draggedItem) {
+      result.splice(targetIndex, 0, draggedItem);
+    }
+    
+    console.log('🎨 Preview order:', result.map(s => s?.id || 'undefined'));
     return result;
   }
 
@@ -75,8 +86,9 @@
   // Debug logging
   $: console.log('🔧 SectionGrid rendered with live reordering:', {
     zoneId,
-    originalCount: sections.length,
-    displayCount: displaySections.length,
+    originalCount: sections?.length || 0,
+    displayCount: displaySections?.length || 0,
+    safeCount: safeSections?.length || 0,
     isCurrentlyDragging,
     dragState: $dragState ? {
       phase: $dragState.phase,
@@ -92,7 +104,7 @@
     class="section-list"
     data-section-grid={zoneId}
   >
-    {#each displaySections as section, index (section.id)}
+    {#each safeSections as section, index (section.id)}
       <DraggableContainer
         item={section}
         itemType="section"

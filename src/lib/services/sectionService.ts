@@ -54,6 +54,7 @@ export class SectionService {
     id: string, 
     updates: Partial<CreateNoteSection> & { sequence?: number }
   ): Promise<NoteSection> {
+    console.log('Updating section:', id, updates);
     const { data, error } = await supabase
       .from('note_section')
       .update({

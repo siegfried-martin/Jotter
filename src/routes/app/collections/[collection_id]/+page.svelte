@@ -1,8 +1,9 @@
-<!-- src/routes/app/collections/[collection_id]/+page.svelte -->
+<!-- src/routes/app/collections/[collection_id]/+page.svelte - Cache-First Collection -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { UnifiedCollectionCache } from '$lib/stores/collectionCacheStore';
   import { NoteService } from '$lib/services/noteService';
   import { UserService } from '$lib/services/userService';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
@@ -14,84 +15,82 @@
   let redirectStatus = 'Loading...';
   
   onMount(async () => {
-    await handleCollectionRedirect();
+    // Only run redirect logic for exact bare collection URL
+    const currentPath = $page.url.pathname;
+    const expectedPath = `/app/collections/${data.collection?.id || data.collectionId}`;
+    
+    if (currentPath === expectedPath && !$page.params.container_id) {
+      console.log('At bare collection URL, handling redirect');
+      await handleCollectionRedirect();
+    } else {
+      console.log('Not at bare collection URL, no redirect needed');
+    }
   });
   
   async function handleCollectionRedirect() {
     try {
       isRedirecting = true;
+      const collectionId = data.collectionId;
       
-      const { collection, containers, lastVisitedContainerId, collectionId } = data;
-      
-      console.log('🔄 Collection redirect logic:', {
-        collectionId,
-        containerCount: containers.length,
-        lastVisitedContainerId,
-        currentUrl: $page.url.href
-      });
-      
-      // If no containers exist, show create first note state
-      if (containers.length === 0) {
-        console.log('📝 Collection is empty, showing create first note UI');
+      // Ensure we have collection data in cache
+      if (!data.fromCache || data.containers.length === 0) {
+        redirectStatus = 'Loading collection data...';
+        await UnifiedCollectionCache.ensureCollectionData(collectionId);
         
-        // REMOVED: No longer redirect to different collections
-        // Users who navigate to an empty collection should see the empty state
-        
+        // Re-read from cache
+        const cacheResult = UnifiedCollectionCache.getCachedCollectionData(collectionId);
+        if (cacheResult.data) {
+          data = {
+            ...data,
+            collection: cacheResult.data.collection,
+            containers: cacheResult.data.containers,
+            fromCache: true
+          };
+        }
+      }
+      
+      const { collection, containers } = data;
+      
+      // No containers: show create UI
+      if (!containers || containers.length === 0) {
+        console.log('Collection is empty, showing create UI');
         redirectStatus = 'No notes found. Please create your first note.';
         isRedirecting = false;
         return;
       }
       
-      // Collection has containers - determine target
+      // Determine target container
       let targetContainerId: string;
       
-      if (lastVisitedContainerId) {
-        // Check if last visited container exists IN THIS COLLECTION ONLY
-        const lastVisitedContainer = containers.find(c => c.id === lastVisitedContainerId);
+      // Try to get last visited from user preferences (cache this too eventually)
+      try {
+        const userProfile = await UserService.getUserProfile();
+        const lastVisitedId = userProfile?.lastVisitedContainer;
         
-        if (lastVisitedContainer) {
-          targetContainerId = lastVisitedContainerId;
-          redirectStatus = `Redirecting to last visited note: ${lastVisitedContainer.title}...`;
-          console.log('✅ Using last visited container in this collection:', lastVisitedContainer.title);
+        if (lastVisitedId && containers.some(c => c.id === lastVisitedId)) {
+          targetContainerId = lastVisitedId;
+          redirectStatus = `Opening last visited note...`;
         } else {
-          // CHANGED: Don't check other collections - just use first container in THIS collection
-          console.log('🔄 Last visited container not in this collection, using first container');
-          
           targetContainerId = containers[0].id;
-          redirectStatus = `Redirecting to first note: ${containers[0].title}...`;
-          console.log('ℹ️ Using first container in this collection');
+          redirectStatus = `Opening first note...`;
           
-          // Update last visited to the first container in this collection
-          try {
-            await UserService.updateLastVisitedContainer(targetContainerId);
-            console.log('✅ Updated last visited to first container in this collection');
-          } catch (error) {
-            console.warn('⚠️ Could not update last visited container:', error);
-          }
+          // Update last visited
+          UserService.updateLastVisitedContainer(targetContainerId).catch(console.warn);
         }
-      } else {
-        // No last visited container, use first one
+      } catch (error) {
+        // Fallback to first container
         targetContainerId = containers[0].id;
-        redirectStatus = `Redirecting to first note: ${containers[0].title}...`;
-        console.log('ℹ️ No last visited container, using first container');
-        
-        // Set this as the last visited
-        try {
-          await UserService.updateLastVisitedContainer(targetContainerId);
-          console.log('✅ Set first container as last visited');
-        } catch (error) {
-          console.warn('⚠️ Could not set last visited container:', error);
-        }
+        redirectStatus = `Opening first note...`;
       }
       
-      // Redirect to container route in this collection
+      // Redirect to container
       const targetUrl = `/app/collections/${collectionId}/containers/${targetContainerId}`;
-      console.log('🚀 Redirecting to container in this collection:', targetUrl);
+      console.log('Redirecting to:', targetUrl);
       
       await goto(targetUrl, { replaceState: true });
       
     } catch (error) {
-      console.error('❌ Collection redirect failed:', error);
+      console.error('Collection redirect failed:', error);
       redirectStatus = 'Error loading collection. Please try again.';
       isRedirecting = false;
     }
@@ -101,23 +100,27 @@
     try {
       redirectStatus = 'Creating your first note...';
       
-      // Create new note container
       const newContainer = await NoteService.createSimpleNoteContainer(
         data.collectionId,
         'My First Note'
       );
       
-      console.log('✅ Created first note:', newContainer.title);
+      // Update cache optimistically
+      UnifiedCollectionCache.updateCacheOptimistically(
+        data.collectionId,
+        newContainer.id,
+        [] // Empty sections for new container
+      );
       
       // Update last visited
-      await UserService.updateLastVisitedContainer(newContainer.id);
+      UserService.updateLastVisitedContainer(newContainer.id).catch(console.warn);
       
-      // Redirect to new container
+      // Navigate to new container
       const targetUrl = `/app/collections/${data.collectionId}/containers/${newContainer.id}`;
       await goto(targetUrl, { replaceState: true });
       
     } catch (error) {
-      console.error('❌ Failed to create first note:', error);
+      console.error('Failed to create first note:', error);
       redirectStatus = 'Failed to create note. Please try again.';
       isRedirecting = false;
     }
@@ -125,26 +128,26 @@
 </script>
 
 <svelte:head>
-  <title>{data.collection.name} - Jotter</title>
+  <title>{data.collection?.name || 'Loading...'} - Jotter</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50 flex items-center justify-center">
   <div class="max-w-md w-full mx-auto p-6">
     
     {#if isRedirecting}
-      <!-- Redirecting State -->
+      <!-- Component-level loading (not SvelteKit) -->
       <div class="text-center">
         <LoadingSpinner />
         <h2 class="mt-4 text-lg font-semibold text-gray-800">
-          {data.collection.name}
+          {data.collection?.name || 'Loading Collection...'}
         </h2>
         <p class="mt-2 text-sm text-gray-600">
           {redirectStatus}
         </p>
       </div>
       
-    {:else if data.containers.length === 0}
-      <!-- No Containers State -->
+    {:else if !data.containers || data.containers.length === 0}
+      <!-- Empty collection state -->
       <div class="text-center">
         <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
           <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,7 +156,7 @@
         </div>
         
         <h2 class="text-xl font-semibold text-gray-800 mb-2">
-          Welcome to {data.collection.name}
+          Welcome to {data.collection?.name || 'Your Collection'}
         </h2>
         
         <p class="text-gray-600 mb-6">
@@ -181,25 +184,13 @@
       </div>
       
     {:else}
-      <!-- Error State -->
+      <!-- Error state -->
       <div class="text-center">
-        <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-        </div>
-        
-        <h2 class="text-xl font-semibold text-gray-800 mb-2">
-          Something went wrong
-        </h2>
-        
-        <p class="text-gray-600 mb-6">
-          {redirectStatus}
-        </p>
-        
+        <h2 class="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+        <p class="text-gray-600 mb-6">{redirectStatus}</p>
         <button 
-          on:click={handleCollectionRedirect}
-          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          on:click={() => handleCollectionRedirect()}
+          class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Try Again
         </button>

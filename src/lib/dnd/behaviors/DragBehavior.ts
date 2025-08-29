@@ -152,4 +152,9 @@ export class DragBehaviorRegistry {
   isRegistered(itemType: string): boolean {
     return this.behaviors.has(itemType);
   }
+
+  clearBehaviors(): void {
+    console.log('Clearing all registered drag behaviors');
+    this.behaviors.clear();
+  }
 }

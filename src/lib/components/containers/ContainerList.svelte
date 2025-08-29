@@ -36,9 +36,27 @@
                                     $dragState?.sourceZone === zoneId;
   
   // Calculate display order based on drag state (live reordering preview)
-  $: displayContainers = isCurrentlyDraggingContainer && $dragState?.dropTarget?.targetType === 'reorder' 
-    ? reorderContainersForPreview(containers, $dragState)
-    : containers;
+  $: displayContainers = isCurrentlyDraggingContainer && 
+                       $dragState?.dropTarget?.zoneId === zoneId &&
+                       $dragState?.dropTarget?.targetType === 'reorder'
+  ? reorderContainersForPreview(containers, $dragState)
+  : containers;
+
+  $: {
+  if (isCurrentlyDraggingContainer) {
+    console.log('Container drag debug:', {
+      dragState: $dragState,
+      dropTarget: $dragState?.dropTarget,
+      dropTargetZone: $dragState?.dropTarget?.zoneId,
+      currentZone: zoneId,
+      zonesMatch: $dragState?.dropTarget?.zoneId === zoneId,
+      targetType: $dragState?.dropTarget?.targetType,
+      shouldShowPreview: isCurrentlyDraggingContainer && 
+                        $dragState?.dropTarget?.zoneId === zoneId &&
+                        $dragState?.dropTarget?.targetType === 'reorder'
+    });
+  }
+}
     
   function reorderContainersForPreview(originalContainers: NoteContainer[], dragState: any) {
     if (!dragState.dropTarget || !dragState.item) return originalContainers;

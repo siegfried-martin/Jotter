@@ -1,138 +1,337 @@
-// src/lib/stores/noteStore.ts
-import { writable } from 'svelte/store';
+// src/lib/stores/noteStore.ts - Collection-Scoped Implementation
+import { writable, derived } from 'svelte/store';
 import type { NoteContainer, NoteSection } from '$lib/types';
 
-interface NoteState {
+// Per-collection state structure
+interface CollectionNoteState {
   containers: NoteContainer[];
   selectedContainer: NoteContainer | null;
   selectedContainerSections: NoteSection[];
   loading: boolean;
 }
 
-export const noteStore = writable<NoteState>({
-  containers: [],
-  selectedContainer: null,
-  selectedContainerSections: [],
-  loading: false
+// Global store state with collection scoping
+interface NoteStoreState {
+  currentCollectionId: string | null;
+  collectionStates: Map<string, CollectionNoteState>;
+}
+
+// Default state for a new collection
+function createDefaultCollectionState(): CollectionNoteState {
+  return {
+    containers: [],
+    selectedContainer: null,
+    selectedContainerSections: [],
+    loading: false
+  };
+}
+
+// Global store holding all collection states
+const globalNoteStore = writable<NoteStoreState>({
+  currentCollectionId: null,
+  collectionStates: new Map()
 });
 
-// Helper functions to update store
+// Derived store that exposes only the current collection's state
+export const noteStore = derived(globalNoteStore, ($global) => {
+  if (!$global.currentCollectionId) {
+    return createDefaultCollectionState();
+  }
+  
+  const collectionState = $global.collectionStates.get($global.currentCollectionId);
+  return collectionState || createDefaultCollectionState();
+});
+
+// Helper to get or create collection state
+function ensureCollectionState(collectionId: string): void {
+  globalNoteStore.update(state => {
+    if (!state.collectionStates.has(collectionId)) {
+      state.collectionStates.set(collectionId, createDefaultCollectionState());
+      console.log('📦 [STORE] Created new collection state:', collectionId);
+    }
+    return state;
+  });
+}
+
+// Enhanced actions with collection scoping
 export const noteActions = {
-  setContainers: (containers: NoteContainer[]) => {
-    console.log('🔄 [STORE] setContainers called:', containers.length, 'containers');
-    noteStore.update(state => {
-      const newState = { ...state, containers };
-      console.log('📦 [STORE] setContainers result:', {
-        containerCount: newState.containers.length,
-        selectedContainer: newState.selectedContainer?.title || 'none',
-        selectedSections: newState.selectedContainerSections.length
-      });
-      return newState;
+  
+  // Set the active collection context
+  setCurrentCollection(collectionId: string): void {
+    console.log('🎯 [STORE] Setting current collection:', collectionId);
+    
+    globalNoteStore.update(state => {
+      ensureCollectionState(collectionId);
+      return {
+        ...state,
+        currentCollectionId: collectionId
+      };
     });
   },
   
-  setSelectedContainer: (container: NoteContainer | null) => {
-    console.log('🎯 [STORE] setSelectedContainer called:', container?.title || 'null');
-    console.trace('📍 [STORE] setSelectedContainer call stack:');
-    noteStore.update(state => {
-      const newState = { 
-        ...state, 
+  // Set containers for the current collection
+  setContainers(containers: NoteContainer[]): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot set containers: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
+        containers
+      });
+      
+      console.log('📦 [STORE] Set containers for collection:', {
+        collectionId: state.currentCollectionId,
+        containerCount: containers.length
+      });
+      
+      return { ...state };
+    });
+  },
+  
+  // Update containers for the current collection
+  updateContainers(containers: NoteContainer[]): void {
+    this.setContainers(containers);
+  },
+  
+  // Set selected container for the current collection
+  setSelectedContainer(container: NoteContainer | null): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot set selected container: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
         selectedContainer: container,
         selectedContainerSections: [] // Clear sections when changing container
-      };
-      console.log('📦 [STORE] setSelectedContainer result:', {
-        selectedContainer: newState.selectedContainer?.title || 'none',
-        selectedSections: newState.selectedContainerSections.length,
-        clearedSections: true
       });
-      return newState;
+      
+      console.log('🎯 [STORE] Set selected container for collection:', {
+        collectionId: state.currentCollectionId,
+        containerTitle: container?.title || 'none'
+      });
+      
+      return { ...state };
     });
   },
   
-  setSelectedSections: (sections: NoteSection[]) => {
-    console.log('📄 [STORE] setSelectedSections called:', sections.length, 'sections');
-    noteStore.update(state => {
-      const newState = { ...state, selectedContainerSections: sections };
-      console.log('📦 [STORE] setSelectedSections result:', {
-        selectedContainer: newState.selectedContainer?.title || 'none',
-        selectedSections: newState.selectedContainerSections.length
+  // Set sections for the current collection's selected container
+  setSelectedSections(sections: NoteSection[]): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot set sections: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
+        selectedContainerSections: sections
       });
-      return newState;
+      
+      console.log('📝 [STORE] Set sections for collection:', {
+        collectionId: state.currentCollectionId,
+        sectionsCount: sections.length
+      });
+      
+      return { ...state };
     });
   },
   
-  // ✅ NEW: Atomic action to set both container and sections together
-  setSelectedContainerWithSections: (container: NoteContainer | null, sections: NoteSection[]) => {
-    console.log('⚛️ [STORE] setSelectedContainerWithSections called:', {
-      containerTitle: container?.title || 'none',
-      containerId: container?.id || 'none',
-      sectionsCount: sections.length
-    });
-    
-    noteStore.update(state => {
-      const newState = { 
-        ...state, 
+  // Atomic operation: set container and sections together
+  setSelectedContainerWithSections(container: NoteContainer | null, sections: NoteSection[]): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot set container with sections: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
         selectedContainer: container,
         selectedContainerSections: sections
-      };
-      
-      console.log('📦 [STORE] setSelectedContainerWithSections result:', {
-        selectedContainer: newState.selectedContainer?.title || 'none',
-        selectedContainerId: newState.selectedContainer?.id || 'none',
-        selectedSections: newState.selectedContainerSections.length,
-        atomic: true
       });
       
-      return newState;
+      console.log('⚛️ [STORE] Atomic update for collection:', {
+        collectionId: state.currentCollectionId,
+        containerTitle: container?.title || 'none',
+        sectionsCount: sections.length
+      });
+      
+      return { ...state };
     });
   },
   
-  setLoading: (loading: boolean) => {
-    console.log('⏳ [STORE] setLoading called:', loading);
-    noteStore.update(state => ({ ...state, loading }));
+  // Set loading state for the current collection
+  setLoading(loading: boolean): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot set loading: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
+        loading
+      });
+      
+      console.log('⏳ [STORE] Set loading for collection:', {
+        collectionId: state.currentCollectionId,
+        loading
+      });
+      
+      return { ...state };
+    });
   },
   
-  addContainer: (container: NoteContainer) => {
-    console.log('➕ [STORE] addContainer called:', container.title);
-    noteStore.update(state => ({
-      ...state,
-      containers: [container, ...state.containers]
-    }));
-  },
-
-  updateContainers: (containers: NoteContainer[]) => {
-    console.log('🔄 [STORE] updateContainers called:', containers.length, 'containers');
-    noteStore.update(state => ({ ...state, containers }));
+  // Add container to the current collection
+  addContainer(container: NoteContainer): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot add container: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
+        containers: [container, ...collectionState.containers]
+      });
+      
+      console.log('➕ [STORE] Added container to collection:', {
+        collectionId: state.currentCollectionId,
+        containerTitle: container.title
+      });
+      
+      return { ...state };
+    });
   },
   
-  removeContainer: (containerId: string) => {
-    console.log('❌ [STORE] removeContainer called:', containerId);
-    noteStore.update(state => ({
-      ...state,
-      containers: state.containers.filter(c => c.id !== containerId),
-      selectedContainer: state.selectedContainer?.id === containerId ? null : state.selectedContainer,
-      selectedContainerSections: state.selectedContainer?.id === containerId ? [] : state.selectedContainerSections
-    }));
+  // Remove container from the current collection
+  removeContainer(containerId: string): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot remove container: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      const newContainers = collectionState.containers.filter(c => c.id !== containerId);
+      const wasSelected = collectionState.selectedContainer?.id === containerId;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
+        containers: newContainers,
+        selectedContainer: wasSelected ? null : collectionState.selectedContainer,
+        selectedContainerSections: wasSelected ? [] : collectionState.selectedContainerSections
+      });
+      
+      console.log('❌ [STORE] Removed container from collection:', {
+        collectionId: state.currentCollectionId,
+        containerId,
+        wasSelected
+      });
+      
+      return { ...state };
+    });
   },
-
-  updateContainer: (container: NoteContainer) => {
-    console.log('🔄 [STORE] updateContainer called:', container.title);
-    noteStore.update(state => ({
-      ...state,
-      containers: state.containers.map(c => c.id === container.id ? container : c),
-      selectedContainer: state.selectedContainer?.id === container.id ? container : state.selectedContainer
-    }));
+  
+  // Update specific container in the current collection
+  updateContainer(container: NoteContainer): void {
+    globalNoteStore.update(state => {
+      if (!state.currentCollectionId) {
+        console.warn('⚠️ [STORE] Cannot update container: no current collection');
+        return state;
+      }
+      
+      ensureCollectionState(state.currentCollectionId);
+      const collectionState = state.collectionStates.get(state.currentCollectionId)!;
+      
+      const newContainers = collectionState.containers.map(c => 
+        c.id === container.id ? container : c
+      );
+      
+      const updatedSelectedContainer = collectionState.selectedContainer?.id === container.id 
+        ? container 
+        : collectionState.selectedContainer;
+      
+      state.collectionStates.set(state.currentCollectionId, {
+        ...collectionState,
+        containers: newContainers,
+        selectedContainer: updatedSelectedContainer
+      });
+      
+      console.log('🔄 [STORE] Updated container in collection:', {
+        collectionId: state.currentCollectionId,
+        containerTitle: container.title
+      });
+      
+      return { ...state };
+    });
+  },
+  
+  // Clear state for a specific collection (useful for cache invalidation)
+  clearCollection(collectionId: string): void {
+    globalNoteStore.update(state => {
+      state.collectionStates.delete(collectionId);
+      
+      console.log('🧹 [STORE] Cleared collection state:', collectionId);
+      
+      // If this was the current collection, clear the current reference
+      if (state.currentCollectionId === collectionId) {
+        return {
+          ...state,
+          currentCollectionId: null
+        };
+      }
+      
+      return { ...state };
+    });
+  },
+  
+  // Debug: Get all collection states
+  getAllCollectionStates(): Map<string, CollectionNoteState> {
+    const state = globalNoteStore.subscribe(() => {})();
+    return new Map(state.collectionStates);
+  },
+  
+  // Debug: Get current collection ID
+  getCurrentCollectionId(): string | null {
+    const state = globalNoteStore.subscribe(() => {})();
+    return state.currentCollectionId;
   }
 };
 
-// Add store subscription for debugging
-noteStore.subscribe(state => {
-  console.log('📊 [STORE] State changed:', {
-    timestamp: new Date().toISOString(),
-    selectedContainer: state.selectedContainer?.title || 'none',
-    selectedContainerId: state.selectedContainer?.id || 'none', 
-    selectedSections: state.selectedContainerSections.length,
-    containerCount: state.containers.length,
-    loading: state.loading
+// Subscribe to store changes for debugging
+globalNoteStore.subscribe(state => {
+  console.log('📊 [STORE] Global state changed:', {
+    currentCollectionId: state.currentCollectionId,
+    collectionsInMemory: Array.from(state.collectionStates.keys()),
+    timestamp: new Date().toISOString()
   });
 });
+
+// Export derived store that shows current collection's data
+export { noteStore as default };

@@ -1,13 +1,12 @@
 <!-- src/lib/components/containers/ContainerPageLayout.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import DragProvider from '$lib/dnd/components/DragProvider.svelte';
   import CollectionPageHeader from '$lib/components/layout/CollectionPageHeader.svelte';
   import SectionGridWrapper from '$lib/components/sections/SectionGridWrapper.svelte';
   import ContainerSidebar from '$lib/components/containers/ContainerSidebar.svelte';
   import CreateNoteSectionForm from '$lib/components/sections/CreateNoteSectionForm.svelte';
   
-  // Props
+  // Props - removed unused drag behavior props
   export let containers: any[];
   export let selectedContainer: any;
   export let selectedContainerSections: any[];
@@ -15,8 +14,6 @@
   export let currentCollectionId: string;
   export let currentContainerId: string;
   export let currentCollection: any;
-  export let sectionBehavior: any;
-  export let containerBehavior: any;
   
   // Event dispatcher
   const dispatch = createEventDispatcher();
@@ -29,62 +26,58 @@
 
 <svelte:window on:keydown={forwardEvent('keydown')} />
 
-<!-- Wrap everything in DragProvider -->
-<DragProvider behaviors={[sectionBehavior, containerBehavior]}>
+<!-- Removed nested DragProvider - parent layout handles drag context -->
+<!-- Main Content Layout -->
+<div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
+  
+  <!-- Container Sidebar -->
+  <ContainerSidebar 
+    {containers}
+    {selectedContainer}
+    collectionId={currentCollectionId}
+    on:selectContainer={forwardEvent('selectContainer')}
+    on:createNew={forwardEvent('createNew')}
+    on:deleteContainer={forwardEvent('deleteContainer')}
+    on:containersReordered={forwardEvent('containersReordered')}
+    on:crossContainerDrop={forwardEvent('crossContainerDrop')}
+  />
 
-  <!-- Main Content Layout -->
-  <div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
-    
-    <!-- Container Sidebar -->
-    <ContainerSidebar 
-      {containers}
-      {selectedContainer}
-      collectionId={currentCollectionId}
-      on:selectContainer={forwardEvent('selectContainer')}
-      on:createNew={forwardEvent('createNew')}
-      on:deleteContainer={forwardEvent('deleteContainer')}
-      on:containersReordered={forwardEvent('containersReordered')}
-      on:crossContainerDrop={forwardEvent('crossContainerDrop')}
-    />
-
-    <!-- Main Content Area -->
-    <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
-      {#if loading}
-        <div class="flex items-center justify-center h-64">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      {:else}
-        <CollectionPageHeader 
-          {selectedContainer}
-          {loading}
-          on:refresh={forwardEvent('refresh')}
-          on:updateTitle={forwardEvent('updateTitle')}
-        />
-        
-        <SectionGridWrapper 
-          sections={selectedContainerSections}
-          collectionName={currentCollection?.name}
-          hasSelectedContainer={!!selectedContainer}
-          noteContainerId={currentContainerId}
-          on:edit={forwardEvent('edit')}
-          on:delete={forwardEvent('deleteSection')}
-          on:checkboxChange={forwardEvent('checkboxChange')}
-          on:titleSave={forwardEvent('titleSave')}
-        />
-      {/if}
-    </div>
-
-    <!-- Floating Add Section Area -->
-    {#if !loading && selectedContainer}
-      <div class="floating-add-section">
-        <div class="floating-add-section-content">
-          <CreateNoteSectionForm on:createSection={forwardEvent('createSection')} />
-        </div>
+  <!-- Main Content Area -->
+  <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
+    {#if loading}
+      <div class="flex items-center justify-center h-64">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
+    {:else}
+      <CollectionPageHeader 
+        {selectedContainer}
+        {loading}
+        on:refresh={forwardEvent('refresh')}
+        on:updateTitle={forwardEvent('updateTitle')}
+      />
+      
+      <SectionGridWrapper 
+        sections={selectedContainerSections}
+        collectionName={currentCollection?.name}
+        hasSelectedContainer={!!selectedContainer}
+        noteContainerId={currentContainerId}
+        on:edit={forwardEvent('edit')}
+        on:delete={forwardEvent('deleteSection')}
+        on:checkboxChange={forwardEvent('checkboxChange')}
+        on:titleSave={forwardEvent('titleSave')}
+      />
     {/if}
   </div>
 
-</DragProvider>
+  <!-- Floating Add Section Area -->
+  {#if !loading && selectedContainer}
+    <div class="floating-add-section">
+      <div class="floating-add-section-content">
+        <CreateNoteSectionForm on:createSection={forwardEvent('createSection')} />
+      </div>
+    </div>
+  {/if}
+</div>
 
 <style>
   .floating-add-section {

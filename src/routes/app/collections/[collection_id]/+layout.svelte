@@ -1,237 +1,177 @@
 <!-- src/routes/app/collections/[collection_id]/+layout.svelte -->
 <script lang="ts">
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onMount, getContext } from 'svelte';
+  import { currentCollectionStore, AppDataManager } from '$lib/stores/appDataStore';
+  import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+  import { useContainerDragBehaviors } from '$lib/composables/useContainerDragBehaviors';
+  import { SectionService } from '$lib/services/sectionService';
   
-  // Composables
-  import { useNoteOperations } from '$lib/composables/useNoteOperations';
+  export let data;
   
-  // Stores
-  import { noteStore, noteActions } from '$lib/stores/noteStore';
-  import { collectionStore, collectionActions } from '$lib/stores/collectionStore';
+  let hasInitialized = false;
   
-  // Services
-  import { UserService } from '$lib/services/userService';
+  // Get drag context from root DragProvider
+  const dragContext = getContext('drag');
+  const { registry } = dragContext || {};
   
-  // Types
-  import type { LayoutData } from './$types';
-  import type { NoteContainer } from '$lib/types';
-  
-  // NEW: DnD System
-  import DragProvider from '$lib/dnd/components/DragProvider.svelte';
-  import { createContainerDragBehavior } from '$lib/dnd/behaviors/ContainerDragBehavior';
-  
-  // Components
-  import ContainerSidebar from '$lib/components/containers/ContainerSidebar.svelte';
-  
-  export let data: LayoutData;
-  
-  // Initialize composables
-  const noteOperations = useNoteOperations();
-  
-  // Reactive values from stores and layout data
-  $: ({ containers, selectedContainer, loading } = $noteStore);
-  $: currentCollectionId = data.collectionId;
-  $: currentCollection = data.collection;
-  $: allCollections = data.collections; // NEW: Get all collections for top nav
-  
-  // Sync layout data with note store
-  $: if (data.containers) {
-    noteActions.updateContainers(data.containers);
-  }
-  
-  // NEW: Sync collections data with collection store
-  $: if (data.collections) {
-    collectionActions.setCollections(data.collections);
-  }
-  
-  // NEW: Sync current collection with collection store
-  $: if (data.collection) {
-    collectionActions.setSelectedCollection(data.collection);
-  }
-  
-  // Get current container ID from URL
-  $: currentContainerId = $page.params.container_id || null;
-  
-  // ❌ REMOVED: Problematic URL sync that was clearing sections
-  // The page component now handles URL→container sync properly with sections
-  // $: if (currentContainerId && containers.length > 0) {
-  //   const containerFromUrl = containers.find(c => c.id === currentContainerId);
-  //   if (containerFromUrl && selectedContainer?.id !== containerFromUrl.id) {
-  //     noteActions.setSelectedContainer(containerFromUrl);  // ← This was clearing sections!
-  //   }
-  // }
-
-  // Helper function for array reordering
-  function reorderArray<T>(array: T[], fromIndex: number, toIndex: number): T[] {
-    const newArray = [...array];
-    const [movedItem] = newArray.splice(fromIndex, 1);
-    newArray.splice(toIndex, 0, movedItem);
-    return newArray;
-  }
-
-  // Container drag behavior for reordering
-  $: containerBehavior = createContainerDragBehavior(
-    // Container reorder handler
-    async (fromIndex: number, toIndex: number) => {
-      console.log('🎯 Container reorder:', fromIndex, '→', toIndex);
+  onMount(async () => {
+    if (!hasInitialized) {
+      hasInitialized = true;
       
-      if (fromIndex === toIndex) return;
+      console.log('Collection layout: Initializing for collection', data.collectionId);
       
-      // Store original order for potential rollback
-      const originalContainers = [...containers];
+      // Set context immediately (this makes the derived stores active)
+      AppDataManager.setCurrentContext(data.collectionId);
       
-      // 1. Optimistically update UI first (prevents flicker)
-      const reorderedContainers = reorderArray(containers, fromIndex, toIndex);
-      noteActions.updateContainers(reorderedContainers);
-      
-      try {
-        console.log('🚀 Calling NoteService.reorderNoteContainers...');
-        
-        // 2. Call API service
-        const { NoteService } = await import('$lib/services/noteService');
-        const updatedContainers = await NoteService.reorderNoteContainers(
-          currentCollectionId,
-          fromIndex,
-          toIndex
-        );
-        
-        console.log('✅ API call successful, server order:', updatedContainers.map(c => c.title));
-        
-        // 3. Update with server response ONLY if it differs from our optimistic update
-        const currentOrder = reorderedContainers.map(c => c.title).join(',');
-        const serverOrder = updatedContainers.map(c => c.title).join(',');
-        
-        if (currentOrder !== serverOrder) {
-          console.log('⚠️ Server order differs from optimistic update, using server order');
-          noteActions.updateContainers(updatedContainers);
-        } else {
-          console.log('✅ Optimistic update matches server, no additional update needed');
+      // Load data if cache miss
+      if (data.needsLoad) {
+        console.log('Collection layout: Cache miss detected, loading data');
+        try {
+          await AppDataManager.ensureCollectionData(data.collectionId);
+          console.log('Collection layout: Data loaded successfully');
+        } catch (error) {
+          console.error('Collection layout: Failed to load data:', error);
         }
-        
-        console.log('✅ Container reorder completed successfully');
-        
-      } catch (error) {
-        console.error('❌ Container reorder failed:', error);
-        
-        // ROLLBACK optimistic update on error
-        console.log('🔄 Rolling back optimistic reorder due to error');
-        noteActions.updateContainers(originalContainers);
+      } else {
+        console.log('Collection layout: Using cached data, no loading needed');
       }
     }
-  );
-  
-  // ENHANCED: Container selection handler with optimistic updates
-  async function handleSelectContainer(event: CustomEvent<NoteContainer>) {
-    const container = event.detail;
-    console.log('🎯 Container selected:', container.title);
-    
-    // ✅ FIXED: Don't manually update store here - let page component handle it
-    // The page loader will handle setting container + sections atomically
-    
-    try {
-      // Update last visited container (fire and forget)
-      UserService.updateLastVisitedContainer(container.id).catch(error => {
-        console.warn('⚠️ Could not update last visited container:', error);
-      });
-      
-      // Navigate (this will trigger the page loader which handles store updates)
-      await goto(`/app/collections/${currentCollectionId}/containers/${container.id}`);
-      
-    } catch (error) {
-      console.error('❌ Navigation failed:', error);
-    }
-  }
-  
-  // Note operations with bound context
-  async function createNewNote() {
-    const newContainer = await noteOperations.createNewNote(currentCollectionId);
-    if (newContainer) {
-      // Navigate to the new container
-      await goto(`/app/collections/${currentCollectionId}/containers/${newContainer.id}`);
-    }
-  }
-  
-  async function deleteContainer(event: CustomEvent<string>) {
-    const containerId = event.detail;
-    const containerToDelete = containers.find(c => c.id === containerId);
-    
-    if (!containerToDelete) return;
-    
-    // If deleting the currently selected container, we need to navigate away
-    const isCurrentContainer = currentContainerId === containerId;
-    
-    try {
-      await noteOperations.deleteContainer(event, containers);
-      
-      if (isCurrentContainer) {
-        // Navigate to first remaining container or collection if none left
-        const remainingContainers = containers.filter(c => c.id !== containerId);
-        if (remainingContainers.length > 0) {
-          await goto(`/app/collections/${currentCollectionId}/containers/${remainingContainers[0].id}`);
-        } else {
-          await goto(`/app/collections/${currentCollectionId}`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to delete container:', error);
-    }
-  }
-  
-  // Handle cross-container section drops from sidebar
-  async function handleCrossContainerDrop(event: CustomEvent<{ 
-    sectionId: string; 
-    fromContainer: string; 
-    toContainer: string 
-  }>) {
-    await noteOperations.handleCrossContainerMove(
-      event, 
-      (container: NoteContainer) => {
-        // Navigate to container after cross-container move
-        goto(`/app/collections/${currentCollectionId}/containers/${container.id}`);
-      }, 
-      containers
-    );
-  }
-
-  onMount(() => {
-    console.log('📋 Collection layout mounted:', {
-      collectionId: currentCollectionId,
-      collectionName: currentCollection.name,
-      containerCount: containers.length,
-      currentContainerId
-    });
   });
+  
+  // Utility function for reordering arrays
+  function reorderArray(array, fromIndex, toIndex) {
+    if (!array || !Array.isArray(array) || array.length === 0) {
+      console.warn('reorderArray: invalid array provided', array);
+      return array || [];
+    }
+    
+    if (fromIndex < 0 || fromIndex >= array.length || toIndex < 0 || toIndex >= array.length) {
+      console.warn('reorderArray: invalid indices', { fromIndex, toIndex, arrayLength: array.length });
+      return array;
+    }
+    
+    const result = [...array];
+    const [item] = result.splice(fromIndex, 1);
+    result.splice(toIndex, 0, item);
+    
+    console.log('reorderArray result:', {
+      originalLength: array.length,
+      resultLength: result.length,
+      fromIndex,
+      toIndex
+    });
+    
+    return result;
+  }
+  
+  // Handle cross-container section moves
+  async function handleCrossContainerMove(event) {
+    const { sectionId, fromContainer, toContainer } = event.detail;
+    console.log('Optimistic cross-container move:', { sectionId, fromContainer, toContainer });
+    
+    // Get current data from cache
+    const fromData = AppDataManager.getContainerSectionsSync(data.collectionId, fromContainer);
+    const toData = AppDataManager.getContainerSectionsSync(data.collectionId, toContainer);
+    
+    if (!fromData?.sections || !toData?.sections) {
+      console.error('Missing container data for optimistic update');
+      return;
+    }
+    
+    // Find and remove section from source
+    const sectionToMove = fromData.sections.find(s => s.id === sectionId);
+    if (!sectionToMove) return;
+    
+    const newFromSections = fromData.sections.filter(s => s.id !== sectionId);
+    const newToSections = [...toData.sections, { ...sectionToMove, note_container_id: toContainer }];
+    
+    // Store originals for rollback
+    const originalFromSections = [...fromData.sections];
+    const originalToSections = [...toData.sections];
+    
+    // 1. Optimistic update - immediate UI change
+    AppDataManager.updateSectionsOptimistically(data.collectionId, fromContainer, newFromSections);
+    AppDataManager.updateSectionsOptimistically(data.collectionId, toContainer, newToSections);
+    
+    try {
+      // 2. Background API call
+      await SectionService.moveSectionToContainer(sectionId, toContainer);
+      console.log('Cross-container move API succeeded');
+    } catch (error) {
+      console.error('Cross-container move failed, rolling back:', error);
+      // Rollback on error
+      AppDataManager.updateSectionsOptimistically(data.collectionId, fromContainer, originalFromSections);
+      AppDataManager.updateSectionsOptimistically(data.collectionId, toContainer, originalToSections);
+    }
+  }
+  
+  // Register drag behaviors when data is available
+  $: if (registry && data?.collectionId && $currentCollectionStore.containers) {
+    try {
+      console.log('Registering drag behaviors for collection:', data.collectionId);
+      
+      // Create behaviors
+      const behaviors = useContainerDragBehaviors(
+        null, // pageManager - not used
+        () => ({ 
+          noteStore: {
+            selectedContainerSections: $currentCollectionStore.sections || [],
+            selectedContainer: $currentCollectionStore.container,
+            containers: $currentCollectionStore.containers
+          },
+          currentCollectionId: data.collectionId 
+        }),
+        reorderArray,
+        handleCrossContainerMove
+      );
+      
+      // Clear existing behaviors and register new ones
+      registry.clearBehaviors?.();
+      registry.register(behaviors.containerBehavior);
+      registry.register(behaviors.sectionBehavior);
+      
+      console.log('Both drag behaviors registered with root DragProvider');
+    } catch (error) {
+      console.error('Failed to register drag behaviors:', error);
+    }
+  }
 </script>
 
-<svelte:head>
-  <title>{currentCollection.name} - Jotter</title>
-</svelte:head>
-
-<!-- Wrap everything in DragProvider -->
-<DragProvider behaviors={[containerBehavior]}>
-
-  <!-- Main Layout with Sidebar -->
+{#if $currentCollectionStore.loading}
+  <!-- Component-level loading (not SvelteKit loading) -->
+  <div class="flex h-screen bg-gray-50 items-center justify-center">
+    <div class="text-center">
+      <LoadingSpinner />
+      <p class="mt-4 text-gray-600">Loading collection...</p>
+    </div>
+  </div>
+{:else if $currentCollectionStore.collection}
+  <!-- Normal layout with data loaded - NO DragProvider here, using root one -->
   <div class="flex h-screen bg-gray-50 relative" style="height: calc(100vh - 4rem);">
-    
-    <!-- Persistent Sidebar -->
-    <!-- <ContainerSidebar 
-      {containers}
-      {selectedContainer}
-      collectionId={currentCollectionId}
-      on:selectContainer={handleSelectContainer}
-      on:createNew={createNewNote}
-      on:deleteContainer={deleteContainer}
-      on:containersReordered={() => {}}
-      on:crossContainerDrop={handleCrossContainerDrop}
-    /> -->
-
-    <!-- Content Area (Child Routes) -->
     <div class="flex-1 overflow-hidden">
       <slot />
     </div>
-
   </div>
-
-</DragProvider>
+{:else}
+  <!-- Error state or no data -->
+  <div class="flex h-screen bg-gray-50 items-center justify-center">
+    <div class="text-center">
+      <p class="text-gray-600">Collection not found</p>
+      {#if $currentCollectionStore.error}
+        <p class="mt-2 text-red-600 text-sm">{$currentCollectionStore.error}</p>
+      {/if}
+      <button 
+        on:click={async () => {
+          try {
+            await AppDataManager.ensureCollectionData(data.collectionId);
+          } catch (error) {
+            console.error('Retry failed:', error);
+          }
+        }}
+        class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      >
+        Retry
+      </button>
+    </div>
+  </div>
+{/if}

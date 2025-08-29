@@ -30,6 +30,7 @@
   }
 
   function handleTitleSave(event: CustomEvent<{ sectionId: string; title: string | null }>) {
+    console.log('🔧 handleTitleSave', event.detail);
     dispatch('titleSave', event.detail);
   }
 

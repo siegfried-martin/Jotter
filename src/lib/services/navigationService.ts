@@ -73,6 +73,8 @@ export class NavigationService {
    * After successful redirect, update app state to prevent future redirects
    */
   static async redirectToLastVisited(): Promise<boolean> {
+    console.log('🎯 Redirecting to last visited location...');
+    console.trace();
     try {
       // First try to get the last visited container
       const lastVisitedContainerId = await UserService.getLastVisitedContainerId();

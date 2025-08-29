@@ -1,6 +1,6 @@
 # Jotter - Development Summary & Roadmap
 
-## 🎯 Project Goals
+## Project Goals
 
 **Vision**: A lightning-fast, developer-focused note-taking web app that replaces Notepad++ for daily work management and serves as a "better whiteboard for devs."
 
@@ -12,7 +12,7 @@
 - **Developer-centric** - Optimized for pseudocode, algorithms, and structured thinking
 - **Minimal but powerful** - No bloat, just essential features done exceptionally well
 
-## 🗏️ Current Architecture
+## Current Architecture
 
 **Tech Stack**:
 
@@ -37,117 +37,109 @@ get_next_note_container_sequence(collection_id)
 get_next_note_section_sequence(note_container_id)
 ```
 
-## ✅ Current Status - August 17, 2025
+## Current Status - August 29, 2025
 
-### **Core Features**
+### Core Features Completed
 
-- ✅ Multi-user authentication with Google OAuth
-- ✅ Collection-based organization with color-coded tabs
-- ✅ Real-time note editing with 4 editor types (code, rich text, diagrams, checklists)
-- ✅ Editable section and container titles with optimistic updates
-- ✅ Lightning-fast navigation with bookmarkable URLs
-- ✅ Auto-save with local draft recovery
-- ✅ Keyboard shortcuts (Ctrl+M, Ctrl+Shift+M, etc.)
+- Multi-user authentication with Google OAuth
+- Collection-based organization with color-coded tabs
+- Real-time note editing with 4 editor types (code, rich text, diagrams, checklists)
+- Editable section and container titles with optimistic updates
+- Lightning-fast navigation with bookmarkable URLs
+- Auto-save with local draft recovery
+- Keyboard shortcuts (Ctrl+M, Ctrl+Shift+M, etc.)
 
-### **Route Architecture Refactor**
+### Cache-as-Database Architecture Implementation
 
-- ✅ **New URL structure**: `/collections/[id]/containers/[id]` with persistent sidebar
-- ✅ **Bookmarkable container URLs**: Direct links to specific notes work on refresh
-- ✅ **Optimistic navigation**: Instant visual feedback when switching containers
-- ✅ **Cross-collection redirect**: Smart routing to last visited container regardless of collection
-- ✅ **Authentication race condition fixes**: Proper handling of server-side auth timing
+- **AppDataManager**: Single source of truth cache system replacing multiple store patterns
+- **Request deduplication**: Prevents duplicate API calls during concurrent navigation
+- **Optimistic updates**: Instant UI feedback for all edit operations (drag, rename, create)
+- **Background preloading**: Collections and top containers load automatically for fast navigation
+- **Real-time collaboration ready**: Architecture supports WebSocket integration for multi-user scenarios
 
-### **DnD System Implementation**
+### DnD System - Completed Migration
 
-- ✅ **New modular DnD architecture**: Custom Svelte-native drag & drop system
-- ✅ **Section reordering**: Live preview with optimistic updates
-- ✅ **Cross-container moves**: Drag sections between different note containers
-- ✅ **Container reordering**: Drag containers within sidebar (new DnD system)
-- ⚠️ **Legacy DnD remnants**: Collections and checklist items still use old `svelte-dnd-action`
+- **Section reordering**: Custom drag system with live preview and optimistic updates
+- **Cross-container section moves**: Drag sections between containers with immediate UI updates
+- **Container reordering**: New sequence-based ordering (not timestamp-based)
+- **Section renaming**: Fixed event chain from editable titles to API persistence
+- **Visual drag ghosts**: Working drag previews for all item types
 
-## 🚀 Recent Session Updates - August 17, 2025
+## Recent Session Achievements - August 29, 2025
 
-### **Route Refactor**
+### Cache System Refactor
 
-- Implemented new `/collections/[id]/containers/[id]` URL structure
-- Fixed 500/404 errors on page refresh caused by auth/data loading race conditions
-- Added cross-collection navigation with automatic redirection to correct collection
-- Optimized initial page load to skip intermediate collection redirect page
+- Migrated from multiple competing cache systems to unified AppDataManager
+- Implemented request deduplication to prevent duplicate API calls
+- Added background collection preloading for instant navigation
+- Fixed UI flickering during optimistic updates with server response comparison
 
-### **DnD Migration**
+### DnD System Completion
 
-- Completed migration from `svelte-dnd-action` to custom DnD system for sections and containers
-- Implemented `DragProvider`, `DraggableContainer` components with behavior system
-- Added live reordering previews and optimistic updates
-- Container sidebar now uses new DnD system for reordering
+- Fixed section drag ghost rendering by registering both container and section behaviors
+- Implemented optimistic cross-container moves without cache invalidation
+- Resolved stale index issues in cross-container operations by using section IDs
+- Changed container sorting from `updated_at` to `sequence` to prevent unwanted reordering
 
-### **Data Flow Improvements**
+### Bug Fixes
 
-- Fixed collection tabs not appearing by properly syncing layout data to `collectionStore`
-- Implemented proper parent-child data loading between layout and page components
-- Added comprehensive error handling and authentication state management
+- Section title editing now works end-to-end with proper API parameter passing
+- Navigation between containers updates cache context reactively
+- Container selection highlights correctly after navigation
+- Cross-container moves no longer trigger container reordering side effects
 
-## 🎯 Next Session Priorities
+## Next Session Priorities
 
-### **Complete DnD Migration**
+### Container Drag Issues
 
-**Remaining Legacy DnD Usage:**
+**Problem**: Container dragging within sidebar may have issues after cache system changes
 
-- Collection tabs reordering (if implemented)
-- Checklist item reordering within sections
-- Any other `svelte-dnd-action` imports
+**Files to Check**:
 
-**Files to Review:**
-
-- `src/lib/components/sections/ChecklistSection.svelte` - May use old DnD for checklist items
-- `src/lib/components/layout/CollectionTabs.svelte` - Check for any DnD usage
-- Search codebase for `svelte-dnd-action` imports to identify remaining usage
-
-### **Container Cross-Collection Movement**
-
-**Goal**: Drag containers between different collections
-
-**Key Files to Review:**
-
-- `src/lib/components/containers/ContainerList.svelte` - Current container DnD implementation
-- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Container drag behavior logic
+- `src/lib/composables/useContainerDragBehaviors.ts` - Container behavior implementation
+- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Container drag logic
 - `src/routes/app/collections/[collection_id]/+layout.svelte` - Container reorder handling
-- `src/lib/services/noteService.ts` - `moveToCollection()` method exists for backend
-- `src/lib/components/layout/CollectionTabs.svelte` - Potential drop targets for cross-collection moves
 
-**Implementation Strategy:**
+### Cross-Collection Container Movement
+
+**Goal**: Drag containers between collections via header tabs
+
+**Implementation Strategy**:
 
 1. Extend `ContainerDragBehavior` to detect drops on collection tabs
 2. Add drop zones to collection tabs in header
-3. Implement cross-collection move logic using existing `noteService.moveToCollection()`
+3. Implement cross-collection move using existing backend methods
 4. Update container lists in both source and target collections
 
-## 🔧 Architecture Goals
+**Key Files**:
 
-**Current Priority**: Implement cross-collection container movement to complete DnD feature set
+- `src/lib/components/containers/ContainerList.svelte` - Current container DnD
+- `src/lib/components/layout/CollectionTabs.svelte` - Drop targets for collections
+- `src/lib/services/noteService.ts` - Backend `moveToCollection()` method
+- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Extend for cross-collection drops
 
-**Next Session Files to Review**:
+### Remaining Legacy DnD
 
-- `src/lib/components/containers/ContainerList.svelte` - Current container DnD implementation
-- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Container drag behavior logic
-- `src/lib/components/layout/CollectionTabs.svelte` - Collection tabs as drop targets
-- `src/lib/services/noteService.ts` - `moveToCollection()` backend method
-- `src/routes/app/collections/[collection_id]/+layout.svelte` - Container management
+**Items still using svelte-dnd-action**:
 
-**Success Criteria**:
+- Checklist item reordering within sections
+- Collection tabs reordering (if implemented)
 
-1. Containers can be dragged between collections via header tabs
-2. Real-time updates in both source and target collection sidebars
-3. Optimistic UI updates with server persistence and error handling
+## Architecture Notes
 
-## 📧 Deployment Information
+**Data Flow**: AppDataManager -> Derived Stores -> Components (reactive updates)
+**Drag System**: DragProvider with behavior registry for different item types
+**Navigation**: Reactive URL-based context switching with cache preloading
+**Real-time Ready**: Optimistic updates + WebSocket integration points prepared
+
+## Deployment Information
 
 **Production Environment**:
 
 - **URL**: https://jotter.marstol.com
 - **Server**: Ubuntu DigitalOcean (138.197.71.191)
 - **Service**: `jotter.service` (systemd)
-- **Database**: Supabase production project (wccmdhtjckzwywffvnsp)
+- **Database**: Supabase production project
 
 **Management Commands**:
 
@@ -166,4 +158,4 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 
 ---
 
-**Current Priority**: Implement cross-collection container movement using existing DnD system and backend methods
+**Next Session Focus**: Complete container drag functionality and implement cross-collection container movement
