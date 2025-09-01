@@ -22,6 +22,7 @@
   }
 
   function handleDelete(event: CustomEvent<string>) {
+    console.log('🔧 handleDelete from grid wrapper', event.detail);
     dispatch('delete', event.detail);
   }
 

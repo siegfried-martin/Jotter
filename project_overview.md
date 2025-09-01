@@ -20,7 +20,7 @@
 - Backend: Supabase (PostgreSQL + Auth + RLS)
 - Authentication: Google OAuth via Supabase Auth
 - Editors: CodeMirror 6 (code) + Quill (rich text) + Excalidraw (diagrams)
-- Drag & Drop: Custom Svelte-native system
+- Drag & Drop: Hybrid system (Custom for sections, svelte-dnd-action for containers)
 
 **Database Schema**:
 
@@ -33,11 +33,11 @@ user_preferences (id, user_id, theme, default_editor, auto_save_delay, keyboard_
 
 -- Database functions for sequence management
 get_next_collection_sequence(user_id)
-get_next_note_container_sequence(collection_id)
+get_next_note_container_sequence(collection_id) -- Modified for newest-first ordering
 get_next_note_section_sequence(note_container_id)
 ```
 
-## Current Status - August 29, 2025
+## Current Status - August 31, 2025
 
 ### Core Features Completed
 
@@ -47,90 +47,79 @@ get_next_note_section_sequence(note_container_id)
 - Editable section and container titles with optimistic updates
 - Lightning-fast navigation with bookmarkable URLs
 - Auto-save with local draft recovery
-- Keyboard shortcuts (Ctrl+M, Ctrl+Shift+M, etc.)
+- Keyboard shortcuts for note creation (Alt+N, Alt+Shift+N, Ctrl+M, Ctrl+Shift+M)
 
-### Cache-as-Database Architecture Implementation
+### Cache-as-Database Architecture
 
-- **AppDataManager**: Single source of truth cache system replacing multiple store patterns
-- **Request deduplication**: Prevents duplicate API calls during concurrent navigation
-- **Optimistic updates**: Instant UI feedback for all edit operations (drag, rename, create)
-- **Background preloading**: Collections and top containers load automatically for fast navigation
-- **Real-time collaboration ready**: Architecture supports WebSocket integration for multi-user scenarios
+- **AppDataManager**: Single source of truth cache system with request deduplication
+- **Optimistic updates**: Instant UI feedback for all operations (drag, rename, create, delete)
+- **Background preloading**: Collections and containers load automatically for fast navigation
+- **Cache invalidation**: Proper cache updates when navigating back from edit pages
 
-### DnD System - Completed Migration
+### Drag & Drop System (Complete)
 
-- **Section reordering**: Custom drag system with live preview and optimistic updates
-- **Cross-container section moves**: Drag sections between containers with immediate UI updates
-- **Container reordering**: New sequence-based ordering (not timestamp-based)
-- **Section renaming**: Fixed event chain from editable titles to API persistence
-- **Visual drag ghosts**: Working drag previews for all item types
+- **Sections**: Custom drag system with live preview and optimistic updates
+- **Containers**: svelte-dnd-action for within-collection reordering with visual feedback
+- **Cross-collection container moves**: Working drag from containers to collection tabs
+- **Cross-container section moves**: Drag sections between containers
+- **Event chain**: Complete event forwarding through component hierarchy
 
-## Recent Session Achievements - August 29, 2025
+### Recent Session Achievements - August 31, 2025
 
-### Cache System Refactor
+#### Compilation Issues Fixed
 
-- Migrated from multiple competing cache systems to unified AppDataManager
-- Implemented request deduplication to prevent duplicate API calls
-- Added background collection preloading for instant navigation
-- Fixed UI flickering during optimistic updates with server response comparison
+- Fixed corrupted Unicode characters in console.log statements causing build failures
+- Cleaned up duplicate content in CollectionTabs.svelte
 
-### DnD System Completion
+#### Cross-Collection Container Drag (Complete)
 
-- Fixed section drag ghost rendering by registering both container and section behaviors
-- Implemented optimistic cross-container moves without cache invalidation
-- Resolved stale index issues in cross-container operations by using section IDs
-- Changed container sorting from `updated_at` to `sequence` to prevent unwanted reordering
+- Collection tabs are now svelte-dnd-action drop zones accepting containers
+- Visual highlighting during drag operations on valid drop targets
+- Proper event flow: ContainerList → AppHeader → App Layout → Collection Layout
+- API integration with optimistic cache updates and rollback on failure
 
-### Bug Fixes
+#### CRUD Operations Completed
 
-- Section title editing now works end-to-end with proper API parameter passing
-- Navigation between containers updates cache context reactively
-- Container selection highlights correctly after navigation
-- Cross-container moves no longer trigger container reordering side effects
+- **Section creation**: Fixed container ID passing, proper cache updates, auto-navigation to edit
+- **Section editing**: Cache updates when returning from edit page
+- **Section deletion**: Confirmation dialogs with optimistic updates and rollback
+- **Container creation**: Uses useNoteOperations with date-based titles ("New Note 8/31/2025")
+- **Container deletion**: Confirmation, navigation handling, optimistic updates
 
-## Next Session Priorities
+#### Sequence Management Enhancement
 
-### Container Drag Issues
+- Modified get_next_note_container_sequence to use MIN(sequence) - 10 instead of MAX + 10
+- New containers now appear first in sidebar (newest-first ordering)
+- Maintains existing drag-and-drop reordering functionality
 
-**Problem**: Container dragging within sidebar may have issues after cache system changes
+#### Keyboard Shortcuts (Complete)
 
-**Files to Check**:
+- Collection-scoped shortcuts: Alt+N, Alt+Shift+N, Ctrl+M, Ctrl+Shift+M
+- Visual hints displayed next to collection tabs
+- Direct navigation to edit page for code sections
 
-- `src/lib/composables/useContainerDragBehaviors.ts` - Container behavior implementation
-- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Container drag logic
-- `src/routes/app/collections/[collection_id]/+layout.svelte` - Container reorder handling
+## Current Issues & Next Session Priorities
 
-### Cross-Collection Container Movement
+### UI/UX Polish Tasks
 
-**Goal**: Drag containers between collections via header tabs
+1. **Mobile drag & drop**: Disable dragging on mobile devices for better touch experience
+2. **Mobile section cards**: Reduce card size for mobile viewport optimization
+3. **CodeMirror language selection**: Fix language picker functionality in code editor
+4. **Checklist UI improvements**: Better visual design for checklist items
+5. **Excalidraw default text**: Change from handwritten to typed text style
 
-**Implementation Strategy**:
+### Known Technical Debt
 
-1. Extend `ContainerDragBehavior` to detect drops on collection tabs
-2. Add drop zones to collection tabs in header
-3. Implement cross-collection move using existing backend methods
-4. Update container lists in both source and target collections
-
-**Key Files**:
-
-- `src/lib/components/containers/ContainerList.svelte` - Current container DnD
-- `src/lib/components/layout/CollectionTabs.svelte` - Drop targets for collections
-- `src/lib/services/noteService.ts` - Backend `moveToCollection()` method
-- `src/lib/dnd/behaviors/ContainerDragBehavior.ts` - Extend for cross-collection drops
-
-### Remaining Legacy DnD
-
-**Items still using svelte-dnd-action**:
-
-- Checklist item reordering within sections
-- Collection tabs reordering (if implemented)
+- **Mixed drag systems**: Two different implementations (custom + svelte-dnd-action)
+- **svelte-dnd-action boundaries**: Occasional snap-back behavior near drag boundaries
+- **Error boundaries**: Need better error handling for drag system failures
 
 ## Architecture Notes
 
-**Data Flow**: AppDataManager -> Derived Stores -> Components (reactive updates)
-**Drag System**: DragProvider with behavior registry for different item types
-**Navigation**: Reactive URL-based context switching with cache preloading
-**Real-time Ready**: Optimistic updates + WebSocket integration points prepared
+**Data Flow**: AppDataManager → Derived Stores → Components (reactive updates)
+**Drag Systems**: Custom (sections) + svelte-dnd-action (containers) + HTML5 (cross-collection)
+**Navigation**: URL-based context switching with cache preloading
+**CRUD Pattern**: Optimistic updates → API call → Cache refresh → Rollback on error
 
 ## Deployment Information
 
@@ -156,6 +145,23 @@ sudo journalctl -u jotter -f
 cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 ```
 
+## Files for Next Session
+
+**UI Polish Files**:
+
+- Mobile responsiveness in section grid and container layouts
+- CodeMirror language selection component
+- Checklist item styling and interactions
+- Excalidraw editor configuration
+
+**Key Components**:
+
+- `SectionGrid.svelte` - Mobile card sizing
+- `CodeEditor.svelte` - Language selection fixes
+- `ChecklistEditor.svelte` - UI improvements
+- `DiagramEditor.svelte` - Excalidraw text styling
+- Mobile detection utilities for disabling drag
+
 ---
 
-**Next Session Focus**: Complete container drag functionality and implement cross-collection container movement
+**Next Session Focus**: UI polish for mobile experience and editor improvements

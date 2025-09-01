@@ -77,10 +77,12 @@
 
   function handleReorder(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
     // Pass the collectionId along with the event
+    console.log('🎯 ContainerSidebar: Received reorder event', event.detail);
     dispatch('containersReordered', { 
       ...event.detail, 
       collectionId 
     });
+    console.log('🔥 ContainerSidebar dispatched containersReordered');
   }
 
   function handleCrossContainerDrop(event: CustomEvent<{

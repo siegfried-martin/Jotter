@@ -4,6 +4,7 @@
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { SectionService } from '$lib/services/sectionService';
+	import { AppDataManager } from '$lib/stores/appDataStore';
 	import type { NoteSection } from '$lib/types';
 	
 	// Import editor components
@@ -90,7 +91,20 @@
         updateData.checklist_data = checklistData;
       }
       
-      await SectionService.updateSection(section.id, updateData);
+      // Save to database
+      const updatedSection = await SectionService.updateSection(section.id, updateData);
+      console.log('Section saved successfully:', updatedSection);
+      
+      // FIX: Update the AppDataManager cache with the saved section
+      const cachedData = AppDataManager.getContainerSectionsSync(collectionId, containerId);
+      if (cachedData) {
+        const updatedSections = cachedData.sections.map(s => 
+          s.id === updatedSection.id ? updatedSection : s
+        );
+        
+        console.log('Updating AppDataManager cache with saved section');
+        AppDataManager.updateSectionsOptimistically(collectionId, containerId, updatedSections);
+      }
       
       // Clear draft and mark as saved
       try {
@@ -100,7 +114,7 @@
       }
       hasUnsavedChanges = false;
       
-      // FIX: Navigate back to container page with correct route
+      // Navigate back to container page
       goto(`/app/collections/${collectionId}/containers/${containerId}`);
       
     } catch (saveError) {

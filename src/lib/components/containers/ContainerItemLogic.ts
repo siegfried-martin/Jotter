@@ -63,6 +63,7 @@ export function createContainerItemLogic(container: NoteContainer, dispatch: Eve
   function handleDeleteClick(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
+    console.log('handleDeleteClick from ContainerItemLogic');
     dispatch('delete', container.id);
   }
 

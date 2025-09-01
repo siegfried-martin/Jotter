@@ -22,6 +22,16 @@
   function forwardEvent(eventName: string) {
     return (event: CustomEvent) => dispatch(eventName, event.detail);
   }
+
+  function forwardContainerReorder(event: CustomEvent) {
+    console.log('🔥 ContainerPageLayout forwarding containersReordered:', event.detail);
+    dispatch('containersReordered', event.detail);
+  }
+
+  function handleDeleteSection(event: CustomEvent<string>) {
+    console.log('🔥 ContainerPageLayout forwarding deleteSection:', event.detail);
+    dispatch('delete', event.detail);
+  }
 </script>
 
 <svelte:window on:keydown={forwardEvent('keydown')} />
@@ -38,7 +48,7 @@
     on:selectContainer={forwardEvent('selectContainer')}
     on:createNew={forwardEvent('createNew')}
     on:deleteContainer={forwardEvent('deleteContainer')}
-    on:containersReordered={forwardEvent('containersReordered')}
+    on:containersReordered={forwardContainerReorder}
     on:crossContainerDrop={forwardEvent('crossContainerDrop')}
   />
 
@@ -62,7 +72,7 @@
         hasSelectedContainer={!!selectedContainer}
         noteContainerId={currentContainerId}
         on:edit={forwardEvent('edit')}
-        on:delete={forwardEvent('deleteSection')}
+        on:delete={handleDeleteSection}
         on:checkboxChange={forwardEvent('checkboxChange')}
         on:titleSave={forwardEvent('titleSave')}
       />

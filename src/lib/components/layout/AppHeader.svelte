@@ -1,22 +1,34 @@
 <!-- src/lib/components/layout/AppHeader.svelte -->
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { allCollectionsStore, AppDataManager } from '$lib/stores/appDataStore';
+  import { createEventDispatcher } from 'svelte';
   import CollectionTabs from './CollectionTabs.svelte';
   import UserMenu from './UserMenu.svelte';
   
   export let currentCollectionId: string | undefined = undefined;
   export let user: any = null;
-
-  onMount(async () => {
-    try {
-      console.log('AppHeader: Loading all collections for tabs');
-      await AppDataManager.ensureAllCollections();
-      console.log('AppHeader: All collections loaded successfully');
-    } catch (error) {
-      console.error('AppHeader: Failed to load collections:', error);
-    }
-  });
+  export let showKeyboardShortcuts: boolean = false;
+  
+  const dispatch = createEventDispatcher<{
+    moveToCollection: {
+      containerId: string;
+      targetCollectionId: string;
+    };
+    newNote: void;
+    newNoteWithCode: void;
+  }>();
+  
+  function handleMoveToCollection(event) {
+    // Forward the event up to the parent
+    dispatch('moveToCollection', event.detail);
+  }
+  
+  function handleNewNote() {
+    dispatch('newNote');
+  }
+  
+  function handleNewNoteWithCode() {
+    dispatch('newNoteWithCode');
+  }
 </script>
 
 <header class="bg-white shadow-sm border-b border-gray-200">
@@ -37,14 +49,35 @@
         {#if currentCollectionId}
           <div class="flex items-center space-x-4 min-w-0 flex-1">
             <CollectionTabs 
-              currentCollectionId={currentCollectionId}
+              {currentCollectionId}
+              on:moveToCollection={handleMoveToCollection}
             />
           </div>
         {/if}
       </div>
 
-      <!-- Right Section: User Menu -->
+      <!-- Right Section: Shortcuts + User Menu -->
       <div class="flex items-center space-x-4 flex-shrink-0">
+        
+        <!-- Keyboard Shortcuts Info -->
+        {#if currentCollectionId}
+          <div class="hidden lg:flex items-center text-xs text-gray-500 space-x-4 md:hidden">
+            <span class="flex items-center space-x-1">
+              <kbd class="px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded">Alt+N</kbd>
+              <span>New Note</span>
+            </span>
+            <span class="flex items-center space-x-1">
+              <kbd class="px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded">Alt+Shift+N</kbd>
+              <span>New Note<br/>with Code</span>
+            </span>
+          </div>
+        {/if}
+
+        <!-- Mobile shortcuts hint -->
+        <div class="lg:hidden">
+          <!-- <span class="text-xs text-gray-400">Alt+N for new note</span> -->
+        </div>
+        
         <UserMenu {user} />
       </div>
     </div>
