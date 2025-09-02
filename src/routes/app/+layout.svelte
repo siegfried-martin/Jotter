@@ -1,11 +1,10 @@
-<!-- src/routes/app/+layout.svelte (Updated with DragProvider and Event Forwarding) -->
+<!-- src/routes/app/+layout.svelte (Fixed with missing functions) -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { authStore, isAuthenticated } from '$lib/auth';
   import { appStore } from '$lib/stores/appStore';
   import { goto } from '$app/navigation';
-  import { collectionStore, collectionActions } from '$lib/stores/collectionStore';
   import AppHeader from '$lib/components/layout/AppHeader.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { AppDataManager } from '$lib/stores/appDataStore';
@@ -18,6 +17,7 @@
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
   $: currentRoute = $page.url.pathname;
+  $: userIsAuthenticated = isAuthenticated($authStore);
   
   // Initialize app state when layout first loads
   $: if ($authStore.initialized && !$authStore.loading && $appStore && !$appStore.hasInitialized) {
@@ -29,9 +29,6 @@
   function handleMoveToCollectionFromHeader(event) {
     console.log('App layout: Received moveToCollection from header:', event.detail);
     console.log('App layout: Forwarding event to slot content...');
-    
-    // Instead of DOM event, we need to trigger the handler directly or use event forwarding
-    // The issue is that the collection layout expects this event on its wrapper element
     
     // Create a custom event that will be dispatched on the slot wrapper
     setTimeout(() => {
@@ -49,20 +46,44 @@
     }, 0);
   }
 
+  // Handle new note creation from header shortcuts
+  function handleNewNote(isCodeNote = false) {
+    console.log('New note requested:', { isCodeNote });
+    // This should be handled by the current page/component
+    // For now, we'll dispatch an event that pages can listen to
+    window.dispatchEvent(new CustomEvent('createNewNote', { 
+      detail: { isCodeNote } 
+    }));
+  }
+
   onMount(async () => {
     const unsubscribe = authStore.subscribe((auth) => {
       if (!auth.loading && !isAuthenticated(auth)) {
+        console.log('User not authenticated, redirecting to landing page');
         goto('/');
         return;
       }
       user = auth.user;
       if (!auth.loading) {
         hasLoadedOnce = true;
+        
+        // Only start background loading if user is authenticated
+        if (isAuthenticated(auth)) {
+          startBackgroundLoading();
+        }
       }
     });
 
-    // Background load all collections for fast navigation AND header tabs
-    AppDataManager.ensureAllCollections().then(collections => {
+    return unsubscribe;
+  });
+
+  // Separate function for background loading with proper auth checks
+  async function startBackgroundLoading() {
+    try {
+      console.log('Starting background collection loading...');
+      
+      // Background load all collections for fast navigation AND header tabs
+      const collections = await AppDataManager.ensureAllCollections();
       console.log('Background loaded all collections for header:', collections.length);
       
       // Optional: Also background load the first few collections' containers
@@ -74,13 +95,18 @@
           });
         }, index * 200); // Stagger requests
       });
-    }).catch(error => {
+    } catch (error) {
       console.warn('Background collection loading failed:', error);
-      // Fail silently - navigation will still work, just slower
-    });
-
-    return unsubscribe;
-  });
+      
+      // If it's an auth error, don't spam logs
+      if (error.message && error.message.includes('not authenticated')) {
+        console.log('Background loading skipped - user not authenticated');
+        return;
+      }
+      
+      // Fail silently for other errors - navigation will still work, just slower
+    }
+  }
 </script>
 
 <!-- Only show loading on initial load -->
@@ -89,6 +115,13 @@
     fullScreen={true} 
     size="lg" 
     text="Loading..." 
+  />
+{:else if !userIsAuthenticated}
+  <!-- User not authenticated, redirect should happen automatically -->
+  <LoadingSpinner 
+    fullScreen={true} 
+    size="lg" 
+    text="Redirecting..." 
   />
 {:else}
   <!-- Wrap everything in DragProvider so header can access drag context -->

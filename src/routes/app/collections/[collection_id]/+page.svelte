@@ -1,9 +1,9 @@
-<!-- src/routes/app/collections/[collection_id]/+page.svelte - Cache-First Collection -->
+<!-- src/routes/app/collections/[collection_id]/+page.svelte - Fixed to use AppDataManager -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { UnifiedCollectionCache } from '$lib/stores/collectionCacheStore';
+  import { AppDataManager } from '$lib/stores/appDataStore'; // Use same system as layout
   import { NoteService } from '$lib/services/noteService';
   import { UserService } from '$lib/services/userService';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
@@ -32,21 +32,18 @@
       isRedirecting = true;
       const collectionId = data.collectionId;
       
-      // Ensure we have collection data in cache
+      // Ensure we have collection data in cache using AppDataManager
       if (!data.fromCache || data.containers.length === 0) {
         redirectStatus = 'Loading collection data...';
-        await UnifiedCollectionCache.ensureCollectionData(collectionId);
+        const collectionData = await AppDataManager.ensureCollectionData(collectionId);
         
-        // Re-read from cache
-        const cacheResult = UnifiedCollectionCache.getCachedCollectionData(collectionId);
-        if (cacheResult.data) {
-          data = {
-            ...data,
-            collection: cacheResult.data.collection,
-            containers: cacheResult.data.containers,
-            fromCache: true
-          };
-        }
+        // Update data with loaded info
+        data = {
+          ...data,
+          collection: collectionData.collection,
+          containers: collectionData.containers,
+          fromCache: true
+        };
       }
       
       const { collection, containers } = data;
@@ -62,10 +59,9 @@
       // Determine target container
       let targetContainerId: string;
       
-      // Try to get last visited from user preferences (cache this too eventually)
+      // Try to get last visited from user preferences
       try {
-        const userProfile = await UserService.getUserProfile();
-        const lastVisitedId = userProfile?.lastVisitedContainer;
+        const lastVisitedId = await UserService.getLastVisitedContainerId();
         
         if (lastVisitedId && containers.some(c => c.id === lastVisitedId)) {
           targetContainerId = lastVisitedId;
@@ -105,12 +101,9 @@
         'My First Note'
       );
       
-      // Update cache optimistically
-      UnifiedCollectionCache.updateCacheOptimistically(
-        data.collectionId,
-        newContainer.id,
-        [] // Empty sections for new container
-      );
+      // Update cache using AppDataManager
+      AppDataManager.invalidateCollection(data.collectionId);
+      await AppDataManager.ensureCollectionData(data.collectionId);
       
       // Update last visited
       UserService.updateLastVisitedContainer(newContainer.id).catch(console.warn);

@@ -39,6 +39,13 @@ export class NavigationService {
     }
 
     try {
+      // Check authentication first before making any service calls
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('🔐 User not authenticated, cannot check last visited location');
+        return false;
+      }
+
       // Check for last visited container first
       const lastVisitedContainerId = await UserService.getLastVisitedContainerId();
       if (lastVisitedContainerId) {
@@ -64,6 +71,13 @@ export class NavigationService {
       return false;
     } catch (error) {
       console.warn('Could not check last visited location:', error);
+      
+      // If it's an auth error, don't treat it as a warning
+      if (error.message && error.message.includes('not authenticated')) {
+        console.log('🔐 Authentication required for redirect check');
+        return false;
+      }
+      
       return false;
     }
   }
