@@ -232,6 +232,43 @@
       );
     }
   }
+
+  // NEW: Handle container title updates from CollectionPageHeader
+  async function handleUpdateTitle(event) {
+    const { containerId, newTitle } = event.detail;
+    console.log('Container page: Handling container title update:', { containerId, newTitle });
+    
+    // Get current containers for optimistic update
+    const cachedData = AppDataManager.getCollectionDataSync(data.collectionId);
+    const containers = cachedData?.containers || [];
+    const originalContainer = containers.find(c => c.id === containerId);
+    
+    if (!originalContainer) {
+      console.error('Container not found for title update:', containerId);
+      return;
+    }
+    
+    // Store original containers for rollback
+    const originalContainers = [...containers];
+    
+    // Optimistic update - immediately update the UI
+    const updatedContainers = containers.map(container => 
+      container.id === containerId ? { ...container, title: newTitle } : container
+    );
+    
+    AppDataManager.updateContainerArrayOptimistically(data.collectionId, updatedContainers);
+    
+    try {
+      // Background API call
+      await NoteService.updateNoteContainerTitle(containerId, newTitle);
+      console.log('Container title saved successfully');
+    } catch (error) {
+      console.error('Failed to save container title:', error);
+      
+      // Rollback optimistic update on error
+      AppDataManager.updateContainerArrayOptimistically(data.collectionId, originalContainers);
+    }
+  }
   
   // Handle container reordering directly (no forwarding needed)
   async function handleContainerReorderDirect(event) {
@@ -468,6 +505,7 @@
     on:edit={handleEditSection}
     on:delete={handleDeleteSection}
     on:titleSave={handleSectionTitleSave}
+    on:updateTitle={handleUpdateTitle}
     
     on:containersReordered={handleContainerReorderDirect}
     on:crossContainerDrop={handleCrossContainerMoveDirect}

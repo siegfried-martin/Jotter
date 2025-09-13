@@ -32,6 +32,12 @@
     console.log('🔥 ContainerPageLayout forwarding deleteSection:', event.detail);
     dispatch('delete', event.detail);
   }
+
+  // Handle container title updates from CollectionPageHeader
+  function handleUpdateTitle(event: CustomEvent) {
+    console.log('🔥 ContainerPageLayout forwarding updateTitle:', event.detail);
+    dispatch('updateTitle', event.detail);
+  }
 </script>
 
 <svelte:window on:keydown={forwardEvent('keydown')} />
@@ -63,7 +69,7 @@
         {selectedContainer}
         {loading}
         on:refresh={forwardEvent('refresh')}
-        on:updateTitle={forwardEvent('updateTitle')}
+        on:updateTitle={handleUpdateTitle}
       />
       
       <SectionGridWrapper 

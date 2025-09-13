@@ -83,7 +83,7 @@
           {#if !isCurrentCollection}
             <!-- Make non-current tabs into drop zones -->
             <div 
-              class="collection-drop-zone lg:w-32 md:w-16 sm:w-12 xl:w-40 2xl:w-48 w-12 overflow-hidden"
+              class="collection-drop-zone lg:w-20 md:w-16 sm:w-12 xl:w-24 2xl:w-28 w-12 overflow-hidden"
               use:dndzone={{
                 items: [], // Empty - this is just a drop target
                 type: 'containers', // Same type as ContainerList
@@ -108,7 +108,7 @@
             </div>
           {:else}
             <!-- Current collection tab - no drop zone needed -->
-            <div class="lg:w-32 md:w-16 sm:w-12 xl:w-40 2xl:w-48 w-12 overflow-hidden">
+            <div class="lg:w-24 md:w-19 sm:w-14 xl:w-28 2xl:w-32 w-14 overflow-hidden">
               <button
                 on:click={() => navigateTo(collection)}
                 class="collection-tab-button px-4 py-2 rounded-t-md text-sm font-medium transition-all duration-200 whitespace-nowrap
