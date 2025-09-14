@@ -37,7 +37,7 @@ get_next_note_container_sequence(collection_id) -- Modified for newest-first ord
 get_next_note_section_sequence(note_container_id)
 ```
 
-## Current Status - August 31, 2025
+## Current Status - September 13, 2025
 
 ### Core Features Completed
 
@@ -64,39 +64,43 @@ get_next_note_section_sequence(note_container_id)
 - **Cross-container section moves**: Drag sections between containers
 - **Event chain**: Complete event forwarding through component hierarchy
 
-### Recent Session Achievements - August 31, 2025
+### Recent Session Achievements - September 13, 2025
 
-#### Compilation Issues Fixed
+#### Database Schema Fixes
 
-- Fixed corrupted Unicode characters in console.log statements causing build failures
-- Cleaned up duplicate content in CollectionTabs.svelte
+- **Fixed container deletion foreign key constraint**: Modified `user_preferences_last_visited_container_id_fkey` to include `ON DELETE SET NULL`, preventing foreign key violations when deleting currently visited containers
 
-#### Cross-Collection Container Drag (Complete)
+#### Excalidraw Editor Improvements
 
-- Collection tabs are now svelte-dnd-action drop zones accepting containers
-- Visual highlighting during drag operations on valid drop targets
-- Proper event flow: ContainerList → AppHeader → App Layout → Collection Layout
-- API integration with optimistic cache updates and rollback on failure
+- **Default font settings**: Changed from handwritten to normal font (Arial) and medium size (20px) for new text elements
 
-#### CRUD Operations Completed
+#### Checklist System Overhaul
 
-- **Section creation**: Fixed container ID passing, proper cache updates, auto-navigation to edit
-- **Section editing**: Cache updates when returning from edit page
-- **Section deletion**: Confirmation dialogs with optimistic updates and rollback
-- **Container creation**: Uses useNoteOperations with date-based titles ("New Note 8/31/2025")
-- **Container deletion**: Confirmation, navigation handling, optimistic updates
+- **Mobile-first redesign**: Progress bar hidden on mobile, full-width items for better space utilization
+- **Removed date shortcuts**: Eliminated T/M/W quick date buttons and Ctrl+T/M/W hotkeys
+- **Removed date validation**: No min/max restrictions on date inputs for user flexibility
+- **Colorblind-friendly priority system**: Changed from red/green to red/yellow/blue priority colors
+- **Simplified mobile interface**: Priority and date controls hidden on mobile, only essential elements shown
+- **Full-width background coloring**: Priority colors now affect entire checklist item background in both editor and preview
+- **Icon cleanup**: Removed priority icons from item display, kept only in dropdown
+- **Improved layout**: Reordered controls on desktop (checkbox → date → priority → text → delete) for better visual balance
 
-#### Sequence Management Enhancement
+#### Section Drag & Drop System Restoration
 
-- Modified get_next_note_container_sequence to use MIN(sequence) - 10 instead of MAX + 10
-- New containers now appear first in sidebar (newest-first ordering)
-- Maintains existing drag-and-drop reordering functionality
+- **Fixed missing DragProvider**: Container deletion accidentally removed DragProvider wrapper from ContainerPageLayout
+- **Restored section dragging**: Re-added DragProvider with SectionDragBehavior to container page component
+- **Connected drag callbacks**: Linked section reordering and cross-container moves to existing optimistic update handlers
 
-#### Keyboard Shortcuts (Complete)
+#### CodeMirror Language Selection Fix
 
-- Collection-scoped shortcuts: Alt+N, Alt+Shift+N, Ctrl+M, Ctrl+Shift+M
-- Visual hints displayed next to collection tabs
-- Direct navigation to edit page for code sections
+- **Fixed language switching errors**: Resolved "Cannot read properties of undefined (reading 'of')" errors
+- **Simplified reconfiguration**: Replaced complex compartment system with editor recreation approach
+- **Persistent language selection**: Language choice now correctly saves and restores across page refreshes
+- **Real-time syntax highlighting**: Language changes now immediately update syntax highlighting
+
+#### Application UI Updates
+
+- **App name change**: Updated displayed name from "Jotter" to "Jottr" in application interface
 
 ## Current Issues & Next Session Priorities
 
@@ -104,15 +108,13 @@ get_next_note_section_sequence(note_container_id)
 
 1. **Mobile drag & drop**: Disable dragging on mobile devices for better touch experience
 2. **Mobile section cards**: Reduce card size for mobile viewport optimization
-3. **CodeMirror language selection**: Fix language picker functionality in code editor
-4. **Checklist UI improvements**: Better visual design for checklist items
-5. **Excalidraw default text**: Change from handwritten to typed text style
 
 ### Known Technical Debt
 
 - **Mixed drag systems**: Two different implementations (custom + svelte-dnd-action)
 - **svelte-dnd-action boundaries**: Occasional snap-back behavior near drag boundaries
 - **Error boundaries**: Need better error handling for drag system failures
+- **Large container page file**: Container +page.svelte has grown to ~400+ lines, could benefit from refactoring
 
 ## Architecture Notes
 
@@ -150,18 +152,42 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 **UI Polish Files**:
 
 - Mobile responsiveness in section grid and container layouts
-- CodeMirror language selection component
-- Checklist item styling and interactions
-- Excalidraw editor configuration
+- Mobile detection utilities for disabling drag
 
 **Key Components**:
 
 - `SectionGrid.svelte` - Mobile card sizing
-- `CodeEditor.svelte` - Language selection fixes
-- `ChecklistEditor.svelte` - UI improvements
-- `DiagramEditor.svelte` - Excalidraw text styling
 - Mobile detection utilities for disabling drag
+
+**Recently Modified Files**:
+
+- `CodeMirrorEditor.svelte` - Language switching system fixed
+- `ChecklistEditor.svelte` - Mobile-optimized with priority system
+- `SortableChecklistItem.svelte` - Reordered layout and colorblind-friendly colors
+- `ChecklistContent.svelte` - Matching priority colors for preview cards
+- `ExcalidrawEditor.svelte` - Default font settings updated
+- Container page `+page.svelte` - DragProvider restoration and behavior registration
+
+## Next Steps
+
+**Testing Phase**:
+
+- Deploy current version to test users for feedback collection
+- Gather usage patterns and identify friction points
+- Document bug reports and feature requests from real-world usage
+
+**Domain & Infrastructure**:
+
+- Secure dedicated domain for production deployment (currently on subdomain)
+- Update DNS and SSL configuration for new domain
+- Plan migration strategy from subdomain to primary domain
+
+**Post-Testing Actions**:
+
+- Prioritize fixes based on user feedback severity and frequency
+- Address critical bugs before broader release
+- Consider additional UI polish based on user behavior observations
 
 ---
 
-**Next Session Focus**: UI polish for mobile experience and editor improvements
+**Next Session Focus**: Mobile responsiveness and final UI polish for beta release

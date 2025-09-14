@@ -1,14 +1,44 @@
 <!-- src/routes/app/collections/[collection_id]/+layout.svelte -->
 <script lang="ts">
+  console.log('🏗️ COLLECTION LAYOUT LOADING');
   import { onMount, getContext } from 'svelte';
   import { goto } from '$app/navigation';
   import { currentCollectionStore, AppDataManager } from '$lib/stores/appDataStore';
+  import { appStore } from '$lib/stores/core/appDataCore';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { SectionService } from '$lib/services/sectionService';
   import { NoteService } from '$lib/services/noteService';
   import { createSectionDragBehavior } from '$lib/dnd/behaviors/SectionDragBehavior';
-  
+  import { page } from '$app/stores';
+
   export let data;
+
+  // Debug reactive statements
+  $: {
+    console.log('🔍 LAYOUT STORE DEBUG:', {
+      loading: $currentCollectionStore.loading,
+      hasCollection: !!$currentCollectionStore.collection,
+      collectionName: $currentCollectionStore.collection?.name,
+      containerCount: $currentCollectionStore.containers?.length || 0,
+      error: $currentCollectionStore.error
+    });
+  }
+
+  $: {
+    console.log('🔍 APP STORE CONTEXT:', {
+      currentCollectionId: $appStore?.currentCollectionId,
+      currentContainerId: $appStore?.currentContainerId,
+      cacheSize: $appStore?.collectionData?.size
+    });
+  }
+
+  console.log('🏗️ Collection layout data:', {
+    collectionId: data?.collectionId,
+    fromCache: data?.fromCache,
+    needsLoad: data?.needsLoad,
+    hasCollection: !!data?.collection,
+    containerCount: data?.containers?.length || 0
+  });
   
   let hasInitialized = false;
   
@@ -17,6 +47,7 @@
   const { registry } = dragContext || {};
   
   onMount(async () => {
+    console.log('🏗️ Collection layout mounted');
     if (!hasInitialized) {
       hasInitialized = true;
       
@@ -24,6 +55,13 @@
       
       // Set context immediately (this makes the derived stores active)
       AppDataManager.setCurrentContext(data.collectionId);
+      console.log('Context should be updated, checking...');
+
+      // Add a small delay and check again
+      setTimeout(() => {
+        const debugInfo = AppDataManager.getDebugInfo();
+        console.log('Context after timeout:', debugInfo.currentContext);
+      }, 100);
       
       // Load data if cache miss
       if (data.needsLoad) {
@@ -126,7 +164,7 @@
     return result;
   }
   
-  // Handle cross-container section moves (existing logic)
+  // Handle cross-container section moves
   async function handleCrossContainerMove(event) {
     const { sectionId, fromContainer, toContainer } = event.detail;
     console.log('Collection layout: Optimistic cross-container move:', { sectionId, fromContainer, toContainer });
@@ -229,7 +267,6 @@
     const { containerId, targetCollectionId } = event.detail;
     
     console.log('Collection layout: Cross-collection container move:', containerId, '->', targetCollectionId);
-    console.log('Collection layout: Event detail:', event.detail);
     
     const sourceCollectionId = data.collectionId;
     
@@ -256,14 +293,11 @@
     
     // 1. Optimistic update: Remove from source collection immediately
     const updatedSourceContainers = sourceContainers.filter(c => c.id !== containerId);
-    console.log('Optimistic update: Removing container from source collection');
     AppDataManager.updateContainerArrayOptimistically(sourceCollectionId, updatedSourceContainers);
     
     try {
       // 2. Call API to move container
-      console.log('Calling NoteService.moveToCollection API...');
       await NoteService.moveToCollection(containerId, targetCollectionId);
-      
       console.log('Cross-collection move API succeeded');
       
       // 3. Invalidate target collection cache to force fresh data load
@@ -274,98 +308,18 @@
         console.warn('Failed to preload target collection:', error);
       });
       
-      console.log('Cross-collection container move completed successfully');
-      
     } catch (error) {
       console.error('Cross-collection move failed, rolling back:', error);
-      
-      // Rollback: restore container to source collection
       AppDataManager.updateContainerArrayOptimistically(sourceCollectionId, originalSourceContainers);
-    }
-  }
-  
-  // Register SECTION behaviors with custom drag system when data is available
-  $: if (registry && data?.collectionId) {
-    try {
-      console.log('Registering SECTION drag behaviors for collection:', data.collectionId);
-      
-      // Clear existing behaviors
-      if (registry.clearBehaviors) {
-        registry.clearBehaviors();
-      }
-      
-      // Create and register ONLY section behavior (not container - containers use svelte-dnd-action)
-      const sectionBehavior = createSectionDragBehavior(
-        // Section reorder handler
-        async (fromIndex, toIndex, containerId) => {
-          console.log('Section reorder with AppDataManager:', fromIndex, '->', toIndex, 'in', containerId);
-          
-          if (fromIndex === toIndex) return;
-          
-          // Get current sections directly from cache
-          const cachedData = AppDataManager.getContainerSectionsSync(data.collectionId, containerId);
-          const currentSections = cachedData?.sections || [];
-          
-          if (!currentSections || currentSections.length === 0) {
-            console.warn('No sections to reorder');
-            return;
-          }
-          
-          // Store original order for potential rollback
-          const originalSections = [...currentSections];
-          
-          // 1. Optimistically update cache first
-          const reorderedSections = reorderArray(currentSections, fromIndex, toIndex);
-          AppDataManager.updateSectionsOptimistically(data.collectionId, containerId, reorderedSections);
-          
-          try {
-            // 2. Call API service
-            const updatedSections = await SectionService.reorderSections(containerId, fromIndex, toIndex);
-            
-            // 3. Validate server response
-            if (updatedSections && Array.isArray(updatedSections)) {
-              const validUpdatedSections = updatedSections.filter(section => section && section.id);
-              
-              if (validUpdatedSections.length === reorderedSections.length) {
-                const currentOptimisticOrder = reorderedSections.map(s => s.id).join(',');
-                const serverOrder = validUpdatedSections.map(s => s.id).join(',');
-
-                if (currentOptimisticOrder !== serverOrder) {
-                  console.log('Server order differs from optimistic, updating UI');
-                  AppDataManager.updateSectionsOptimistically(data.collectionId, containerId, validUpdatedSections);
-                }
-              }
-            }
-            
-            console.log('Section reorder completed successfully');
-          } catch (error) {
-            console.error('Section reorder failed:', error);
-            AppDataManager.updateSectionsOptimistically(data.collectionId, containerId, originalSections);
-          }
-        },
-        
-        // Cross-container move handler  
-        async (sectionId, fromContainer, toContainer) => {
-          await handleCrossContainerMove({ 
-            detail: { sectionId, fromContainer, toContainer } 
-          });
-        }
-      );
-      
-      // Register only the section behavior
-      registry.register(sectionBehavior);
-      
-      console.log('Section drag behavior registered successfully');
-    } catch (error) {
-      console.error('Failed to register section drag behaviors:', error);
     }
   }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
-{#if $currentCollectionStore.loading}
-  <!-- Component-level loading -->
+<!-- TEMPORARY: Use layout data instead of derived store to bypass cache corruption -->
+{#if $currentCollectionStore.loading || data.needsLoad && !$currentCollectionStore.collection}
+  <!-- Loading state -->
   <div class="flex h-screen bg-gray-50 items-center justify-center">
     <div class="text-center">
       <LoadingSpinner />
@@ -391,9 +345,11 @@
   <div class="flex h-screen bg-gray-50 items-center justify-center">
     <div class="text-center">
       <p class="text-gray-600">Collection not found</p>
-      {#if $currentCollectionStore.error}
-        <p class="mt-2 text-red-600 text-sm">{$currentCollectionStore.error}</p>
-      {/if}
+      <p class="mt-2 text-red-600 text-sm">Layout data: {JSON.stringify({
+        collectionId: data.collectionId,
+        fromCache: data.fromCache,
+        hasCollection: !!data.collection
+      })}</p>
       <button 
         on:click={async () => {
           try {

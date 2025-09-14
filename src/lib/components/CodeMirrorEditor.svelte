@@ -28,41 +28,63 @@
 
   let editor: EditorView;
   let container: HTMLDivElement;
-
-  // Language extensions mapping
-  const languageExtensions: Record<string, any> = {
-    plaintext: [], // Plain text with no syntax highlighting
-    javascript: javascript(),
-    typescript: javascript({ typescript: true }),
-    python: python(),
-    html: html(),
-    css: css(),
-    json: json(),
-    sql: sql(),
-    rust: rust(),
-    cpp: cpp(),
-    java: java(),
-    php: php(),
-    xml: xml(),
-    markdown: markdown(),
-  };
+  let currentLanguage: string = language;
 
   // Get the appropriate language extension
   function getLanguageExtension(lang: string) {
-    return languageExtensions[lang] || languageExtensions.plaintext;
+    try {
+      switch (lang) {
+        case 'plaintext':
+          return []; // Plain text with no syntax highlighting
+        case 'javascript':
+          return [javascript()];
+        case 'typescript':
+          return [javascript({ typescript: true })];
+        case 'python':
+          return [python()];
+        case 'html':
+          return [html()];
+        case 'css':
+          return [css()];
+        case 'json':
+          return [json()];
+        case 'sql':
+          return [sql()];
+        case 'rust':
+          return [rust()];
+        case 'cpp':
+          return [cpp()];
+        case 'java':
+          return [java()];
+        case 'php':
+          return [php()];
+        case 'xml':
+          return [xml()];
+        case 'markdown':
+          return [markdown()];
+        default:
+          console.warn(`Unknown language: ${lang}, falling back to plaintext`);
+          return [];
+      }
+    } catch (error) {
+      console.error(`Error loading language extension for ${lang}:`, error);
+      return [];
+    }
   }
 
   // Create editor extensions
-  function createExtensions() {
+  function createExtensions(lang: string) {
+    const languageExt = getLanguageExtension(lang);
+    
     const extensions = [
       basicSetup,
       autocompletion(),
       indentOnInput(),
-      indentUnit.of("  "), // Use 2 spaces for indentation
-      getLanguageExtension(language),
+      indentUnit.of("  "),
+      ...languageExt,
       keymap.of([
         ...completionKeymap,
-        indentWithTab, // Add tab indentation directly
+        indentWithTab,
       ]),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -74,7 +96,6 @@
       }),
     ];
 
-    // Add readonly if needed
     if (readonly) {
       extensions.push(EditorView.editable.of(false));
     }
@@ -86,9 +107,11 @@
   function initializeEditor() {
     if (!container) return;
 
+    currentLanguage = language;
+
     const state = EditorState.create({
       doc: value,
-      extensions: createExtensions(),
+      extensions: createExtensions(currentLanguage),
     });
 
     editor = new EditorView({
@@ -96,7 +119,6 @@
       parent: container,
     });
     
-    // Auto-focus and place cursor at beginning
     editor.focus();
     editor.dispatch({
       selection: { anchor: 0, head: 0 }
@@ -116,12 +138,34 @@
     }
   }
 
-  // Update editor language
+  // Update language by recreating editor
   function updateLanguage() {
-    if (editor) {
-      editor.dispatch({
-        effects: EditorState.reconfigure.of(createExtensions()),
+    if (editor && language !== currentLanguage) {
+      console.log(`Switching language from ${currentLanguage} to ${language}`);
+      
+      const currentContent = editor.state.doc.toString();
+      const cursorPos = editor.state.selection.main.head;
+      
+      editor.destroy();
+      
+      currentLanguage = language;
+      
+      const state = EditorState.create({
+        doc: currentContent,
+        extensions: createExtensions(currentLanguage),
       });
+
+      editor = new EditorView({
+        state,
+        parent: container,
+      });
+      
+      const safePos = Math.min(cursorPos, currentContent.length);
+      editor.dispatch({
+        selection: { anchor: safePos, head: safePos }
+      });
+      
+      editor.focus();
     }
   }
 
@@ -140,7 +184,7 @@
     updateContent(value);
   }
 
-  $: if (editor && language) {
+  $: if (editor && language !== currentLanguage) {
     updateLanguage();
   }
 </script>
@@ -177,7 +221,6 @@
     outline-offset: -2px;
   }
 
-  /* Custom scrollbar for webkit browsers */
   :global(.cm-scroller::-webkit-scrollbar) {
     width: 8px;
     height: 8px;

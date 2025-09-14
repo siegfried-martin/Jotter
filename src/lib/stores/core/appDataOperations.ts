@@ -1,4 +1,4 @@
-// src/lib/stores/core/appDataOperations.ts - Data loading operations
+// src/lib/stores/core/appDataOperations.ts - Data loading operations with immutability fixes
 import { get } from 'svelte/store';
 import { CollectionService } from '$lib/services/collectionService';
 import { NoteService } from '$lib/services/noteService';
@@ -10,14 +10,33 @@ import type { Collection, NoteContainer, NoteSection } from '$lib/types';
 // Request deduplication - prevent concurrent identical requests
 const pendingRequests = new Map<string, Promise<any>>();
 
+// === DEEP CLONE UTILITIES ===
+function deepCloneArray<T>(arr: T[]): T[] {
+  return arr.map(item => deepCloneObject(item));
+}
+
+function deepCloneObject<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return new Date(obj.getTime()) as T;
+  if (Array.isArray(obj)) return deepCloneArray(obj) as T;
+  
+  const cloned = {} as T;
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      cloned[key] = deepCloneObject(obj[key]);
+    }
+  }
+  return cloned;
+}
+
 // === ALL COLLECTIONS ===
 export async function loadAllCollections(): Promise<Collection[]> {
   const current = get(appStore);
   
-  // Return cached if already loaded
+  // Return cached if already loaded - with deep clone
   if (current.allCollectionsLoaded && !current.loading.has('allCollections')) {
     console.log('All collections already loaded from cache');
-    return current.allCollections;
+    return deepCloneArray(current.allCollections);
   }
   
   // Return existing promise if request is in flight
@@ -48,12 +67,11 @@ async function _loadAllCollections(): Promise<Collection[]> {
     
     appStore.update(app => ({
       ...app,
-      allCollections: collections,
-      allCollectionsLoaded: true
+      allCollections: deepCloneArray(collections), // Deep clone before storing
     }));
     
     console.log('All collections loaded and cached:', collections.length);
-    return collections;
+    return deepCloneArray(collections); // Deep clone before returning
     
   } catch (error) {
     console.error('Failed to load all collections:', error);
@@ -72,9 +90,10 @@ export function getCollectionDataSync(collectionId: string): {
   const app = get(appStore);
   const data = app.collectionData.get(collectionId);
   
+  // CRITICAL FIX: Deep clone data before returning
   return data ? {
-    collection: data.collection,
-    containers: data.containers
+    collection: deepCloneObject(data.collection),
+    containers: deepCloneArray(data.containers)
   } : null;
 }
 
@@ -86,7 +105,7 @@ export async function loadCollectionData(collectionId: string): Promise<{
   const cached = getCollectionDataSync(collectionId);
   if (cached && !isStale(collectionId)) {
     console.log('Collection data fresh in cache:', collectionId);
-    return cached;
+    return cached; // Already deep cloned by getCollectionDataSync
   }
   
   // Return existing promise if request is in flight
@@ -124,13 +143,13 @@ async function _loadCollectionData(collectionId: string): Promise<{
     // Sort containers by sequence
     const sortedContainers = containers.sort((a, b) => a.sequence - b.sequence);
     
-    // Cache the data
+    // CRITICAL FIX: Deep clone data before caching
     appStore.update(app => {
       const newCollectionData = new Map(app.collectionData);
       newCollectionData.set(collectionId, {
-        collection,
-        containers: sortedContainers,
-        containerSections: new Map(),
+        collection: deepCloneObject(collection),
+        containers: deepCloneArray(sortedContainers),
+        containerSections: new Map(), // Fresh map for sections
         lastUpdated: Date.now()
       });
       
@@ -140,12 +159,16 @@ async function _loadCollectionData(collectionId: string): Promise<{
       };
     });
     
-    console.log('Collection data cached:', { collectionId, containerCount: sortedContainers.length });
+    console.log('Collection data cached with deep cloning:', { collectionId, containerCount: sortedContainers.length });
     
     // Background preload top containers
     preloadContainerSections(collectionId, sortedContainers.slice(0, 3));
     
-    return { collection, containers: sortedContainers };
+    // Return deep cloned data
+    return { 
+      collection: deepCloneObject(collection), 
+      containers: deepCloneArray(sortedContainers) 
+    };
     
   } catch (error) {
     console.error('Failed to load collection data:', error);
@@ -169,7 +192,11 @@ export function getContainerSectionsSync(collectionId: string, containerId: stri
   const container = collectionData.containers.find(c => c.id === containerId);
   const sections = collectionData.containerSections.get(containerId);
   
-  return (container && sections) ? { container, sections } : null;
+  // CRITICAL FIX: Deep clone before returning
+  return (container && sections) ? { 
+    container: deepCloneObject(container), 
+    sections: deepCloneArray(sections) 
+  } : null;
 }
 
 export async function loadContainerSections(collectionId: string, containerId: string): Promise<{
@@ -183,7 +210,7 @@ export async function loadContainerSections(collectionId: string, containerId: s
   const cached = getContainerSectionsSync(collectionId, containerId);
   if (cached) {
     console.log('Container sections found in cache:', containerId);
-    return cached;
+    return cached; // Already deep cloned by getContainerSectionsSync
   }
   
   const loadingKey = `${collectionId}:${containerId}`;
@@ -218,19 +245,35 @@ async function _loadContainerSections(collectionId: string, containerId: string)
     
     const sections = await SectionService.getSections(containerId);
     
-    // Cache the sections
+    // CRITICAL FIX: Deep clone sections before caching
     appStore.update(app => {
       const collectionData = app.collectionData.get(collectionId);
       if (collectionData) {
-        collectionData.containerSections.set(containerId, sections);
-        collectionData.lastUpdated = Date.now();
+        // Create new Map to avoid reference issues
+        const newSectionsMap = new Map(collectionData.containerSections);
+        newSectionsMap.set(containerId, deepCloneArray(sections));
+        
+        // Update the collection data immutably
+        const newCollectionData = new Map(app.collectionData);
+        newCollectionData.set(collectionId, {
+          ...collectionData,
+          containerSections: newSectionsMap,
+          lastUpdated: Date.now()
+        });
+        
+        return { ...app, collectionData: newCollectionData };
       }
-      return { ...app };
+      return app;
     });
     
-    console.log('Container sections cached:', { containerId, sectionCount: sections.length });
+    console.log('Container sections cached with deep cloning:', { containerId, sectionCount: sections.length });
     
-    return getContainerSectionsSync(collectionId, containerId)!;
+    const result = getContainerSectionsSync(collectionId, containerId);
+    if (!result) {
+      throw new Error('Failed to cache container sections properly');
+    }
+    
+    return result; // Already deep cloned by getContainerSectionsSync
     
   } catch (error) {
     console.error('Failed to load container sections:', error);

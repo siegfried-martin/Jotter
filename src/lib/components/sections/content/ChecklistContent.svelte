@@ -1,4 +1,4 @@
-<!-- src/lib/components/notes/content/ChecklistContent.svelte -->
+<!-- src/lib/components/sections/content/ChecklistContent.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { parseChecklistItems } from '../utils/checklistUtils';
@@ -35,11 +35,28 @@
     event.stopPropagation();
     event.stopImmediatePropagation();
   }
+
+  function getPriorityStyle(priority: string | undefined) {
+    switch (priority) {
+      case 'high':
+        return 'background-color: #fee2e2; border-left: 3px solid #dc2626;'; // Red
+      case 'medium':
+        return 'background-color: #fef3c7; border-left: 3px solid #d97706;'; // Yellow/Amber
+      case 'low':
+        return 'background-color: #dbeafe; border-left: 3px solid #2563eb;'; // Blue
+      default:
+        return '';
+    }
+  }
 </script>
 
-<div class="space-y-2">
+<div class="space-y-1">
   {#each checklistItems as item, index}
-    <div class="flex items-center space-x-3">
+    <div 
+      class="flex items-center space-x-3 px-2 py-1 rounded transition-colors"
+      class:bg-gray-50={!item.priority}
+      style={getPriorityStyle(item.priority)}
+    >
       <input 
         type="checkbox" 
         class="w-4 h-4 text-blue-600 rounded cursor-pointer flex-shrink-0" 
@@ -49,9 +66,11 @@
         on:change={(e) => handleCheckboxChange(e, index)}
         on:click={handleCheckboxClick}
       >
+      
       <span class="text-sm flex-1 break-words" class:select-none={isDragging}>
         {item.text}
       </span>
+      
       {#if item.displayDate}
         <span class="text-xs flex-shrink-0 {item.isOverdue ? 'text-red-500' : 'text-gray-400'}">
           {item.displayDate}

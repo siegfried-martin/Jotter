@@ -7,6 +7,8 @@
   import { SectionService } from '$lib/services/sectionService';
   import { NoteService } from '$lib/services/noteService';
   import { useNoteOperations } from '$lib/composables/useNoteOperations';
+  import DragProvider from '$lib/dnd/components/DragProvider.svelte';
+  import { createSectionDragBehavior } from '$lib/dnd/behaviors/SectionDragBehavior';
   import type { PageData } from './$types';
   
   export let data: PageData;
@@ -34,6 +36,39 @@
     
     return result;
   }
+
+  // Create section drag behavior with proper callbacks
+  $: sectionBehavior = createSectionDragBehavior(
+    // Section reordering within same container
+    async (fromIndex, toIndex, containerId) => {
+      console.log('Handling section reorder:', { fromIndex, toIndex, containerId });
+      
+      const currentSections = $currentContainerStore.sections || [];
+      if (fromIndex === toIndex || !currentSections.length) return;
+      
+      // Optimistic reorder
+      const reorderedSections = reorderArray(currentSections, fromIndex, toIndex);
+      AppDataManager.updateSectionsOptimistically(data.collectionId, containerId, reorderedSections);
+      
+      try {
+        // Call section service to persist the reorder
+        await SectionService.reorderSections(containerId, fromIndex, toIndex);
+        console.log('Section reorder API succeeded');
+      } catch (error) {
+        console.error('Section reorder failed, rolling back:', error);
+        // Rollback
+        AppDataManager.updateSectionsOptimistically(data.collectionId, containerId, currentSections);
+      }
+    },
+    
+    // Cross-container section moves
+    async (sectionId, fromContainer, toContainer) => {
+      console.log('Handling cross-container section move:', { sectionId, fromContainer, toContainer });
+      await handleCrossContainerMoveDirect({ detail: { sectionId, fromContainer, toContainer } });
+    }
+  );
+
+  $: dragBehaviors = [sectionBehavior];
   
   // Reactive initialization - runs when container ID changes
   $: if (data.containerId && data.containerId !== lastContainerId) {
@@ -475,6 +510,8 @@
   }
 </script>
 
+<svelte:head><title>{$currentContainerStore.container?.title} - Jottr</title></svelte:head>
+
 {#if $currentContainerStore.loading}
   <!-- Component-level loading -->
   <div class="flex h-screen bg-gray-50 items-center justify-center">
@@ -487,30 +524,32 @@
     </div>
   </div>
 {:else if $currentContainerStore.container}
-  <!-- Normal container display -->
-  <ContainerPageLayout
-    containers={$currentContainerStore.allContainers}
-    selectedContainer={$currentContainerStore.container}
-    selectedContainerSections={$currentContainerStore.sections}
-    loading={$currentContainerStore.loading}
-    currentCollectionId={data.collectionId}
-    currentContainerId={data.containerId}
-    currentCollection={$currentContainerStore.collection}
-    
-    on:selectContainer={handleSelectContainer}
-    on:createNew={handleCreateNew}
-    on:deleteContainer={handleDeleteContainer}
-    on:createSection={handleCreateSection}
-    on:optimisticUpdate={handleOptimisticSectionUpdate}
-    on:edit={handleEditSection}
-    on:delete={handleDeleteSection}
-    on:titleSave={handleSectionTitleSave}
-    on:updateTitle={handleUpdateTitle}
-    
-    on:containersReordered={handleContainerReorderDirect}
-    on:crossContainerDrop={handleCrossContainerMoveDirect}
-    on:moveToCollection={handleMoveToCollectionDirect}
-  />
+  <!-- Normal container display with DragProvider -->
+  <DragProvider behaviors={dragBehaviors}>
+    <ContainerPageLayout
+      containers={$currentContainerStore.allContainers}
+      selectedContainer={$currentContainerStore.container}
+      selectedContainerSections={$currentContainerStore.sections}
+      loading={$currentContainerStore.loading}
+      currentCollectionId={data.collectionId}
+      currentContainerId={data.containerId}
+      currentCollection={$currentContainerStore.collection}
+      
+      on:selectContainer={handleSelectContainer}
+      on:createNew={handleCreateNew}
+      on:deleteContainer={handleDeleteContainer}
+      on:createSection={handleCreateSection}
+      on:optimisticUpdate={handleOptimisticSectionUpdate}
+      on:edit={handleEditSection}
+      on:delete={handleDeleteSection}
+      on:titleSave={handleSectionTitleSave}
+      on:updateTitle={handleUpdateTitle}
+      
+      on:containersReordered={handleContainerReorderDirect}
+      on:crossContainerDrop={handleCrossContainerMoveDirect}
+      on:moveToCollection={handleMoveToCollectionDirect}
+    />
+  </DragProvider>
 {:else}
   <!-- Error/not found state -->
   <div class="flex h-screen bg-gray-50 items-center justify-center">

@@ -28,25 +28,44 @@
   });
   
   async function handleCollectionRedirect() {
+    console.log('🔥 REDIRECT DEBUG - Starting redirect logic');
+    console.log('🔥 Data passed to redirect:', {
+      fromCache: data.fromCache,
+      containerCount: data.containers?.length || 0,
+      containerTitles: data.containers?.map(c => c.title) || [],
+      collectionName: data.collection?.name || 'Unknown'
+    });
+
     try {
       isRedirecting = true;
       const collectionId = data.collectionId;
       
-      // Ensure we have collection data in cache using AppDataManager
-      if (!data.fromCache || data.containers.length === 0) {
-        redirectStatus = 'Loading collection data...';
-        const collectionData = await AppDataManager.ensureCollectionData(collectionId);
-        
-        // Update data with loaded info
-        data = {
-          ...data,
-          collection: collectionData.collection,
-          containers: collectionData.containers,
-          fromCache: true
-        };
-      }
+      // FIX: Use data from layout loader first, only refresh if truly empty
+      let { collection, containers } = data;
       
-      const { collection, containers } = data;
+      console.log('Redirect using layout data:', {
+        fromCache: data.fromCache,
+        containerCount: containers?.length || 0,
+        collectionName: collection?.name
+      });
+      
+      // Only fetch fresh data if layout data is empty AND we don't trust the cache
+      if (!data.fromCache || !containers || containers.length === 0) {
+        redirectStatus = 'Loading collection data...';
+        console.log('Fetching fresh collection data due to empty layout data');
+        
+        // Force fresh data by invalidating first
+        AppDataManager.invalidateCollection(collectionId);
+        const freshData = await AppDataManager.ensureCollectionData(collectionId);
+        
+        collection = freshData.collection;
+        containers = freshData.containers;
+        
+        console.log('Fresh data loaded:', {
+          containerCount: containers?.length || 0,
+          collectionName: collection?.name
+        });
+      }
       
       // No containers: show create UI
       if (!containers || containers.length === 0) {
@@ -56,10 +75,9 @@
         return;
       }
       
-      // Determine target container
+      // Rest of redirect logic unchanged...
       let targetContainerId: string;
       
-      // Try to get last visited from user preferences
       try {
         const lastVisitedId = await UserService.getLastVisitedContainerId();
         
@@ -69,17 +87,13 @@
         } else {
           targetContainerId = containers[0].id;
           redirectStatus = `Opening first note...`;
-          
-          // Update last visited
           UserService.updateLastVisitedContainer(targetContainerId).catch(console.warn);
         }
       } catch (error) {
-        // Fallback to first container
         targetContainerId = containers[0].id;
         redirectStatus = `Opening first note...`;
       }
       
-      // Redirect to container
       const targetUrl = `/app/collections/${collectionId}/containers/${targetContainerId}`;
       console.log('Redirecting to:', targetUrl);
       

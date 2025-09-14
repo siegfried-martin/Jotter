@@ -29,8 +29,8 @@
         appState: {
           gridSize: null,
           viewBackgroundColor: "#ffffff",
-          currentItemFontFamily: 1, // 1 = Arial, 2 = Cascadia, 3 = hand-drawn
-          currentItemFontSize: 16
+          currentItemFontFamily: 3, // normal
+          currentItemFontSize: 20 // medium
         },
         files: {}
       };
@@ -44,8 +44,8 @@
         appState: {
           gridSize: null,
           viewBackgroundColor: "#ffffff",
-          currentItemFontFamily: 1, // Default to Arial
-          currentItemFontSize: 16
+          currentItemFontFamily: 3, // normal
+          currentItemFontSize: 20 // medium
         },
         files: {}
       };

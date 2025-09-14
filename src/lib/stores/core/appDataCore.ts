@@ -75,7 +75,14 @@ export const currentContainerStore = derived(appStore, $app => {
   const collectionId = $app.currentCollectionId;
   const containerId = $app.currentContainerId;
   
+  console.log('🔍 currentContainerStore derived update:', { 
+    collectionId, 
+    containerId,
+    hasCollectionData: !!$app.collectionData.get(collectionId)
+  });
+  
   if (!collectionId || !containerId) {
+    console.log('🔍 Missing context, returning null state');
     return {
       container: null,
       sections: [],
@@ -88,6 +95,7 @@ export const currentContainerStore = derived(appStore, $app => {
   
   const collectionData = $app.collectionData.get(collectionId);
   if (!collectionData) {
+    console.log('🔍 No collection data found, returning loading state');
     return {
       container: null,
       sections: [],
@@ -101,6 +109,13 @@ export const currentContainerStore = derived(appStore, $app => {
   const container = collectionData.containers.find(c => c.id === containerId);
   const sections = collectionData.containerSections.get(containerId) || [];
   const loadingKey = `${collectionId}:${containerId}`;
+  
+  console.log('🔍 Found collection data:', {
+    containerFound: !!container,
+    containersLength: collectionData.containers.length,
+    sectionsLength: sections.length,
+    containerTitles: collectionData.containers.map(c => c.title)
+  });
   
   return {
     container: container || null,

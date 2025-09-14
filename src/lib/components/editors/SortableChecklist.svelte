@@ -1,5 +1,4 @@
 <!-- src/lib/components/editors/SortableChecklist.svelte -->
-<!-- Refactored to use the reusable SortableList wrapper -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import SortableList from '../ui/SortableList.svelte';
@@ -7,6 +6,7 @@
   import type { ChecklistItem } from '$lib/types';
 
   export let items: ChecklistItem[] = [];
+  export let isMobile: boolean = false;
 
   const dispatch = createEventDispatcher<{
     itemsChanged: ChecklistItem[];
@@ -35,14 +35,15 @@
 <SortableList 
   {items}
   direction="vertical"
-  spacing="space-y-4"
-  containerClass="lg:w-1/2"
+  spacing="space-y-2"
+  containerClass={isMobile ? "w-full" : "lg:w-full"}
   on:reorder={handleReorder}
 >
   <svelte:fragment slot="default" let:item let:index>
     <SortableChecklistItem 
       {item}
       {index}
+      {isMobile}
       on:addItem={handleAddItem}
       on:removeItem={handleRemoveItem}
       on:updateItem={handleUpdateItem}

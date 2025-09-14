@@ -41,7 +41,7 @@
         <div class="flex items-center space-x-3 flex-shrink-0">
           <a href="/app" class="flex items-center space-x-3">
             <img src="/favicon_2.png" alt="Jotter" class="w-8 h-8" />
-            <h1 class="text-xl font-semibold text-gray-900">Jotter</h1>
+            <h1 class="text-xl font-semibold text-gray-900">Jottr</h1>
           </a>
         </div>
 
