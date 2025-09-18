@@ -13,10 +13,39 @@
   // Handle URL params for errors
   $: {
     const urlError = $page.url.searchParams.get('error');
-    if (urlError === 'auth_error') {
-      error = 'Authentication failed. Please try again.';
-    } else if (urlError === 'callback_failed') {
-      error = 'Login callback failed. Please try again.';
+    const errorMessage = $page.url.searchParams.get('message');
+    
+    if (urlError) {
+      switch (urlError) {
+        case 'auth_error':
+          error = 'Authentication failed. Please try again.';
+          break;
+        case 'callback_failed':
+          error = 'Login callback failed. Please try again.';
+          break;
+        case 'oauth_error':
+          error = errorMessage ? decodeURIComponent(errorMessage) : 'OAuth authentication failed.';
+          break;
+        case 'no_auth_code':
+          error = 'No authorization code received. Please try signing in again.';
+          break;
+        case 'session_exchange_failed':
+          error = errorMessage ? `Session creation failed: ${decodeURIComponent(errorMessage)}` : 'Failed to create session.';
+          break;
+        case 'no_session_created':
+          error = 'No session was created after authentication. Please try again.';
+          break;
+        default:
+          error = errorMessage ? decodeURIComponent(errorMessage) : 'An authentication error occurred.';
+      }
+      
+      // Clear URL parameters after showing error
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('error');
+        url.searchParams.delete('message');
+        window.history.replaceState({}, '', url.toString());
+      }
     }
   }
 
@@ -26,7 +55,7 @@
 
   // Redirect to app if already authenticated
   $: if (auth.initialized && userIsAuthenticated && !isAuthenticating) {
-    console.log('User already authenticated, redirecting to app');
+    console.log('✅ User already authenticated, redirecting to app');
     goto('/app');
   }
 
@@ -36,13 +65,13 @@
       error = null;
       isAuthenticating = true;
       
-      console.log('Starting Google sign-in...');
+      console.log('🔄 Starting Google sign-in...');
       await signInWithGoogle();
       
       // The auth state change will trigger redirect automatically
       
     } catch (err) {
-      console.error('Sign-in failed:', err);
+      console.error('❌ Sign-in failed:', err);
       error = 'Sign-in failed. Please try again.';
       isAuthenticating = false;
     } finally {
@@ -52,8 +81,13 @@
 
   // Demo bypass (remove this in production)
   function handleDemoBypass() {
-    console.log('Demo bypass - going to app without auth');
+    console.log('🚀 Demo bypass - going to app without auth');
     goto('/app');
+  }
+
+  // Clear any error when user tries to sign in again
+  function clearError() {
+    error = null;
   }
 </script>
 
@@ -93,7 +127,15 @@
                 <svg class="h-5 w-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <p class="text-sm text-red-800">{error}</p>
+                <div class="flex-1">
+                  <p class="text-sm text-red-800">{error}</p>
+                  <button 
+                    on:click={clearError}
+                    class="text-xs text-red-600 hover:text-red-500 mt-1 underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             </div>
           {/if}
