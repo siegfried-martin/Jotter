@@ -510,7 +510,7 @@
   }
 </script>
 
-<svelte:head><title>{$currentContainerStore.container?.title} - Jottr</title></svelte:head>
+<svelte:head><title>{$currentContainerStore.container?.title} - Jotter</title></svelte:head>
 
 {#if $currentContainerStore.loading}
   <!-- Component-level loading -->

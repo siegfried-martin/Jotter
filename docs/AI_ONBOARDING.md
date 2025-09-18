@@ -15,7 +15,7 @@ This guide helps AI agents understand the project structure, conventions, and wo
 
 ### 2. Project Context
 
-- **App Name**: Jotter (displayed as "Jottr" in UI)
+- **App Name**: Jotter
 - **Purpose**: Lightning-fast, developer-focused note-taking web app
 - **Philosophy**: "Notepad++ but better" - speed and simplicity first
 - **Tech Stack**: SvelteKit + TypeScript + Supabase + Tailwind CSS

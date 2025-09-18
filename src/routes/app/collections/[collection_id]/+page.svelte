@@ -1,9 +1,9 @@
-<!-- src/routes/app/collections/[collection_id]/+page.svelte - Fixed to use AppDataManager -->
+<!-- src/routes/app/collections/[collection_id]/+page.svelte - Fixed render loop -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { AppDataManager } from '$lib/stores/appDataStore'; // Use same system as layout
+  import { AppDataManager } from '$lib/stores/appDataStore';
   import { NoteService } from '$lib/services/noteService';
   import { UserService } from '$lib/services/userService';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
@@ -13,6 +13,7 @@
   
   let isRedirecting = false;
   let redirectStatus = 'Loading...';
+  let hasTriedFresh = false; // PREVENT INFINITE LOOP
   
   onMount(async () => {
     // Only run redirect logic for exact bare collection URL
@@ -40,7 +41,7 @@
       isRedirecting = true;
       const collectionId = data.collectionId;
       
-      // FIX: Use data from layout loader first, only refresh if truly empty
+      // Use data from layout loader first
       let { collection, containers } = data;
       
       console.log('Redirect using layout data:', {
@@ -49,10 +50,12 @@
         collectionName: collection?.name
       });
       
-      // Only fetch fresh data if layout data is empty AND we don't trust the cache
-      if (!data.fromCache || !containers || containers.length === 0) {
+      // FIXED: Only fetch fresh data if we haven't tried AND cache miss occurred
+      // Remove the containers.length === 0 condition to prevent loop
+      if (!data.fromCache && !hasTriedFresh) {
         redirectStatus = 'Loading collection data...';
-        console.log('Fetching fresh collection data due to empty layout data');
+        console.log('Fetching fresh collection data due to cache miss');
+        hasTriedFresh = true; // PREVENT MULTIPLE ATTEMPTS
         
         // Force fresh data by invalidating first
         AppDataManager.invalidateCollection(collectionId);
@@ -67,15 +70,15 @@
         });
       }
       
-      // No containers: show create UI
+      // No containers: show create UI (this is valid end state, not an error)
       if (!containers || containers.length === 0) {
         console.log('Collection is empty, showing create UI');
         redirectStatus = 'No notes found. Please create your first note.';
         isRedirecting = false;
-        return;
+        return; // EXIT - don't try to fetch again
       }
       
-      // Rest of redirect logic unchanged...
+      // Containers exist: redirect to appropriate one
       let targetContainerId: string;
       
       try {
@@ -135,7 +138,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.collection?.name || 'Loading...'} - Jotter</title>
+  <title>{data.collection?.name || 'Loading...'} - Jottr</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50 flex items-center justify-center">

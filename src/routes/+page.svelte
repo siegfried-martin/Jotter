@@ -102,7 +102,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
           </svg>
         </div>
-        <h1 class="text-5xl font-bold text-gray-900 mb-3">Jottr</h1>
+        <h1 class="text-5xl font-bold text-gray-900 mb-3">Jotter</h1>
         <p class="text-xl text-gray-600 mb-2">Lightning-fast notes for developers</p>
         <p class="text-sm text-gray-500 mb-8">The better whiteboard for devs - pseudocode, algorithms, and structured thinking</p>
       </div>
@@ -142,7 +142,7 @@
 
           <div class="space-y-6">
             <h2 class="text-2xl font-semibold text-gray-900 text-center">
-              Welcome to Jottr
+              Welcome to Jotter
             </h2>
             
             <p class="text-gray-600 text-center">

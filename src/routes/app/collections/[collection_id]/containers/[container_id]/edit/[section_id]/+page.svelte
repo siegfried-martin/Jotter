@@ -186,7 +186,7 @@
 </script>
 
 <svelte:head>
-	<title>{section?.title || section?.type || 'Section'} - Jottr</title>
+	<title>{section?.title || section?.type || 'Section'} - Jotter</title>
 </svelte:head>
 
 <svelte:window on:keydown={handleKeydown} />

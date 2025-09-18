@@ -100,7 +100,7 @@ get_next_note_section_sequence(note_container_id)
 
 #### Application UI Updates
 
-- **App name change**: Updated displayed name from "Jotter" to "Jottr" in application interface
+- **App name change**: Updated displayed name from "Jotter" to "Jotter" in application interface
 
 ## Current Issues & Next Session Priorities
 

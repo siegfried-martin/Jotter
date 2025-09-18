@@ -142,8 +142,8 @@
       </div>
     {:else}
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Your Collections</h1>
-        <p class="text-gray-600">Organize your notes into collections</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">My Collections</h1>
+        <p class="text-gray-600">Organize notes into collections</p>
       </div>
 
       <CollectionGrid 
