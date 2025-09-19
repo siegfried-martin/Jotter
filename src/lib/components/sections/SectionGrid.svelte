@@ -98,7 +98,7 @@
   });
 </script>
 
-<div class="section-grid">
+<div class="section-grid mb-10">
   <!-- Grid layout with DraggableContainers and live reordering -->
   <div 
     class="section-list"
