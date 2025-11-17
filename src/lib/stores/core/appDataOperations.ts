@@ -62,17 +62,22 @@ async function _loadAllCollections(): Promise<Collection[]> {
   try {
     setLoading('allCollections', true);
     console.log('Loading all collections from API...');
-    
+
     const collections = await CollectionService.getCollections();
-    
+
     appStore.update(app => ({
       ...app,
       allCollections: deepCloneArray(collections), // Deep clone before storing
     }));
-    
+
     console.log('All collections loaded and cached:', collections.length);
+
+    // PRELOAD: Load first 10 containers for each collection into cache
+    console.log('🚀 Preloading containers for all collections...');
+    await preloadCollectionContainers(collections);
+
     return deepCloneArray(collections); // Deep clone before returning
-    
+
   } catch (error) {
     console.error('Failed to load all collections:', error);
     setError('allCollections', error.message);
@@ -82,6 +87,47 @@ async function _loadAllCollections(): Promise<Collection[]> {
   }
 }
 
+/**
+ * Preload first 10 containers for each collection into cache
+ */
+async function preloadCollectionContainers(collections: Collection[]): Promise<void> {
+  const { NoteService } = await import('$lib/services/noteService');
+
+  // Load containers for all collections in parallel
+  const preloadPromises = collections.map(async (collection) => {
+    try {
+      const containers = await NoteService.getNoteContainers(collection.id);
+
+      // Limit to first 10 containers to keep memory reasonable
+      const limitedContainers = containers.slice(0, 10);
+
+      // Update cache with collection data
+      appStore.update(app => {
+        const newCollectionData = new Map(app.collectionData);
+        newCollectionData.set(collection.id, {
+          collection: deepCloneObject(collection),
+          containers: deepCloneArray(limitedContainers),
+          containerSections: new Map(), // Sections will be loaded on demand
+          lastUpdated: Date.now()
+        });
+
+        return {
+          ...app,
+          collectionData: newCollectionData
+        };
+      });
+
+      console.log(`✅ Preloaded ${limitedContainers.length} containers for: ${collection.name}`);
+    } catch (error) {
+      // Don't fail the entire preload if one collection fails
+      console.warn(`⚠️ Failed to preload containers for ${collection.name}:`, error);
+    }
+  });
+
+  await Promise.all(preloadPromises);
+  console.log('🎉 Preloading complete!');
+}
+
 // === COLLECTION DATA ===
 export function getCollectionDataSync(collectionId: string): {
   collection: Collection;
@@ -89,7 +135,15 @@ export function getCollectionDataSync(collectionId: string): {
 } | null {
   const app = get(appStore);
   const data = app.collectionData.get(collectionId);
-  
+
+  console.log('🔍 getCollectionDataSync called:', {
+    collectionId,
+    hasData: !!data,
+    cacheSize: app.collectionData.size,
+    allCacheKeys: Array.from(app.collectionData.keys()),
+    collectionName: data?.collection?.name
+  });
+
   // CRITICAL FIX: Deep clone data before returning
   return data ? {
     collection: deepCloneObject(data.collection),

@@ -114,10 +114,63 @@ export function updateContainerArrayOptimistically(collectionId: string, contain
 
 export function updateCollectionsOptimistically(collections: Collection[]): void {
   console.log('Optimistic collections update with immutability:', collections.length);
-  
+
   appStore.update(app => ({
     ...app,
     allCollections: deepCloneArray(collections), // Deep clone before storing
     allCollectionsLoaded: true
   }));
+}
+
+export function addCollectionOptimistically(collection: Collection): void {
+  console.log('🚀 addCollectionOptimistically START:', {
+    collectionId: collection.id,
+    collectionName: collection.name
+  });
+
+  appStore.update(app => {
+    // Check if collection already exists (shouldn't happen, but be safe)
+    const exists = app.allCollections.some(c => c.id === collection.id);
+    if (exists) {
+      console.warn('⚠️ Collection already exists in cache:', collection.id);
+      return app;
+    }
+
+    console.log('📝 Cache state BEFORE update:', {
+      allCollectionsCount: app.allCollections.length,
+      collectionDataSize: app.collectionData.size,
+      collectionDataKeys: Array.from(app.collectionData.keys())
+    });
+
+    // Add new collection to the allCollections array
+    const newCollections = [...app.allCollections, deepCloneObject(collection)];
+
+    // Also initialize the collection data with empty containers
+    // This prevents cache misses when navigating to the new collection
+    const newCollectionData = new Map(app.collectionData);
+    newCollectionData.set(collection.id, {
+      collection: deepCloneObject(collection),
+      containers: [], // New collection has no containers yet
+      containerSections: new Map(),
+      lastUpdated: Date.now()
+    });
+
+    console.log('✅ Cache state AFTER update:', {
+      allCollectionsCount: newCollections.length,
+      collectionDataSize: newCollectionData.size,
+      collectionDataKeys: Array.from(newCollectionData.keys()),
+      newCollectionInCache: newCollectionData.has(collection.id)
+    });
+
+    const newState = {
+      ...app,
+      allCollections: newCollections,
+      allCollectionsLoaded: true,
+      collectionData: newCollectionData
+    };
+
+    console.log('🏁 addCollectionOptimistically COMPLETE for:', collection.id);
+
+    return newState;
+  });
 }

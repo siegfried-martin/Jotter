@@ -14,19 +14,60 @@
   let isRedirecting = false;
   let redirectStatus = 'Loading...';
   let hasTriedFresh = false; // PREVENT INFINITE LOOP
+
+  // CRITICAL: Reset state when navigating between collections
+  $: if (data.collectionId) {
+    console.log('🔄 Collection changed, resetting state for:', data.collectionId);
+    isRedirecting = false;
+    redirectStatus = 'Loading...';
+    hasTriedFresh = false;
+  }
+
+  // Debug reactive statement to see what template sees
+  $: {
+    console.log('🎨 TEMPLATE STATE:', {
+      isRedirecting,
+      hasCollection: !!data.collection,
+      hasContainers: !!data.containers,
+      containerCount: data.containers?.length ?? 'undefined',
+      containerIsArray: Array.isArray(data.containers),
+      redirectStatus,
+      firstCondition: isRedirecting || !data.collection,
+      secondCondition: !data.containers || data.containers.length === 0
+    });
+  }
   
-  onMount(async () => {
-    // Only run redirect logic for exact bare collection URL
+  // CRITICAL: React to collection changes, not just onMount
+  // SvelteKit reuses component instances when navigating between routes
+  $: if (data.collectionId && !$page.params.container_id) {
     const currentPath = $page.url.pathname;
-    const expectedPath = `/app/collections/${data.collection?.id || data.collectionId}`;
-    
-    if (currentPath === expectedPath && !$page.params.container_id) {
-      console.log('At bare collection URL, handling redirect');
-      await handleCollectionRedirect();
-    } else {
-      console.log('Not at bare collection URL, no redirect needed');
+    const expectedPath = `/app/collections/${data.collectionId}`;
+
+    if (currentPath === expectedPath) {
+      console.log('Collection changed or loaded, handling redirect for:', data.collectionId);
+
+      // OPTIMIZATION: If data is cached and has containers, redirect immediately without loading state
+      if (data.fromCache && data.containers && data.containers.length > 0) {
+        console.log('⚡ Fast redirect - data cached with containers');
+        performRedirect();
+      } else {
+        handleCollectionRedirect();
+      }
     }
-  });
+  }
+
+  // Synchronous redirect without loading state (for cached data)
+  function performRedirect() {
+    try {
+      const targetContainerId = data.containers[0].id;
+      const targetUrl = `/app/collections/${data.collectionId}/containers/${targetContainerId}`;
+      console.log('Redirecting to:', targetUrl);
+      goto(targetUrl, { replaceState: false });
+    } catch (error) {
+      console.error('Fast redirect failed, falling back to normal redirect:', error);
+      handleCollectionRedirect();
+    }
+  }
   
   async function handleCollectionRedirect() {
     console.log('🔥 REDIRECT DEBUG - Starting redirect logic');
@@ -143,9 +184,9 @@
 
 <div class="min-h-screen bg-gray-50 flex items-center justify-center">
   <div class="max-w-md w-full mx-auto p-6">
-    
-    {#if isRedirecting}
-      <!-- Component-level loading (not SvelteKit) -->
+
+    {#if isRedirecting || !data.collection}
+      <!-- Component-level loading (not SvelteKit) OR cache miss -->
       <div class="text-center">
         <LoadingSpinner />
         <h2 class="mt-4 text-lg font-semibold text-gray-800">
@@ -155,7 +196,7 @@
           {redirectStatus}
         </p>
       </div>
-      
+
     {:else if !data.containers || data.containers.length === 0}
       <!-- Empty collection state -->
       <div class="text-center">
@@ -164,16 +205,16 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
           </svg>
         </div>
-        
+
         <h2 class="text-xl font-semibold text-gray-800 mb-2">
           Welcome to {data.collection?.name || 'Your Collection'}
         </h2>
-        
+
         <p class="text-gray-600 mb-6">
           This collection is empty. Create your first note to get started!
         </p>
-        
-        <button 
+
+        <button
           on:click={createFirstNote}
           class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
         >
@@ -182,23 +223,26 @@
           </svg>
           Create First Note
         </button>
-        
+
         <div class="mt-4">
-          <a 
-            href="/app" 
+          <a
+            href="/app"
             class="text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200"
           >
             ← Back to Collections
           </a>
         </div>
       </div>
-      
+
     {:else}
-      <!-- Error state -->
+      <!-- Unexpected error state - should not reach here normally -->
       <div class="text-center">
         <h2 class="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
         <p class="text-gray-600 mb-6">{redirectStatus}</p>
-        <button 
+        <p class="text-sm text-gray-500 mb-4">
+          Collection has containers but redirect didn't work. This is unexpected.
+        </p>
+        <button
           on:click={() => handleCollectionRedirect()}
           class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >

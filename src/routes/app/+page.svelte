@@ -4,6 +4,7 @@
   import { CollectionService } from '$lib/services/collectionService';
   import { NavigationService } from '$lib/services/navigationService';
   import { appStore } from '$lib/stores/appStore';
+  import { AppDataManager } from '$lib/stores/appDataStore';
   import CollectionGrid from '$lib/components/collections/CollectionGrid.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import type { Collection } from '$lib/types';
@@ -59,14 +60,21 @@
   async function handleCreateCollection(event: CustomEvent<{ name: string; color: string; description?: string }>) {
     try {
       const { name, color, description } = event.detail;
-      
+
+      console.log('📦 Creating new collection:', name);
       const newCollection = await CollectionService.createCollection({
         name: name.trim(),
         color,
         description: description?.trim()
       });
-      
+      console.log('✅ Collection created in DB:', newCollection.id);
+
+      // CRITICAL: Add to cache BEFORE navigation
+      console.log('📥 Adding to AppDataManager cache...');
+      AppDataManager.addCollectionOptimistically(newCollection);
+
       // Navigate to the new collection
+      console.log('🧭 Navigating to new collection:', newCollection.id);
       NavigationService.navigateToCollection(newCollection);
     } catch (err) {
       console.error('Failed to create collection:', err);
