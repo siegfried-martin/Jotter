@@ -16,7 +16,8 @@ import {
 import {
   updateSectionsOptimistically,
   updateContainerOptimistically,
-  updateContainerArrayOptimistically
+  updateContainerArrayOptimistically,
+  addCollectionOptimistically
 } from './core/appDataUpdates';
 
 import {
@@ -60,13 +61,17 @@ export class AppDataManager {
   static updateSectionsOptimistically(collectionId: string, containerId: string, sections: any[]) {
     return updateSectionsOptimistically(collectionId, containerId, sections);
   }
-  
+
   static updateContainerOptimistically(collectionId: string, container: any) {
     return updateContainerOptimistically(collectionId, container);
   }
-  
+
   static updateContainerArrayOptimistically(collectionId: string, containers: any[]) {
     return updateContainerArrayOptimistically(collectionId, containers);
+  }
+
+  static addCollectionOptimistically(collection: any) {
+    return addCollectionOptimistically(collection);
   }
   
   // === CACHE MANAGEMENT ===

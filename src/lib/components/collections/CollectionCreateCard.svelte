@@ -24,6 +24,7 @@
   }
 
   function submitCreate() {
+    console.log("submitting create event with name, color, description", { name, color, description });
     if (name.trim()) {
       dispatch('create', {
         name: name.trim(),

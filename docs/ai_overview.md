@@ -36,6 +36,13 @@
 - **Responsibilities**: Component API docs, architecture updates, changelog maintenance
 - **Success Metrics**: Complete documentation coverage, up-to-date guides
 
+### Architecture & Performance Agent
+
+- **Primary Focus**: System architecture, performance optimization, bug fixes
+- **Skills**: Cache management, state optimization, reactive systems, debugging
+- **Responsibilities**: Fix architectural bugs, optimize re-renders, improve navigation performance
+- **Success Metrics**: Smooth UX, minimal re-renders, instant navigation
+
 ## AI Management Workflow
 
 ### Session Preparation
@@ -303,6 +310,13 @@ Focus on tasks in that category. Always update progress in
 - **Architecture Updates**: 0
 - **Guides Created**: 2 (onboarding, this overview)
 
+#### Architecture & Performance Agent
+
+- **Sessions Completed**: 1 (November 17, 2025)
+- **Bugs Fixed**: 2 (collection creation infinite loop, navigation errors)
+- **Features Added**: 1 (collection preloading)
+- **Performance Improvements**: Eliminated re-fetches, instant navigation
+
 ### Weekly Progress Template
 
 ```markdown
@@ -383,13 +397,49 @@ Focus on tasks in that category. Always update progress in
 
 **Solution**: Use focused documentation and specific file references
 
+## Recent Work (November 17, 2025)
+
+### Completed: Collection Cache & Navigation Fixes
+
+**Branch**: `feat/collection-cache-and-preloading`
+**Status**: Ready for PR review and merge
+**Agent**: Architecture & Performance Agent
+
+#### What Was Fixed
+- Collection creation now updates cache before navigation (eliminated infinite loop)
+- Collection navigation between tabs works smoothly (no errors)
+- Eliminated spinner flash when navigating to cached collections
+
+#### What Was Added
+- Preload first 10 containers for all collections on app startup
+- Instant navigation between collections (data already cached)
+- Optimistic cache updates for new collections
+
+#### Files Modified
+- `src/lib/stores/core/appDataUpdates.ts` - Added optimistic collection updates
+- `src/lib/stores/core/appDataOperations.ts` - Added preloading logic
+- `src/lib/stores/appDataStore.ts` - Exposed new cache methods
+- `src/routes/app/+page.svelte` - Fixed collection creation handler
+- `src/routes/app/collections/[collection_id]/+page.svelte` - Fixed navigation state
+
+**Technical Details**: See `docs/cache_architecture.md` for full context
+
+### Next Planned Work: Derived Stores Refactoring
+
+**Branch**: `refactor/derived-stores-architecture` (not started)
+**Priority**: High - Will eliminate excessive re-renders app-wide
+**Estimated Impact**: 10x reduction in re-renders, smoother UX
+
+See `docs/cache_architecture.md` section on "Planned: Derived Stores Architecture" for implementation plan.
+
 ## Next Session Priorities
 
 ### Immediate Tasks (Next 1-2 Sessions)
 
-1. **TEST-SETUP-001**: Set up testing infrastructure with first Testing Specialist agent
-2. **TEST-AUTH-001**: Generate authentication E2E tests
-3. **CLEAN-TS-001**: Begin TypeScript error cleanup with Code Health agent
+1. **REFACTOR-STORES-001**: Implement derived stores architecture (see `docs/cache_architecture.md`)
+2. **TEST-SETUP-001**: Set up testing infrastructure with first Testing Specialist agent
+3. **TEST-AUTH-001**: Generate authentication E2E tests
+4. **CLEAN-TS-001**: Begin TypeScript error cleanup with Code Health agent
 
 ### Short-term Goals (Next 4 Weeks)
 
@@ -441,8 +491,10 @@ npm run build
 
 ---
 
-**For Next Chat Session**: Use this overview along with `project_overview.md` to understand current project state and AI integration strategy. Start with TEST-SETUP-001 task using Testing Specialist agent role.
+**For Next Chat Session**: Use this overview along with `project_overview.md` to understand current project state and AI integration strategy.
 
-**Last Updated**: September 14, 2025
+**Important**: Before starting derived stores refactoring, review `docs/cache_architecture.md` for full technical context, current architecture, and implementation plan.
+
+**Last Updated**: November 17, 2025
 **Next Review**: Weekly (every Sunday)
-**Current Phase**: Setup → Active Development transition
+**Current Phase**: Active Development (Architecture & Performance focus)

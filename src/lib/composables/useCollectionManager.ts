@@ -3,6 +3,7 @@ import { writable, get, derived } from 'svelte/store';
 import { CollectionService } from '$lib/services/collectionService';
 import { collectionStore, collectionActions } from '$lib/stores/collectionStore';
 import { NavigationService } from '$lib/services/navigationService';
+import { AppDataManager } from '$lib/stores/appDataStore';
 import type { Collection } from '$lib/types';
 
 export interface CollectionManagerState {
@@ -77,22 +78,32 @@ export function useCollectionManager() {
    */
   async function createCollection(): Promise<void> {
     const currentState = get(state);
-    
+
     if (!currentState.newCollectionName.trim()) {
       return;
     }
 
     try {
       update(s => ({ ...s, loading: true }));
-      
-      const newCollection = await CollectionService.createCollection({ 
-        name: currentState.newCollectionName.trim(), 
-        color: currentState.newCollectionColor 
+
+      console.log('📦 Creating new collection...');
+      const newCollection = await CollectionService.createCollection({
+        name: currentState.newCollectionName.trim(),
+        color: currentState.newCollectionColor
       });
-      
+      console.log('✅ Collection created in DB:', newCollection.id);
+
+      // Update both stores: old collectionStore and AppDataManager cache
+      console.log('📥 Adding to old collectionStore...');
       collectionActions.addCollection(newCollection);
+
+      console.log('📥 Adding to AppDataManager cache...');
+      AppDataManager.addCollectionOptimistically(newCollection);
+
+      // Now navigate - the collection is in the cache
+      console.log('🧭 Navigating to new collection:', newCollection.id);
       NavigationService.navigateToCollection(newCollection);
-      
+
       update(s => ({
         ...s,
         showCreateForm: false,
