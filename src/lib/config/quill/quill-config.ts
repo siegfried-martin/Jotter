@@ -12,13 +12,13 @@ export async function setupQuillEditor(editorElement: HTMLDivElement) {
     static tagName = ["OL", "UL"];
     static defaultTag = "OL";
 
-    static create(value) {
+    static create(value: string) {
       return document.createElement(this.getTag(value));
     }
 
-    static getTag(val) { 
+    static getTag(val: string) {
       // Our "ql-list" values are "bullet" and "ordered"
-      const map = {
+      const map: { [key: string]: string } = {
         bullet: "UL",
         ordered: "OL",
       };
@@ -41,7 +41,7 @@ export async function setupQuillEditor(editorElement: HTMLDivElement) {
       Quill.register(MyListContainer, true);
     }
 
-    optimize(context) {
+    optimize(context: any) {
       if (
         this.statics.requiredContainer &&
         !(this.parent instanceof this.statics.requiredContainer)
@@ -55,7 +55,7 @@ export async function setupQuillEditor(editorElement: HTMLDivElement) {
       super.optimize(context);
     }
 
-    format(name, value) {
+    format(name: string, value: any) {
       // If the list type is different, wrap this list item in a new MyListContainer of that type
       if (
         name === ListItem.blotName &&
@@ -162,7 +162,7 @@ function customizeHeaderLabels(editorElement: HTMLDivElement) {
   if (!headerPicker) return;
   
   const options = headerPicker.querySelectorAll('.ql-picker-item');
-  options.forEach((option: any) => {
+  options.forEach((option: Element) => {
     const headerValue = option.getAttribute('data-value');
     if (headerValue === '' || headerValue === null) {
       option.textContent = 'Normal';

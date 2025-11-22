@@ -17,7 +17,7 @@
     newNoteWithCode: void;
   }>();
   
-  function handleMoveToCollection(event) {
+  function handleMoveToCollection(event: any) {
     // Forward the event up to the parent
     dispatch('moveToCollection', event.detail);
   }

@@ -79,7 +79,7 @@
   });
   
   // Keyboard shortcuts handler
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent) {
     // Alt+N - New note
     if (event.altKey && event.key.toLowerCase() === 'n' && !event.shiftKey) {
       event.preventDefault();
@@ -146,26 +146,26 @@
   }
   
   // Utility function for reordering arrays
-  function reorderArray(array, fromIndex, toIndex) {
+  function reorderArray<T>(array: T[], fromIndex: number, toIndex: number): T[] {
     if (!array || !Array.isArray(array) || array.length === 0) {
       console.warn('reorderArray: invalid array provided', array);
       return array || [];
     }
-    
+
     if (fromIndex < 0 || fromIndex >= array.length || toIndex < 0 || toIndex >= array.length) {
       console.warn('reorderArray: invalid indices', { fromIndex, toIndex, arrayLength: array.length });
       return array;
     }
-    
+
     const result = [...array];
     const [item] = result.splice(fromIndex, 1);
     result.splice(toIndex, 0, item);
-    
+
     return result;
   }
   
   // Handle cross-container section moves
-  async function handleCrossContainerMove(event) {
+  async function handleCrossContainerMove(event: any) {
     const { sectionId, fromContainer, toContainer } = event.detail;
     console.log('Collection layout: Optimistic cross-container move:', { sectionId, fromContainer, toContainer });
     
@@ -205,8 +205,8 @@
     }
   }
   
-  // Handle container reordering within same collection  
-  async function handleContainerReorder(event) {
+  // Handle container reordering within same collection
+  async function handleContainerReorder(event: any) {
     const { fromIndex, toIndex, collectionId } = event.detail;
     
     console.log('Collection layout: Handling container reorder:', { fromIndex, toIndex, collectionId });
@@ -242,8 +242,8 @@
       
       // 4. Compare optimistic vs server order
       if (serverResponse && Array.isArray(serverResponse)) {
-        const optimisticOrder = reorderedContainers.map(c => c.id).join(',');
-        const serverOrder = serverResponse.map(c => c.id).join(',');
+        const optimisticOrder = reorderedContainers.map((c: any) => c.id).join(',');
+        const serverOrder = serverResponse.map((c: any) => c.id).join(',');
         
         if (optimisticOrder !== serverOrder) {
           console.log('Server container order differs from optimistic, updating with server order');
@@ -263,7 +263,7 @@
   }
   
   // Handle cross-collection container moves
-  async function handleMoveToCollection(event) {
+  async function handleMoveToCollection(event: any) {
     const { containerId, targetCollectionId } = event.detail;
     
     console.log('Collection layout: Cross-collection container move:', containerId, '->', targetCollectionId);

@@ -83,9 +83,12 @@ export class UnifiedCollectionCache {
     if (!container) {
       return { data: null, isFromCache: false, isStale: false, needsRefresh: true };
     }
-    
+
     const cache = get(cacheStore);
     const entry = cache.get(collectionId);
+    if (!entry) {
+      return { data: null, isFromCache: false, isStale: false, needsRefresh: true };
+    }
     const sections = entry.containerSections.get(containerId) || [];
     
     return {
@@ -124,12 +127,17 @@ export class UnifiedCollectionCache {
         CollectionService.getCollection(collectionId),
         NoteService.getNoteContainers(collectionId)
       ]);
-      
+
+      // Validate collection exists
+      if (!collection) {
+        throw new Error(`Collection ${collectionId} not found`);
+      }
+
       // Sort by most recent
-      const sortedContainers = containers.sort((a, b) => 
+      const sortedContainers = containers.sort((a, b) =>
         new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
       );
-      
+
       // Update cache
       this.setCachedCollection(collectionId, collection, sortedContainers);
       
@@ -138,7 +146,8 @@ export class UnifiedCollectionCache {
       
     } catch (error) {
       console.error('Failed to load collection:', error);
-      this.setError(collectionId, error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.setError(collectionId, errorMessage);
     } finally {
       this.setLoading(collectionId, false);
     }
@@ -149,9 +158,9 @@ export class UnifiedCollectionCache {
    */
   static async ensureContainerSections(collectionId: string, containerId: string): Promise<void> {
     const cached = this.getCachedContainerSections(collectionId, containerId);
-    
+
     // Skip if we have sections and they're not stale
-    if (cached.data?.sections.length > 0 && !cached.needsRefresh) {
+    if (cached.data?.sections && cached.data.sections.length > 0 && !cached.needsRefresh) {
       console.log('Container sections are fresh, skipping refresh:', containerId);
       return;
     }
@@ -172,7 +181,8 @@ export class UnifiedCollectionCache {
       
     } catch (error) {
       console.error('Failed to load container sections:', error);
-      this.setError(loadingKey, error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.setError(loadingKey, errorMessage);
     } finally {
       this.setLoading(loadingKey, false);
     }

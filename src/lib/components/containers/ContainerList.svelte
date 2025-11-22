@@ -5,14 +5,11 @@
   import ContainerItem from './ContainerItem.svelte';
   import type { NoteContainer } from '$lib/types';
   
-  import { NoteService } from '$lib/services/noteService';
-  import { AppDataManager } from '$lib/stores/appDataStore';
-
   export let containers: NoteContainer[] = [];
   export let selectedContainer: NoteContainer | null = null;
   export let isCollapsed = true;
   export let collectionId: string;
-
+  
   const dispatch = createEventDispatcher<{
     selectContainer: NoteContainer;
     deleteContainer: string;
@@ -27,28 +24,10 @@
       targetCollectionId: string;
     };
   }>();
-
-  let isLoadingMore = false;
-  let hasLoadedAll = false;
-  let lastCollectionId = collectionId;
-
-  // Reset when switching collections
-  $: if (collectionId !== lastCollectionId) {
-    hasLoadedAll = false;
-    lastCollectionId = collectionId;
-  }
-
-  // Show "Load More" button if we have exactly 10 containers (preload limit)
-  $: showLoadMore = !hasLoadedAll && !isLoadingMore && containers.length === 10;
-
-  // Use containers directly - only copy when dnd operations modify the array
-  let dndContainers = containers;
-
-  // Only update dndContainers when the containers reference actually changes
-  $: if (containers !== dndContainers && !draggedContainer) {
-    dndContainers = containers;
-  }
-
+  
+  // Prepare containers for dndzone (they already have IDs)
+  $: dndContainers = containers.map(container => ({ ...container }));
+  
   let draggedContainer: NoteContainer | null = null;
   let dndContainer: HTMLElement;
   
@@ -66,7 +45,7 @@
     dndContainers = items;
     
     if (info.source === 'dragStart') {
-      draggedContainer = info.trigger === 'dragStart' ? items.find(item => item.isDndShadowItem) : null;
+      draggedContainer = info.trigger === 'dragStart' ? items.find((item: NoteContainer) => item.isDndShadowItem) : null;
       console.log('Container drag started:', draggedContainer?.title);
     }
   }
@@ -80,8 +59,8 @@
     // Handle different finalize scenarios
     if (info.trigger === 'droppedIntoZone') {
       // Check if items order actually changed (reorder detection)
-      const originalIds = containers.map(c => c.id);
-      const newIds = items.map(c => c.id);
+      const originalIds = containers.map((c: NoteContainer) => c.id);
+      const newIds = items.map((c: NoteContainer) => c.id);
       const orderChanged = !originalIds.every((id, index) => id === newIds[index]);
       
       if (orderChanged) {
@@ -175,30 +154,7 @@
   }>) {
     dispatch('crossContainerDrop', event.detail);
   }
-
-  async function loadMoreContainers() {
-    if (isLoadingMore || hasLoadedAll) return;
-
-    try {
-      isLoadingMore = true;
-      console.log('📥 Loading all containers for collection:', collectionId);
-
-      // Fetch ALL containers (no limit)
-      const allContainers = await NoteService.getNoteContainers(collectionId);
-      console.log(`📦 Fetched ${allContainers.length} total containers from API`);
-
-      // Update cache with ALL containers (this will trigger UI update via reactivity)
-      AppDataManager.updateContainerArrayOptimistically(collectionId, allContainers);
-      console.log(`✅ Updated cache with all ${allContainers.length} containers`);
-
-      hasLoadedAll = true;
-    } catch (error) {
-      console.error('❌ Failed to load more containers:', error);
-    } finally {
-      isLoadingMore = false;
-    }
-  }
-
+  
   // Custom drag transform for smaller ghost
   const dragTransform = {
     transform: (draggedElement: HTMLElement) => {
@@ -277,27 +233,6 @@
   </div>
 {/if}
 
-{#if showLoadMore && !isCollapsed}
-  <button
-    on:click={loadMoreContainers}
-    disabled={isLoadingMore}
-    class="load-more-btn w-full py-3 px-4 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors border-t border-gray-200 flex items-center justify-center gap-2"
-  >
-    {#if isLoadingMore}
-      <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      <span>Loading...</span>
-    {:else}
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-      </svg>
-      <span>Load More Containers</span>
-    {/if}
-  </button>
-{/if}
-
 <style>
   .container-list {
     width: 100%;
@@ -318,14 +253,5 @@
   /* Hover effect when not being dragged */
   .container-wrapper:not(:has(.container-being-dragged)):hover {
     transform: translateY(-1px);
-  }
-
-  .load-more-btn {
-    cursor: pointer;
-  }
-
-  .load-more-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
   }
 </style>

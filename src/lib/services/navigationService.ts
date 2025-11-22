@@ -71,13 +71,13 @@ export class NavigationService {
       return false;
     } catch (error) {
       console.warn('Could not check last visited location:', error);
-      
+
       // If it's an auth error, don't treat it as a warning
-      if (error.message && error.message.includes('not authenticated')) {
+      if (error instanceof Error && error.message.includes('not authenticated')) {
         console.log('🔐 Authentication required for redirect check');
         return false;
       }
-      
+
       return false;
     }
   }

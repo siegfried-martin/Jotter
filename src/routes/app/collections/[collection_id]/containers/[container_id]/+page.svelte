@@ -19,21 +19,21 @@
   const { createNewNote } = useNoteOperations();
   
   // Utility function for reordering arrays
-  function reorderArray(array, fromIndex, toIndex) {
+  function reorderArray<T>(array: T[], fromIndex: number, toIndex: number): T[] {
     if (!array || !Array.isArray(array) || array.length === 0) {
       console.warn('reorderArray: invalid array provided', array);
       return array || [];
     }
-    
+
     if (fromIndex < 0 || fromIndex >= array.length || toIndex < 0 || toIndex >= array.length) {
       console.warn('reorderArray: invalid indices', { fromIndex, toIndex, arrayLength: array.length });
       return array;
     }
-    
+
     const result = [...array];
     const [item] = result.splice(fromIndex, 1);
     result.splice(toIndex, 0, item);
-    
+
     return result;
   }
 
@@ -101,7 +101,7 @@
   }
   
   // Event handlers for UI interactions
-  async function handleSelectContainer(event) {
+  async function handleSelectContainer(event: any) {
     const container = event.detail;
     console.log('Navigating to container:', container.title);
     await goto(`/app/collections/${data.collectionId}/containers/${container.id}`);
@@ -125,7 +125,7 @@
     }
   }
   
-  async function handleCreateSection(event) {
+  async function handleCreateSection(event: any) {
     const sectionType = event.detail; // This is just the type: 'code', 'wysiwyg', etc.
     console.log('Creating section of type:', sectionType);
     
@@ -164,7 +164,7 @@
     }
   }
   
-  function handleOptimisticSectionUpdate(event) {
+  function handleOptimisticSectionUpdate(event: any) {
     const { sections } = event.detail;
     AppDataManager.updateSectionsOptimistically(
       data.collectionId,
@@ -172,16 +172,16 @@
       sections
     );
   }
-  
+
   // Handle section edit clicks
-  async function handleEditSection(event) {
+  async function handleEditSection(event: any) {
     const sectionId = event.detail;
     console.log('Navigating to edit section:', sectionId);
     await goto(`/app/collections/${data.collectionId}/containers/${data.containerId}/edit/${sectionId}`);
   }
 
   // Handle section deletion
-  async function handleDeleteSection(event) {
+  async function handleDeleteSection(event: any) {
     const sectionId = event.detail;
     
     // Find the section to get its title for the confirmation dialog
@@ -226,7 +226,7 @@
   }
   
   // Handle section title saves
-  async function handleSectionTitleSave(event) {
+  async function handleSectionTitleSave(event: any) {
     const { sectionId, title } = event.detail;
     console.log('Saving section title from +page.svelte:', { sectionId, title });
     
@@ -269,7 +269,7 @@
   }
 
   // NEW: Handle container title updates from CollectionPageHeader
-  async function handleUpdateTitle(event) {
+  async function handleUpdateTitle(event: any) {
     const { containerId, newTitle } = event.detail;
     console.log('Container page: Handling container title update:', { containerId, newTitle });
     
@@ -306,7 +306,7 @@
   }
   
   // Handle container reordering directly (no forwarding needed)
-  async function handleContainerReorderDirect(event) {
+  async function handleContainerReorderDirect(event: any) {
     const { fromIndex, toIndex, collectionId } = event.detail;
     
     console.log('Container page: Handling container reorder directly', { fromIndex, toIndex, collectionId });
@@ -342,8 +342,8 @@
       
       // 4. Compare optimistic vs server order
       if (serverResponse && Array.isArray(serverResponse)) {
-        const optimisticOrder = reorderedContainers.map(c => c.id).join(',');
-        const serverOrder = serverResponse.map(c => c.id).join(',');
+        const optimisticOrder = reorderedContainers.map((c: any) => c.id).join(',');
+        const serverOrder = serverResponse.map((c: any) => c.id).join(',');
         
         if (optimisticOrder !== serverOrder) {
           console.log('Container page: Server container order differs from optimistic, updating with server order');
@@ -363,7 +363,7 @@
   }
   
   // Handle cross-container section moves directly
-  async function handleCrossContainerMoveDirect(event) {
+  async function handleCrossContainerMoveDirect(event: any) {
     const { sectionId, fromContainer, toContainer } = event.detail;
     console.log('Container page: Handling cross-container move directly:', { sectionId, fromContainer, toContainer });
     
@@ -404,7 +404,7 @@
   }
   
   // Handle cross-collection container moves directly
-  async function handleMoveToCollectionDirect(event) {
+  async function handleMoveToCollectionDirect(event: any) {
     const { containerId, targetCollectionId } = event.detail;
     
     console.log('Container page: Handling cross-collection move directly:', containerId, '->', targetCollectionId);
@@ -461,7 +461,7 @@
   }
 
   // Handle container deletion
-  async function handleDeleteContainer(event) {
+  async function handleDeleteContainer(event: any) {
     const containerId = event.detail;
     console.log('Deleting container:', containerId);
     
