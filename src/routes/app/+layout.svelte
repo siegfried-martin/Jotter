@@ -13,6 +13,7 @@
   let user = null;
   let hasLoadedOnce = false;
   let layoutElement: HTMLElement;
+  let cacheReady = false; // Track when cache is fully populated
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
@@ -77,65 +78,67 @@
     return unsubscribe;
   });
 
-  // Separate function for background loading with proper auth checks
+  // Load all collections + containers synchronously on app start
   async function startBackgroundLoading() {
     try {
-      console.log('Starting background collection loading...');
-      
-      // Background load all collections for fast navigation AND header tabs
+      console.log('🚀 Loading all collections and containers into cache...');
+
+      // BLOCKING: Wait for all collections + first 10 containers per collection to load
       const collections = await AppDataManager.ensureAllCollections();
-      console.log('Background loaded all collections for header:', collections.length);
-      
-      // Optional: Also background load the first few collections' containers
-      const topCollections = collections.slice(0, 3);
-      topCollections.forEach((collection, index) => {
-        setTimeout(() => {
-          AppDataManager.ensureCollectionData(collection.id).catch(error => {
-            console.warn('Failed to preload collection:', collection.id, error);
-          });
-        }, index * 200); // Stagger requests
-      });
+      console.log('✅ Cache populated with all collections and containers:', collections.length);
+
+      // Mark cache as ready - app can now render
+      cacheReady = true;
+
     } catch (error) {
-      console.warn('Background collection loading failed:', error);
-      
+      console.error('❌ Cache loading failed:', error);
+
       // If it's an auth error, don't spam logs
       if (error.message && error.message.includes('not authenticated')) {
-        console.log('Background loading skipped - user not authenticated');
+        console.log('Cache loading skipped - user not authenticated');
         return;
       }
-      
-      // Fail silently for other errors - navigation will still work, just slower
+
+      // Even if cache loading fails, allow app to render (will fetch on demand)
+      cacheReady = true;
     }
   }
 </script>
 
-<!-- Only show loading on initial load -->
+<!-- Only show loading on initial load or while populating cache -->
 {#if $authStore.loading && !hasLoadedOnce}
-  <LoadingSpinner 
-    fullScreen={true} 
-    size="lg" 
-    text="Loading..." 
+  <LoadingSpinner
+    fullScreen={true}
+    size="lg"
+    text="Loading..."
   />
 {:else if !userIsAuthenticated}
   <!-- User not authenticated, redirect should happen automatically -->
-  <LoadingSpinner 
-    fullScreen={true} 
-    size="lg" 
-    text="Redirecting..." 
+  <LoadingSpinner
+    fullScreen={true}
+    size="lg"
+    text="Redirecting..."
+  />
+{:else if !cacheReady}
+  <!-- Wait for cache to populate before showing app -->
+  <LoadingSpinner
+    fullScreen={true}
+    size="lg"
+    text="Loading collections..."
   />
 {:else}
   <!-- Wrap everything in DragProvider so header can access drag context -->
   <DragProvider behaviors={[]}>
     <div class="min-h-screen bg-gray-50" bind:this={layoutElement}>
-      <AppHeader 
-        {user} 
+      <AppHeader
+        {user}
         {currentCollectionId}
         showKeyboardShortcuts={true}
         on:moveToCollection={handleMoveToCollectionFromHeader}
         on:newNote={() => handleNewNote(false)}
         on:newNoteWithCode={() => handleNewNote(true)}
       />
-      
+
       <main>
         <slot />
       </main>

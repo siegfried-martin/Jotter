@@ -1,500 +1,517 @@
-# AI Agent Management Overview
+# AI Agent Instructions for Jotter
 
-## Strategy & Approach
+**Welcome!** This document contains all the static knowledge you need to work effectively on the Jotter project. Read this document first when starting any new session.
 
-**Vision**: Use AI agents to handle routine development tasks while maintaining code quality and consistency, allowing human developer to focus on architecture and feature design.
+---
 
-**Core Philosophy**: "AI as specialized team members" - different agents for different specialties, with clear handoffs and progress tracking.
+## Getting Started
 
-**Key Principles**:
+### Step 1: Read These Documents (In Order)
 
-- **One agent, one focus** - Each session should have a single, clear objective
+1. **THIS FILE** (`docs/ai_overview.md`) - Project architecture, code conventions, and working instructions (you're reading it now)
+2. **`docs/project_overview.md`** - Understand what Jotter is, its goals, and current features
+3. **`docs/ai_project_status.md`** - Current initiatives, recent work, and what to work on next
+
+### Step 2: Review Relevant Documentation
+
+Based on your task, read:
+- **`docs/initiatives/`** - Detailed initiative documents (Code Quality Foundation, Regression Testing)
+- **`docs/functionality/`** - Feature documentation (authentication, collections, containers, sections, editors)
+- **`docs/cache_architecture.md`** - Deep dive into cache system (if working on data/state)
+
+### Step 3: Start Working
+
+Follow the instructions in `docs/ai_project_status.md` for current priorities and tasks.
+
+---
+
+## Project Philosophy & Principles
+
+**Vision**: "Notepad++ but better" - Lightning-fast, developer-focused note-taking
+
+**Core Principles**:
+- **Speed first** - Instant navigation, no loading spinners, aggressive caching
+- **Developer-focused** - Code blocks, diagrams, checklists optimized for technical notes
+- **Simplicity** - Clean UI, intuitive workflows, no unnecessary features
+- **Quality over quantity** - Small, focused, well-tested codebase
+
+**AI Development Principles**:
+- **One session, one focus** - Each session should have a single, clear objective
 - **Documentation-driven** - All context and progress tracked in markdown files
 - **Human oversight** - AI handles implementation, human reviews and directs
-- **Iterative improvement** - Learn and refine AI management techniques over time
+- **Functionality docs drive tests** - `docs/functionality/` is the source of truth for expected behavior
 
-## Current AI Agent Roles
+---
 
-### Testing Specialist Agent
+## Technical Architecture
 
-- **Primary Focus**: Test generation and testing infrastructure
-- **Skills**: Vitest, Playwright, @testing-library/svelte
-- **Responsibilities**: Unit tests, integration tests, E2E test suites
-- **Success Metrics**: Test coverage increase, reliable test execution
+### Tech Stack
 
-### Code Health Agent
+- **Frontend**: SvelteKit + TypeScript + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **Deployment**: Vercel
+- **Testing**: Playwright (E2E), Vitest (unit/integration)
 
-- **Primary Focus**: TypeScript cleanup, refactoring, code quality
-- **Skills**: TypeScript, ESLint, code splitting, performance optimization
-- **Responsibilities**: Fix type errors, break down large files, remove debug statements
-- **Success Metrics**: Clean TypeScript compilation, reduced file sizes
+### Key Architectural Patterns
 
-### Documentation Agent
+#### Cache-as-Database Pattern
 
-- **Primary Focus**: API docs, README updates, feature documentation
-- **Skills**: Technical writing, code analysis, markdown generation
-- **Responsibilities**: Component API docs, architecture updates, changelog maintenance
-- **Success Metrics**: Complete documentation coverage, up-to-date guides
+**AppDataManager** is the single source of truth for all application data:
 
-### Architecture & Performance Agent
+```typescript
+import { AppDataManager } from '$lib/stores/appDataStore';
 
-- **Primary Focus**: System architecture, performance optimization, bug fixes
-- **Skills**: Cache management, state optimization, reactive systems, debugging
-- **Responsibilities**: Fix architectural bugs, optimize re-renders, improve navigation performance
-- **Success Metrics**: Smooth UX, minimal re-renders, instant navigation
-
-## AI Management Workflow
-
-### Session Preparation
-
-1. **Review Progress**: Check `docs/ai-tasks/completed.md` for recent work
-2. **Select Task**: Choose next priority from `docs/ai-tasks/backlog.md`
-3. **Prepare Context**: Gather relevant files and documentation
-4. **Set Clear Objectives**: Define success criteria and acceptance requirements
-
-### Agent Onboarding (First Session)
-
-```markdown
-**Standard Onboarding Prompt:**
-"You are working on Jotter, a SvelteKit note-taking app. Before starting any work:
-
-1. Read `project_overview.md` for current project status
-2. Read `docs/AI_ONBOARDING.md` for development conventions
-3. Check `docs/ai-tasks/backlog.md` for task priorities
-4. Select a task that matches your capabilities and dependencies
-
-Your role is [TESTING SPECIALIST/CODE HEALTH/DOCUMENTATION].
-Focus on tasks in that category. Always update progress in
-`docs/ai-tasks/completed.md` when finished."
+// All data flows through AppDataManager
+const collections = await AppDataManager.ensureAllCollections();
+const { collection, containers } = await AppDataManager.ensureCollectionData(id);
 ```
 
-### Task Assignment Patterns
+**Key Points**:
+- Cache is populated synchronously on app startup (all collections + first 10 containers + sections)
+- All reads come from cache (instant, no loading spinners)
+- All writes update cache immediately (optimistic updates)
+- API calls happen in background, rollback on error
 
-- **Critical Path**: Start with TEST-SETUP-001 (testing infrastructure)
-- **Parallel Work**: Code health and documentation can run simultaneously
-- **Dependencies**: Check task dependencies before assignment
-- **Scope Limits**: Keep tasks focused and completable in one session
+#### Optimistic Updates
 
-### Progress Tracking
+```typescript
+// 1. Update cache immediately
+AppDataManager.updateSectionOptimistically(collectionId, containerId, updatedSection);
 
-- **Before Session**: Note current state and goals
-- **During Session**: Agent updates progress in real-time
-- **After Session**: Review completed work and update backlog
-- **Weekly Review**: Assess overall progress and adjust strategy
-
-## Prompting Techniques & Templates
-
-### Testing Specialist Prompts
-
-#### Test Generation Prompt
-
-```markdown
-**Objective**: Generate comprehensive test suite for [COMPONENT_NAME]
-
-**Context**:
-
-- Component file: `src/lib/components/[COMPONENT].svelte`
-- Functionality: [BRIEF_DESCRIPTION]
-- Dependencies: [LIST_KEY_DEPENDENCIES]
-
-**Requirements**:
-
-- Unit tests for all public methods and props
-- Integration tests for user interactions
-- Mock external dependencies (Supabase, APIs)
-- 80%+ code coverage
-- Follow existing test patterns in codebase
-
-**Deliverables**:
-
-- Test file: `src/lib/components/[COMPONENT].test.ts`
-- Update progress in `docs/ai-tasks/completed.md`
-- Report coverage percentage achieved
+// 2. API call happens automatically in background
+// 3. UI updates reactively via stores
+// 4. On error, AppDataManager handles rollback
 ```
 
-#### E2E Test Prompt
+#### Deep Cloning
 
-```markdown
-**Objective**: Create end-to-end test for [USER_WORKFLOW]
+All data is deep cloned before caching to prevent mutation bugs:
 
-**User Journey**:
-
-1. [STEP_1]
-2. [STEP_2]
-3. [STEP_3]
-
-**Requirements**:
-
-- Use Playwright test framework
-- Mock authentication flow
-- Test across Chrome/Firefox
-- Include mobile viewport testing
-- Handle async operations properly
-
-**Deliverables**:
-
-- Test file: `tests/e2e/[workflow].spec.ts`
-- Update test progress tracking
-- Document any discovered edge cases
+```typescript
+// In appDataOperations.ts
+function deepCloneObject<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return deepCloneArray(obj) as T;
+  // ... clone object properties
+}
 ```
 
-### Code Health Prompts
+**Always return deep clones from cache** to prevent accidental mutations.
 
-#### TypeScript Cleanup Prompt
+#### Drag & Drop System
 
-```markdown
-**Objective**: Eliminate TypeScript errors in [FILE_OR_DIRECTORY]
+- **Sections**: Custom pointer-based drag & drop (`src/lib/dnd/`)
+- **Containers**: svelte-dnd-action library
+- **Cross-collection**: HTML5 drag & drop for collection tab targeting
 
-**Current Issues**: [LIST_SPECIFIC_ERRORS]
+---
 
-**Requirements**:
+## Code Conventions
 
-- Fix all TypeScript errors and warnings
-- Maintain existing functionality exactly
-- Add proper type annotations
-- Follow project TypeScript conventions
-- No use of `any` types
+### File Organization
 
-**Approach**:
-
-1. Run `npm run type-check` to identify issues
-2. Fix errors systematically
-3. Test that functionality still works
-4. Commit with clear description of changes
-
-**Deliverables**:
-
-- Clean TypeScript compilation
-- Updated progress tracking
-- List of changes made
+```
+src/
+├── lib/
+│   ├── components/          # Reusable UI components
+│   │   ├── editors/        # Content editors (code, text, checklist, diagram)
+│   │   ├── containers/     # Container-related components
+│   │   ├── sections/       # Section-related components
+│   │   ├── layout/         # Layout components (sidebar, header)
+│   │   └── ui/             # Basic UI elements (buttons, modals)
+│   ├── stores/             # Svelte stores and state management
+│   │   └── core/          # Core store modules (operations, updates, utils)
+│   ├── dnd/                # Drag & drop system
+│   ├── services/           # API services (Supabase calls)
+│   ├── utils/              # Pure functions and utilities
+│   └── types/              # TypeScript type definitions
+└── routes/                 # SvelteKit pages and layouts
 ```
 
-#### File Size Reduction Prompt
+### Naming Conventions
 
-```markdown
-**Objective**: Refactor [LARGE_FILE] to reduce complexity
+- **Components**: PascalCase (e.g., `ChecklistEditor.svelte`)
+- **Files**: kebab-case (e.g., `container-sidebar.ts`)
+- **Variables**: camelCase (e.g., `currentContainer`)
+- **Constants**: SCREAMING_SNAKE_CASE (e.g., `AUTO_SAVE_DELAY`)
+- **Types/Interfaces**: PascalCase (e.g., `NoteContainer`, `AppData`)
 
-**Current Size**: [LINE_COUNT] lines
-**Target**: <200 lines per component
+### Component Structure
 
-**Strategy**:
+```svelte
+<script lang="ts">
+  // 1. Imports
+  import { createEventDispatcher } from 'svelte';
+  import type { NoteSection } from '$lib/types';
 
-- Extract reusable components
-- Move logic to utility functions or stores
-- Split styles if very large
-- Maintain exact functionality
+  // 2. Props (exported variables)
+  export let section: NoteSection;
+  export let isSelected = false;
 
-**Requirements**:
+  // 3. Local state
+  let isEditing = false;
 
-- Preserve all existing behavior
-- Update imports/exports appropriately
-- Test functionality after refactor
-- Follow component naming conventions
+  // 4. Reactive statements
+  $: displayTitle = section.title || 'Untitled';
 
-**Deliverables**:
+  // 5. Event dispatcher
+  const dispatch = createEventDispatcher<{
+    select: NoteSection;
+    delete: string;
+  }>();
 
-- Refactored components
-- Updated file structure
-- Functionality verification
-- Progress documentation update
+  // 6. Functions
+  function handleClick() {
+    dispatch('select', section);
+  }
+</script>
+
+<!-- 7. Template -->
+<div class="section-card" on:click={handleClick}>
+  {displayTitle}
+</div>
+
+<!-- 8. Scoped styles -->
+<style>
+  .section-card {
+    /* Component-specific styles */
+  }
+</style>
 ```
 
-### Documentation Prompts
-
-#### API Documentation Prompt
-
-````markdown
-**Objective**: Generate API documentation for [COMPONENT_NAME]
-
-**Requirements**:
-
-- Document all props with types and descriptions
-- List all events dispatched
-- Describe slots available
-- Include usage examples
-- Follow JSDoc standards where applicable
-
-**Format**: Save as `docs/components/[COMPONENT_NAME].md`
-
-**Template**:
-
-````markdown
-# ComponentName
-
-## Props
-
-- `prop: type` - Description
-
-## Events
-
-- `event: payload` - When dispatched
-
-## Slots
-
-- `slot` - Purpose and content expectations
-
-## Usage
-
-\```svelte
-<ComponentName prop="value" on:event={handler} />
-\```
-````
-````
-
-#### Architecture Documentation Prompt
-
-```markdown
-**Objective**: Update architecture docs with recent changes
-
-**Recent Changes**: [LIST_MAJOR_CHANGES]
-
-**Files to Update**:
-
-- `docs/architecture/data-flow.md`
-- `docs/architecture/component-tree.md`
-
-**Requirements**:
-
-- Reflect current codebase accurately
-- Update diagrams and examples
-- Note any new patterns or conventions
-- Highlight areas needing future attention
-```
-
-## Progress Tracking
-
-### Overall AI Integration Progress
-
-#### Setup Phase: 90% Complete
-
-- [x] Documentation structure created
-- [x] AI onboarding guide written
-- [x] Task management system established
-- [x] Initial task backlog defined
-- [ ] Testing infrastructure setup (TEST-SETUP-001)
-
-#### Active Development Phase: 0% Complete
-
-- [ ] Critical path testing implemented
-- [ ] TypeScript errors eliminated
-- [ ] Large file refactoring completed
-- [ ] Component documentation generated
-
-#### Optimization Phase: 0% Complete
-
-- [ ] Performance improvements implemented
-- [ ] Accessibility compliance achieved
-- [ ] Mobile experience optimized
-- [ ] Bundle size optimized
-
-### Agent Performance Metrics
-
-#### Testing Specialist
-
-- **Sessions Completed**: 0
-- **Tests Generated**: 0
-- **Coverage Achieved**: 0%
-- **Success Rate**: N/A
-
-#### Code Health Agent
-
-- **Sessions Completed**: 0
-- **Files Refactored**: 0
-- **TypeScript Errors Fixed**: 0
-- **Lines of Code Reduced**: 0
-
-#### Documentation Agent
-
-- **Sessions Completed**: 0
-- **Components Documented**: 0
-- **Architecture Updates**: 0
-- **Guides Created**: 2 (onboarding, this overview)
-
-#### Architecture & Performance Agent
-
-- **Sessions Completed**: 1 (November 17, 2025)
-- **Bugs Fixed**: 2 (collection creation infinite loop, navigation errors)
-- **Features Added**: 1 (collection preloading)
-- **Performance Improvements**: Eliminated re-fetches, instant navigation
-
-### Weekly Progress Template
-
-```markdown
-## Week of [DATE]
-
-### Achievements
-
-- [List completed tasks and major progress]
-
-### Challenges
-
-- [Issues encountered and how resolved]
-
-### Agent Performance
-
-- [Which agents worked well, which struggled]
-
-### Process Improvements
-
-- [Lessons learned, prompt refinements]
-
-### Next Week Focus
-
-- [Priority tasks and approach adjustments]
-```
-
-## Lessons Learned & Best Practices
-
-### Effective Prompting Patterns
-
-#### What Works
-
-- **Specific objectives** with clear deliverables
-- **Context files** listed explicitly
-- **Success criteria** defined upfront
-- **Progress tracking** requirements included
-- **Examples** of expected output format
-
-#### What Doesn't Work
-
-- Vague instructions like "improve the code"
-- Multiple objectives in one session
-- Assuming AI knows project context
-- No clear completion criteria
-- Forgetting to mention progress updates
-
-### Agent Management Insights
-
-#### Session Management
-
-- **Start each session** with context review
-- **End each session** with progress documentation
-- **Limit scope** to completable work
-- **Check dependencies** before task assignment
-
-#### Quality Control
-
-- **Review all AI-generated code** before merging
-- **Test functionality** after changes
-- **Verify documentation accuracy**
-- **Maintain code style consistency**
-
-### Common Issues & Solutions
-
-#### Issue: AI Creates Tests That Don't Test Real Behavior
-
-**Solution**: Provide specific user scenarios and edge cases in prompts
-
-#### Issue: Refactoring Breaks Functionality
-
-**Solution**: Require explicit testing and verification steps in prompts
-
-#### Issue: Documentation Becomes Outdated
-
-**Solution**: Include documentation updates in feature development tasks
-
-#### Issue: Context Window Limitations with Large Codebases
-
-**Solution**: Use focused documentation and specific file references
-
-## Recent Work (November 17, 2025)
-
-### Completed: Collection Cache & Navigation Fixes
-
-**Branch**: `feat/collection-cache-and-preloading`
-**Status**: Ready for PR review and merge
-**Agent**: Architecture & Performance Agent
-
-#### What Was Fixed
-- Collection creation now updates cache before navigation (eliminated infinite loop)
-- Collection navigation between tabs works smoothly (no errors)
-- Eliminated spinner flash when navigating to cached collections
-
-#### What Was Added
-- Preload first 10 containers for all collections on app startup
-- Instant navigation between collections (data already cached)
-- Optimistic cache updates for new collections
-
-#### Files Modified
-- `src/lib/stores/core/appDataUpdates.ts` - Added optimistic collection updates
-- `src/lib/stores/core/appDataOperations.ts` - Added preloading logic
-- `src/lib/stores/appDataStore.ts` - Exposed new cache methods
-- `src/routes/app/+page.svelte` - Fixed collection creation handler
-- `src/routes/app/collections/[collection_id]/+page.svelte` - Fixed navigation state
-
-**Technical Details**: See `docs/cache_architecture.md` for full context
-
-### Next Planned Work: Derived Stores Refactoring
-
-**Branch**: `refactor/derived-stores-architecture` (not started)
-**Priority**: High - Will eliminate excessive re-renders app-wide
-**Estimated Impact**: 10x reduction in re-renders, smoother UX
-
-See `docs/cache_architecture.md` section on "Planned: Derived Stores Architecture" for implementation plan.
-
-## Next Session Priorities
-
-### Immediate Tasks (Next 1-2 Sessions)
-
-1. **REFACTOR-STORES-001**: Implement derived stores architecture (see `docs/cache_architecture.md`)
-2. **TEST-SETUP-001**: Set up testing infrastructure with first Testing Specialist agent
-3. **TEST-AUTH-001**: Generate authentication E2E tests
-4. **CLEAN-TS-001**: Begin TypeScript error cleanup with Code Health agent
-
-### Short-term Goals (Next 4 Weeks)
-
-- Complete critical path testing (auth, CRUD operations, drag & drop)
-- Eliminate all TypeScript errors
-- Refactor largest components (<200 lines each)
-- Generate API documentation for core components
-
-### Success Metrics
-
-- **Test Coverage**: 80% overall, 100% for critical paths
-- **Code Quality**: Zero TypeScript errors, all files <200 lines
-- **Documentation**: Complete API docs, up-to-date architecture
-- **Agent Efficiency**: <2 hour average task completion time
-
-## Management Tools & Scripts
-
-### Progress Reporting
-
-```bash
-# Generate progress summary
-./scripts/ai-progress-report.sh
-
-# Update task completion rates
-./scripts/update-ai-metrics.sh
-```
-
-### Agent Session Preparation
-
-```bash
-# Prepare context for agent session
-./scripts/prepare-agent-context.sh [AGENT_TYPE] [TASK_ID]
-
-# Check task dependencies
-./scripts/check-task-deps.sh [TASK_ID]
-```
-
-### Quality Assurance
-
-```bash
-# Verify AI changes don't break functionality
-npm run test
-npm run type-check
-npm run build
-
-# Update documentation after changes
-./scripts/update-docs.sh
+### TypeScript Standards
+
+- **Strict mode enabled** - No `any` types allowed
+- **Explicit return types** for exported functions
+- **Interface over type** for object shapes (unless using unions/intersections)
+- **Proper type imports**: `import type { Thing } from ...`
+
+```typescript
+// Good
+export async function loadContainer(id: string): Promise<NoteContainer> {
+  return await ContainerService.getContainer(id);
+}
+
+// Bad - missing return type, uses 'any'
+export async function loadContainer(id: any) {
+  return await ContainerService.getContainer(id);
+}
 ```
 
 ---
 
-**For Next Chat Session**: Use this overview along with `project_overview.md` to understand current project state and AI integration strategy.
+## Agent Roles & Specializations
 
-**Important**: Before starting derived stores refactoring, review `docs/cache_architecture.md` for full technical context, current architecture, and implementation plan.
+Different types of work call for different approaches. Understand which role fits your current task:
 
-**Last Updated**: November 17, 2025
-**Next Review**: Weekly (every Sunday)
-**Current Phase**: Active Development (Architecture & Performance focus)
+### Architecture & Performance Agent
+
+**Focus**: System architecture, cache management, performance optimization, bug fixes
+
+**Skills**:
+- Cache architecture and optimistic updates
+- State management and reactive systems
+- Performance profiling and optimization
+- Complex debugging
+
+**Success Metrics**: Smooth UX, minimal re-renders, instant navigation, zero bugs
+
+### Code Health Agent
+
+**Focus**: Code quality, refactoring, TypeScript cleanup
+
+**Skills**:
+- TypeScript strict mode compliance
+- Code smell detection and fixing
+- Breaking down large files
+- DRY principle enforcement
+
+**Success Metrics**: Zero TypeScript errors, clean compilation, reduced complexity
+
+### Testing Specialist Agent
+
+**Focus**: Test generation and testing infrastructure
+
+**Skills**:
+- Playwright E2E testing
+- Vitest unit/integration testing
+- Test fixtures and mocking
+- Documentation-driven test creation
+
+**Success Metrics**: 80%+ coverage, reliable tests, comprehensive E2E coverage
+
+### Documentation Agent
+
+**Focus**: Documentation accuracy and completeness
+
+**Skills**:
+- Technical writing
+- Auditing docs against implementation
+- Feature documentation
+- Architecture documentation
+
+**Success Metrics**: Accurate docs, complete coverage, ready to drive testing
+
+---
+
+## Quality Standards
+
+### Code Quality
+
+- **ESLint/Prettier**: Code formatting and linting (automated)
+- **TypeScript strict**: Zero type errors allowed
+- **File size**: Target <300 lines per component (hard limit: 500)
+- **Function length**: Target <50 lines per function
+- **No commented code**: Delete unused code, don't comment it out
+- **No duplication**: Extract common logic to utilities
+
+### Testing Requirements
+
+- **Unit tests**: Pure functions, component logic, data transformations
+- **Integration tests**: Component interactions, store updates
+- **E2E tests**: Complete user workflows, critical paths
+- **Coverage target**: 80% overall, 100% for critical paths
+
+### Commit Standards
+
+Every commit should:
+- Have a clear, descriptive message
+- Follow conventional commit format: `type: description`
+- Include the AI signature footer:
+
+```
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Commit types**: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+
+### Git Workflow
+
+- Create feature branches: `feat/description` or `fix/description`
+- Commit frequently with clear messages
+- Push when work is complete or at good stopping points
+- Create PRs with comprehensive descriptions
+- **Never** commit credentials, API keys, or sensitive data
+
+---
+
+## Documentation-Driven Development
+
+### Functionality Documentation is Critical
+
+The `docs/functionality/` directory is the **source of truth** for:
+- Expected behaviors and edge cases
+- User workflows and interactions
+- Error scenarios and validation rules
+- Feature descriptions and examples
+
+**Files**:
+- `authentication.md` - OAuth, session management, protected routes
+- `collections.md` - Collection CRUD, navigation, cache behavior
+- `containers.md` - Container CRUD, Load More, drag & drop
+- `sections.md` - Section CRUD, cross-container moves, reordering
+- `editors/checklist.md` - Checklist editor features
+- `editors/code.md` - Code editor features
+- `editors/diagram.md` - Diagram editor features
+- `editors/rich-text.md` - Rich text editor features
+
+### How Docs Drive Development
+
+1. **Code Quality Foundation Initiative**: Audit and update all functionality docs to match current implementation
+2. **Regression Testing Initiative**: Use functionality docs to generate test scenarios
+3. **Future Features**: Document expected behavior before implementing
+
+**When functionality and docs diverge**: Update docs first, then ensure code matches.
+
+---
+
+## Working Instructions
+
+### Session Workflow
+
+1. **Read required docs**: ai_overview.md (this file), project_overview.md, ai_project_status.md
+2. **Check current initiative**: See `docs/ai_project_status.md` for current focus
+3. **Work systematically**: Follow initiative phases, don't skip ahead
+4. **Test thoroughly**: Manual testing after each change, automated tests when available
+5. **Update status doc**: Suggest updating `ai_project_status.md` when completing work
+6. **Commit clearly**: Clear messages, AI signature footer
+
+### Updating ai_project_status.md
+
+**CRITICAL**: You must keep `docs/ai_project_status.md` up to date as you work.
+
+**When to update**:
+- After completing initiative tasks or phases
+- When finishing significant work
+- When discovering issues or changing direction
+- After each session with meaningful progress
+
+**How to suggest updates**:
+```
+"I've completed [WORK DESCRIPTION]. Should I update `docs/ai_project_status.md` to reflect this progress?"
+```
+
+Wait for user confirmation, then update:
+- Check off completed tasks
+- Add new session summary to "Recent Work"
+- Update initiative status if needed
+- Update agent performance metrics
+- Update "Last Updated" date
+
+### Common Patterns
+
+#### Reading from Cache
+
+```typescript
+// Sync read (if cached)
+const data = AppDataManager.getCollectionDataSync(collectionId);
+if (data) {
+  // Use cached data
+}
+
+// Async ensure (will load if not cached)
+const data = await AppDataManager.ensureCollectionData(collectionId);
+```
+
+#### Updating Data
+
+```typescript
+// Optimistic update
+AppDataManager.updateSectionOptimistically(collectionId, containerId, updatedSection);
+
+// Create new item
+const newSection = await SectionService.createSection(containerId, sectionData);
+AppDataManager.addSectionOptimistically(collectionId, containerId, newSection);
+
+// Delete item
+await SectionService.deleteSection(sectionId);
+const updatedSections = sections.filter(s => s.id !== sectionId);
+AppDataManager.updateSectionsOptimistically(collectionId, containerId, updatedSections);
+```
+
+#### Event Dispatching
+
+```svelte
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+
+  const dispatch = createEventDispatcher<{
+    select: { id: string };
+    delete: string;
+  }>();
+
+  function handleAction() {
+    dispatch('select', { id: '123' });
+  }
+</script>
+```
+
+---
+
+## Common Issues & Solutions
+
+### Performance
+
+**Issue**: Component re-renders too frequently
+**Solution**: Check if component subscribes to entire store vs specific data. Use derived stores or reactive statements to subscribe only to needed data.
+
+**Issue**: Large bundle size
+**Solution**: Lazy load heavy libraries (Excalidraw, Quill). Already implemented for editors.
+
+### State Management
+
+**Issue**: Stale data in UI
+**Solution**: Ensure reactive statements reset state when IDs change:
+```svelte
+$: if (containerId) {
+  loadData();
+}
+```
+
+**Issue**: Data mutations causing bugs
+**Solution**: Always use deep cloning when reading from or writing to cache.
+
+### Drag & Drop
+
+**Issue**: Drag starts from padding/wrapper
+**Solution**: Check `event.target.closest('.actual-card-class')` before starting drag.
+
+**Issue**: Click fires after drag
+**Solution**: Use drag threshold and prevent click events after drag operations.
+
+### TypeScript
+
+**Issue**: Type errors from Svelte components
+**Solution**: Use `import type` for type-only imports. Ensure proper type definitions in `$lib/types`.
+
+---
+
+## Getting Help
+
+### When Stuck
+
+1. **Check existing code** for similar patterns (use Grep/Read tools)
+2. **Review functionality docs** for expected behavior
+3. **Check cache_architecture.md** for data flow understanding
+4. **Review ai_project_status.md** for context on recent changes
+5. **Ask the user** with specific questions and context
+
+### Communication Guidelines
+
+- **Be specific** about what you tried and what failed
+- **Include code snippets** for context
+- **Reference file names and line numbers**
+- **Suggest solutions** when reporting problems
+- **Update progress** even for partial completions
+
+---
+
+## Success Criteria
+
+### For Any Work Session
+
+- ✅ All objectives from ai_project_status.md completed
+- ✅ Tests passing (manual testing minimum, automated when available)
+- ✅ Code follows project conventions
+- ✅ TypeScript compiles without errors
+- ✅ Functionality preserved (no regressions)
+- ✅ ai_project_status.md updated with progress
+- ✅ Clear commit messages with AI signature
+
+### For Code Quality Initiative
+
+- ✅ Zero TypeScript errors/warnings
+- ✅ All unused files removed
+- ✅ No commented-out code
+- ✅ Functions <50 lines
+- ✅ Clear, descriptive naming
+- ✅ Functionality documentation accurate and complete
+- ✅ Build completes without warnings
+
+### For Regression Testing Initiative
+
+- ✅ Playwright fully configured
+- ✅ 80%+ coverage of critical user flows
+- ✅ All drag & drop operations tested
+- ✅ Tests driven by functionality documentation
+- ✅ Tests pass consistently (no flakiness)
+- ✅ CI/CD pipeline running tests on PRs
+
+---
+
+## Key Reminders
+
+- **Read ai_project_status.md** to know what to work on next
+- **Update ai_project_status.md** when you complete work
+- **Functionality docs drive everything** - they're the source of truth
+- **Code Quality Foundation** must complete before **Regression Testing**
+- **Keep existing functionality exactly the same** unless explicitly changing it
+- **Commit frequently** with clear descriptions
+- **Test thoroughly** after every change
+- **Ask questions** when unclear
+
+---
+
+**You're ready to start!** Read `docs/project_overview.md` and `docs/ai_project_status.md` next, then begin working on the current initiative.

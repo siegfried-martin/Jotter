@@ -125,7 +125,30 @@
     }
   }
 	
-	function handleCancel() {
+	async function handleCancel() {
+    // Check if this was an empty section (newly created with no content)
+    const wasEmpty = !section?.content || section.content.trim() === '' ||
+                     (section.type === 'checklist' && (!section.checklist_data || section.checklist_data.length === 0));
+
+    if (wasEmpty && section) {
+      // Delete the empty section since user cancelled without adding content
+      try {
+        await SectionService.deleteSection(section.id);
+        console.log('Deleted empty section on cancel:', section.id);
+
+        // Update cache to remove the section
+        const cachedData = AppDataManager.getContainerSectionsSync(collectionId, containerId);
+        if (cachedData) {
+          const updatedSections = cachedData.sections.filter(s => s.id !== section.id);
+          AppDataManager.updateSectionsOptimistically(collectionId, containerId, updatedSections);
+        }
+      } catch (deleteError) {
+        console.error('Failed to delete empty section:', deleteError);
+        // Still navigate back even if delete fails
+      }
+    }
+
+    // Navigate back to container page
     goto(`/app/collections/${collectionId}/containers/${containerId}`);
   }
 	

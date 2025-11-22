@@ -3,10 +3,10 @@
   import { goto } from '$app/navigation';
   import { createEventDispatcher } from 'svelte';
   import { dndzone } from 'svelte-dnd-action';
-  import { allCollectionsStore } from '$lib/stores/appDataStore';
-  
+  import { allCollectionsStore, AppDataManager } from '$lib/stores/appDataStore';
+
   export let currentCollectionId: string;
-  
+
   const dispatch = createEventDispatcher<{
     moveToCollection: {
       containerId: string;
@@ -19,10 +19,30 @@
 
   function navigateTo(collection) {
     console.log('CollectionTabs - Navigate to:', collection?.name);
-    if (collection?.id) {
-      goto(`/app/collections/${collection.id}`);
-    } else {
+    if (!collection?.id) {
       console.error('Collection missing ID:', collection);
+      return;
+    }
+
+    // Get cached data for this collection
+    const cachedData = AppDataManager.getCollectionDataSync(collection.id);
+
+    // Try to get last visited container for this collection
+    let targetContainerId = AppDataManager.getLastVisitedContainer(collection.id);
+
+    // If no last visited, use first container from cache
+    if (!targetContainerId && cachedData?.containers && cachedData.containers.length > 0) {
+      targetContainerId = cachedData.containers[0].id;
+    }
+
+    // If we have a target container, navigate directly to it (bypass collection redirect page)
+    if (targetContainerId) {
+      console.log('CollectionTabs - Direct navigation to container:', targetContainerId);
+      goto(`/app/collections/${collection.id}/containers/${targetContainerId}`);
+    } else {
+      // No cache or containers - go to collection page which will handle loading/redirect
+      console.log('CollectionTabs - No cache, navigating to collection page');
+      goto(`/app/collections/${collection.id}`);
     }
   }
 

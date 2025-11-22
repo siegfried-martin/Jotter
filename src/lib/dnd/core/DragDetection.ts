@@ -85,6 +85,14 @@ export class DragDetection {
       return;
     }
 
+    // Only allow drag/click from the actual card content, not the wrapper/padding
+    const target = event.target as HTMLElement;
+    const clickedCard = target.closest('.section-card-base, .container-item-content');
+
+    if (!clickedCard) {
+      return; // Clicked outside the actual card, ignore
+    }
+
     this.isPointerDown = true;
     this.startPosition = { x: event.clientX, y: event.clientY };
     this.startTime = Date.now();
