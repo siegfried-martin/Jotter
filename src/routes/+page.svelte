@@ -79,12 +79,6 @@
     }
   }
 
-  // Demo bypass (remove this in production)
-  function handleDemoBypass() {
-    console.log('🚀 Demo bypass - going to app without auth');
-    goto('/app');
-  }
-
   // Clear any error when user tries to sign in again
   function clearError() {
     error = null;
@@ -167,23 +161,6 @@
                 </svg>
                 Continue with Google
               {/if}
-            </button>
-
-            <!-- Demo Access (remove in production) -->
-            <div class="relative">
-              <div class="absolute inset-0 flex items-center">
-                <div class="w-full border-t border-gray-300" />
-              </div>
-              <div class="relative flex justify-center text-sm">
-                <span class="px-2 bg-white text-gray-500">Or for demo</span>
-              </div>
-            </div>
-
-            <button
-              on:click={handleDemoBypass}
-              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-            >
-              Continue as Demo User
             </button>
           </div>
         </div>
