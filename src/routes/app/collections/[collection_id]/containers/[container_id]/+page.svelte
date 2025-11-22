@@ -268,6 +268,66 @@
     }
   }
 
+  // Handle checklist checkbox changes from section cards
+  async function handleCheckboxChange(event: any) {
+    const { sectionId, checked, lineIndex } = event.detail;
+    console.log('Handling checkbox change:', { sectionId, checked, lineIndex });
+
+    const currentSections = $currentContainerStore.sections || [];
+    const section = currentSections.find(s => s.id === sectionId);
+
+    if (!section || !section.checklist_data) {
+      console.error('Section or checklist data not found:', sectionId);
+      return;
+    }
+
+    // Store original data for rollback
+    const originalChecklistData = [...section.checklist_data];
+
+    // Optimistic update - immediately update the UI
+    const updatedChecklistData = [...section.checklist_data];
+    if (updatedChecklistData[lineIndex]) {
+      updatedChecklistData[lineIndex].checked = checked;
+    }
+
+    const updatedSection = { ...section, checklist_data: updatedChecklistData };
+    const updatedSections = currentSections.map(s =>
+      s.id === sectionId ? updatedSection : s
+    );
+
+    AppDataManager.updateSectionsOptimistically(
+      data.collectionId,
+      data.containerId,
+      updatedSections
+    );
+
+    try {
+      // Background API call
+      await SectionService.updateChecklistItem(
+        sectionId,
+        lineIndex,
+        checked,
+        updatedChecklistData
+      );
+
+      console.log('Checkbox change saved successfully');
+    } catch (error) {
+      console.error('Failed to save checkbox change:', error);
+
+      // Rollback optimistic update on error
+      const rolledBackSection = { ...section, checklist_data: originalChecklistData };
+      const rolledBackSections = currentSections.map(s =>
+        s.id === sectionId ? rolledBackSection : s
+      );
+
+      AppDataManager.updateSectionsOptimistically(
+        data.collectionId,
+        data.containerId,
+        rolledBackSections
+      );
+    }
+  }
+
   // NEW: Handle container title updates from CollectionPageHeader
   async function handleUpdateTitle(event: any) {
     const { containerId, newTitle } = event.detail;
@@ -543,6 +603,7 @@
       on:edit={handleEditSection}
       on:delete={handleDeleteSection}
       on:titleSave={handleSectionTitleSave}
+      on:checkboxChange={handleCheckboxChange}
       on:updateTitle={handleUpdateTitle}
       
       on:containersReordered={handleContainerReorderDirect}

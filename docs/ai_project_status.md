@@ -68,8 +68,7 @@ The app is in a **stable state** after recent bug fixes and cache optimization. 
 **Focus**: Bug Fixes
 
 1. **BUG-DRAG-001**: Fix section drag-and-drop off-by-one error (dragging down only moves 1 position)
-2. **BUG-SWEEP-001**: Test and identify any other bugs introduced or pre-existing
-3. **BUG-FIXES-001**: Fix any critical bugs discovered during testing
+2. **BUG-FIXES-001**: Fix any critical bugs discovered during testing
 
 ### Short-term Tasks (Sessions 2-3)
 

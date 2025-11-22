@@ -53,43 +53,54 @@
   function handleContainerFinalize(e: CustomEvent) {
     const { items, info } = e.detail;
     console.log('Container finalize event:', { info, itemsLength: items.length });
-    
+
     dndContainers = items;
-    
+
     // Handle different finalize scenarios
     if (info.trigger === 'droppedIntoZone') {
       // Check if items order actually changed (reorder detection)
       const originalIds = containers.map((c: NoteContainer) => c.id);
       const newIds = items.map((c: NoteContainer) => c.id);
       const orderChanged = !originalIds.every((id, index) => id === newIds[index]);
-      
-      if (orderChanged) {
-        // Find the moved container's original and new positions
-        let fromIndex = -1;
-        let toIndex = -1;
-        let movedContainer: NoteContainer | null = null;
-        
-        // Find which container was moved
-        for (let i = 0; i < items.length; i++) {
-          const newContainer = items[i];
-          const originalIndex = containers.findIndex(c => c.id === newContainer.id);
-          
-          if (originalIndex !== i) {
-            fromIndex = originalIndex;
-            toIndex = i;
-            movedContainer = newContainer;
-            break;
-          }
-        }
-        
-        if (fromIndex !== -1 && toIndex !== -1 && movedContainer) {
-          console.log('Container reordered:', {
-            container: movedContainer.title,
+
+      console.log('🔍 Reorder detection:', {
+        orderChanged,
+        infoId: info.id ? info.id.slice(0, 8) : 'NULL',
+        originalOrder: originalIds.map(id => id.slice(0, 8)),
+        newOrder: newIds.map(id => id.slice(0, 8))
+      });
+
+      if (orderChanged && info.id) {
+        // Use info.id to identify the dragged container (more reliable than draggedContainer variable)
+        const fromIndex = containers.findIndex(c => c.id === info.id);
+        const toIndex = items.findIndex((c: NoteContainer) => c.id === info.id);
+
+        const draggedItem = containers.find(c => c.id === info.id);
+        console.log('🔍 Index calculation:', {
+          fromIndex,
+          toIndex,
+          draggedId: info.id.slice(0, 8),
+          draggedTitle: draggedItem?.title
+        });
+
+        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+          console.log('✅ Container reordered:', {
+            container: draggedItem?.title || 'Unknown',
             fromIndex,
             toIndex
           });
           dispatch('reorder', { fromIndex, toIndex });
+        } else {
+          console.log('❌ Reorder skipped:', {
+            fromIndex,
+            toIndex,
+            reason: fromIndex === toIndex ? 'same position' : 'index not found'
+          });
         }
+      } else {
+        console.log('❌ Reorder skipped:', {
+          reason: !orderChanged ? 'order unchanged' : 'info.id is null'
+        });
       }
     } else if (info.trigger === 'droppedOutsideOfAny' && info.id && draggedContainer) {
       // Container was dropped outside of any drop zone - check if it was on a collection tab
