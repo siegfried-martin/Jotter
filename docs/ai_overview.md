@@ -312,10 +312,10 @@ Focus on tasks in that category. Always update progress in
 
 #### Architecture & Performance Agent
 
-- **Sessions Completed**: 1 (November 17, 2025)
-- **Bugs Fixed**: 2 (collection creation infinite loop, navigation errors)
-- **Features Added**: 1 (collection preloading)
-- **Performance Improvements**: Eliminated re-fetches, instant navigation
+- **Sessions Completed**: 2 (November 17, 2025 + November 20, 2025)
+- **Bugs Fixed**: 7 (collection creation infinite loop, navigation errors, sections disappearing, drag area, scrolling, rerender issues, thumbnail flash)
+- **Features Added**: 2 (collection preloading, load more containers, delete empty sections on cancel)
+- **Performance Improvements**: Eliminated re-fetches, instant navigation, full cache preloading with sections
 
 ### Weekly Progress Template
 
@@ -397,63 +397,126 @@ Focus on tasks in that category. Always update progress in
 
 **Solution**: Use focused documentation and specific file references
 
-## Recent Work (November 17, 2025)
+## Recent Work
 
-### Completed: Collection Cache & Navigation Fixes
+### November 20, 2025: Bug Fixes & Cache Optimization
 
-**Branch**: `feat/collection-cache-and-preloading`
-**Status**: Ready for PR review and merge
+**Branch**: `fix/multiple-bugs-and-cache-optimization`
+**Status**: Committed and ready for PR
 **Agent**: Architecture & Performance Agent
 
 #### What Was Fixed
-- Collection creation now updates cache before navigation (eliminated infinite loop)
-- Collection navigation between tabs works smoothly (no errors)
-- Eliminated spinner flash when navigating to cached collections
+- **BUG-001/002**: Sections disappearing on tab navigation (cache preservation issue)
+- **BUG-003**: Click/drag area too large on section cards (now limited to card content)
+- **BUG-004**: Scrolling issues on collections page (added scrollable wrapper)
+- **BUG-005**: Full cache not preloading (now synchronously loads all collections + 10 containers + sections)
+- **BUG-006**: Diagram thumbnail flash (prevented double generation)
+
+#### What Was Added
+- **FEATURE-001**: Delete empty sections on cancel from edit modal
+- **Load More**: Button to load remaining containers beyond first 10
+- **Full Section Preload**: All sections for first 10 containers loaded on app start
+
+#### Files Modified (14 files, 416 insertions, 140 deletions)
+- `src/lib/stores/core/appDataOperations.ts` - Cache preservation, section preloading
+- `src/routes/app/+layout.svelte` - Synchronous cache loading
+- `src/lib/dnd/core/DragDetection.ts` - Restricted drag area
+- `src/lib/dnd/components/DragZone.svelte` - Restricted click area
+- `src/lib/components/containers/ContainerList.svelte` - Load More functionality
+- `src/routes/app/+page.svelte` - Scrollable wrapper
+- `src/lib/components/DiagramThumbnail.svelte` - Prevented double generation
+- Plus 7 more files for delete empty sections feature
+
+**Documentation**: See `docs/bug-tracking/session-2025-11-20-bugs.md` for detailed bug analysis
+
+### November 17, 2025: Collection Cache & Navigation Fixes
+
+**Branch**: `feat/collection-cache-and-preloading`
+**Status**: Merged to main
+**Agent**: Architecture & Performance Agent
+
+#### What Was Fixed
+- Collection creation infinite loop (optimistic cache updates)
+- Collection navigation errors (proper state management)
+- Spinner flash on cached navigation (eliminated re-fetches)
 
 #### What Was Added
 - Preload first 10 containers for all collections on app startup
 - Instant navigation between collections (data already cached)
 - Optimistic cache updates for new collections
 
-#### Files Modified
-- `src/lib/stores/core/appDataUpdates.ts` - Added optimistic collection updates
-- `src/lib/stores/core/appDataOperations.ts` - Added preloading logic
-- `src/lib/stores/appDataStore.ts` - Exposed new cache methods
-- `src/routes/app/+page.svelte` - Fixed collection creation handler
-- `src/routes/app/collections/[collection_id]/+page.svelte` - Fixed navigation state
-
 **Technical Details**: See `docs/cache_architecture.md` for full context
 
-### Next Planned Work: Derived Stores Refactoring
+## Current Initiatives
 
-**Branch**: `refactor/derived-stores-architecture` (not started)
-**Priority**: High - Will eliminate excessive re-renders app-wide
-**Estimated Impact**: 10x reduction in re-renders, smoother UX
+### Code Quality Foundation (Priority 1)
 
-See `docs/cache_architecture.md` section on "Planned: Derived Stores Architecture" for implementation plan.
+**Document**: `docs/initiatives/code-quality-foundation.md`
+**Status**: Not Started
+**Estimated Duration**: 1-2 sessions
+**Goal**: Clean up codebase to establish solid foundation for testing
+
+#### Objectives
+1. Eliminate TypeScript warnings - Achieve zero TS errors/warnings
+2. Remove unused code - Delete unused components, utilities, imports
+3. Code smell cleanup - Fix duplicated code, long functions, unclear naming
+4. Improve maintainability - Make codebase easier to understand and modify
+
+#### Why First?
+- Low risk cleanup doesn't change functionality
+- High value - makes testing and future development easier
+- Quick wins build momentum
+- Clean code is easier to test and maintain
+
+### Regression Testing (Priority 2)
+
+**Document**: `docs/initiatives/regression-testing.md`
+**Status**: Not Started (depends on Code Quality Foundation)
+**Estimated Duration**: 2-3 sessions
+**Goal**: Establish automated regression testing to prevent bugs
+
+#### Objectives
+1. Setup test infrastructure - Install and configure Playwright
+2. Critical path coverage - Test core user flows
+3. Achieve 80% coverage - Cover main features and edge cases
+4. CI/CD integration - Automate test runs on PRs
+5. Prevent regressions - Catch bugs before production
+
+#### Why After Code Quality?
+- Testing clean code is easier than testing code with smells
+- No TypeScript errors means tests won't break from type issues
+- Removed unused code means fewer false test failures
+- Understanding clean code structure leads to better test design
 
 ## Next Session Priorities
 
 ### Immediate Tasks (Next 1-2 Sessions)
 
-1. **REFACTOR-STORES-001**: Implement derived stores architecture (see `docs/cache_architecture.md`)
-2. **TEST-SETUP-001**: Set up testing infrastructure with first Testing Specialist agent
-3. **TEST-AUTH-001**: Generate authentication E2E tests
-4. **CLEAN-TS-001**: Begin TypeScript error cleanup with Code Health agent
+**Initiative**: Code Quality Foundation
 
-### Short-term Goals (Next 4 Weeks)
+1. **CLEAN-TS-001**: Run `tsc --noEmit` and fix all TypeScript errors
+2. **CLEAN-UNUSED-001**: Identify and remove unused components/utilities
+3. **CLEAN-IMPORTS-001**: Clean up unused imports across files
+4. **CLEAN-CODE-001**: Fix duplicated code and extract common utilities
+5. **CLEAN-FUNCTIONS-001**: Break down functions >50 lines
 
-- Complete critical path testing (auth, CRUD operations, drag & drop)
-- Eliminate all TypeScript errors
-- Refactor largest components (<200 lines each)
-- Generate API documentation for core components
+### Short-term Goals (Next 3-4 Sessions)
+
+**Initiative**: Regression Testing
+
+1. **TEST-SETUP-001**: Set up Playwright and testing infrastructure
+2. **TEST-CRITICAL-001**: Test authentication flows
+3. **TEST-CRITICAL-002**: Test collection CRUD operations
+4. **TEST-CRITICAL-003**: Test container CRUD + drag & drop
+5. **TEST-CRITICAL-004**: Test section CRUD + drag & drop
+6. **TEST-CI-001**: Configure GitHub Actions for automated testing
 
 ### Success Metrics
 
+- **Code Quality**: Zero TypeScript errors, all files <300 lines, no commented code
 - **Test Coverage**: 80% overall, 100% for critical paths
-- **Code Quality**: Zero TypeScript errors, all files <200 lines
-- **Documentation**: Complete API docs, up-to-date architecture
-- **Agent Efficiency**: <2 hour average task completion time
+- **Code Health**: No duplicated code, clear naming, simple conditionals
+- **CI/CD**: All tests passing on every PR
 
 ## Management Tools & Scripts
 
@@ -493,8 +556,12 @@ npm run build
 
 **For Next Chat Session**: Use this overview along with `project_overview.md` to understand current project state and AI integration strategy.
 
-**Important**: Before starting derived stores refactoring, review `docs/cache_architecture.md` for full technical context, current architecture, and implementation plan.
+**Important**: The app is in a stable state. Next priorities are:
+1. Code Quality Foundation (clean up TS errors, unused code, code smells)
+2. Regression Testing (Playwright E2E tests for critical paths)
 
-**Last Updated**: November 17, 2025
+See initiative documents in `docs/initiatives/` for detailed plans.
+
+**Last Updated**: November 20, 2025
 **Next Review**: Weekly (every Sunday)
-**Current Phase**: Active Development (Architecture & Performance focus)
+**Current Phase**: Code Quality & Testing Establishment
