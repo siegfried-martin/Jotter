@@ -8,10 +8,11 @@ This guide helps AI agents understand the project structure, conventions, and wo
 
 ### 1. Essential Reading (Read These First)
 
-- **`docs/README.md`** - Documentation overview and structure
-- **`project_overview.md`** - Current project status and technical architecture
-- **`docs/ai-tasks/backlog.md`** - Current task priorities and dependencies
+- **`docs/project_overview.md`** - Current project status and technical architecture
+- **`docs/ai_overview.md`** - AI agent strategy, recent work, and next priorities
+- **`docs/initiatives/`** - Current initiatives (Code Quality Foundation, Regression Testing)
 - **`docs/functionality/`** - Complete feature documentation (read relevant sections for your task)
+- **`docs/cache_architecture.md`** - Cache system architecture and recent updates
 
 ### 2. Project Context
 
@@ -27,40 +28,43 @@ This guide helps AI agents understand the project structure, conventions, and wo
 - **Drag & Drop**: Hybrid system (custom + svelte-dnd-action)
 - **Auto-save**: Debounced saves with draft recovery
 
-## Working with Tasks
+## Working with Initiatives
 
-### Task Selection
+### Current Approach
 
-1. **Always check dependencies** in `docs/ai-tasks/backlog.md`
-2. **Start with TEST-SETUP-001** if testing infrastructure isn't ready
-3. **One task per session** - focus ensures quality
-4. **Read acceptance criteria** carefully before starting
+The project follows an **initiative-based approach** rather than individual task tracking:
 
-### Task Execution Pattern
+1. **Check current initiative** in `docs/initiatives/` directory
+2. **Review objectives and phases** for the active initiative
+3. **One focus per session** - work systematically through initiative phases
+4. **Follow acceptance criteria** for each initiative
+
+### Initiative Execution Pattern
 
 ```markdown
-1. Read task description and acceptance criteria
+1. Read initiative document fully (objectives, phases, success criteria)
 2. Review relevant functionality documentation
-3. Examine existing code files mentioned in task
-4. Implement solution following project patterns
-5. Test your implementation thoroughly
-6. Update progress in docs/ai-tasks/completed.md
+3. Identify current phase and specific tasks
+4. Implement solutions following project patterns
+5. Test implementations thoroughly
+6. Update initiative document with progress
+7. Commit with clear descriptions of what was accomplished
 ```
 
-### Progress Updates
+### Current Initiatives (Priority Order)
 
-Always update `docs/ai-tasks/completed.md` when finishing tasks using this format:
+1. **Code Quality Foundation** (`docs/initiatives/code-quality-foundation.md`)
+   - TypeScript cleanup, unused code removal, code smells
+   - **Include**: Audit and update functionality documentation
+   - Duration: 1-2 sessions
 
-```markdown
-### YYYY-MM-DD
+2. **Regression Testing** (`docs/initiatives/regression-testing.md`)
+   - Playwright E2E tests driven by functionality documentation
+   - Duration: 2-3 sessions
 
-- [x] **TASK-ID**: Task description
-  - **Result**: What was accomplished
-  - **Files**: Which files were created/modified
-  - **Notes**: Any important observations or follow-up needed
-  - **Time**: How long it took
-  - **Agent**: Claude Code / Other
-```
+### Progress Tracking
+
+Track progress directly in initiative documents by checking off completed tasks. Update `docs/ai_overview.md` with session summaries when major work is completed.
 
 ## Code Conventions
 
@@ -218,14 +222,26 @@ async function updateEntity(id: string, changes: Partial<Entity>) {
 - **Optimistic updates**: UI first, API second, rollback on error
 - **Cache invalidation**: Handled automatically by data manager
 
+## Documentation-Driven Development
+
+### Functionality Documentation is Key
+
+The `docs/functionality/` directory is the **source of truth** for:
+- Expected behaviors and edge cases
+- User workflows and interactions
+- Error scenarios and validation rules
+
+**Important**: Functionality documentation drives regression testing. When working on Code Quality Foundation, ensure these docs are accurate and complete before moving to Regression Testing initiative.
+
 ## Getting Help
 
 ### When Stuck
 
 1. **Check existing code** for similar patterns
 2. **Review functionality docs** for expected behavior
-3. **Look at project_overview.md** for recent changes and known issues
-4. **Update task notes** with specific blockers or questions
+3. **Look at ai_overview.md** for recent changes and current focus
+4. **Check initiative documents** for context and approach
+5. **Review cache_architecture.md** for data flow understanding
 
 ### Communication
 
@@ -236,22 +252,30 @@ async function updateEntity(id: string, changes: Partial<Entity>) {
 
 ## Success Metrics
 
-### Task Completion
+### Initiative Completion
 
-- **Acceptance criteria met**: All requirements satisfied
+- **Objectives achieved**: All initiative objectives met
+- **Success criteria satisfied**: All checkboxes in initiative doc marked complete
 - **Tests passing**: No broken functionality
 - **Code quality**: Follows project conventions
-- **Documentation updated**: Progress tracked appropriately
+- **Documentation updated**: Initiative docs and ai_overview.md updated
 
 ### Code Health Improvements
 
-- **Reduced file sizes**: Large files broken into manageable components
-- **Better type safety**: TypeScript errors eliminated
-- **Test coverage**: Increased coverage for modified areas
+- **Zero TypeScript errors**: Clean compilation with strict mode
+- **Accurate documentation**: Functionality docs match implementation
+- **Test coverage**: 80%+ coverage for critical paths
+- **Reduced complexity**: Clear code, no duplication, functions <50 lines
 - **Performance**: No regression in app speed
 
 ---
 
-**Remember**: Focus on one task at a time, follow the established patterns, and always test your changes thoroughly. The goal is to improve code quality while maintaining Jotter's core principle of speed and simplicity.
+**Remember**: Work through initiatives systematically, follow established patterns, and test changes thoroughly. Current focus is on **Code Quality Foundation** (clean code, accurate docs) followed by **Regression Testing** (comprehensive E2E coverage). The goal is to improve code quality while maintaining Jotter's core principle of speed and simplicity.
+
+**Key Points**:
+- Functionality documentation drives everything
+- Code Quality Foundation comes before Regression Testing
+- Keep existing functionality exactly the same
+- Commit frequently with clear descriptions
 
 Welcome to the team! 🚀
