@@ -77,8 +77,14 @@
   }
 
   // Handle external click events (forwarded from DragProvider)
-  function handleClick() {
-    dispatch('click', { item, itemType });
+  function handleClick(event: MouseEvent) {
+    // Only trigger click if actually clicking the card content, not the wrapper/padding
+    const target = event.target as HTMLElement;
+    const clickedCard = target.closest('.section-card-base, .container-item-content');
+
+    if (clickedCard) {
+      dispatch('click', { item, itemType });
+    }
   }
 
   // Reactive classes - simplified since we're not a drop target
@@ -108,13 +114,11 @@
   data-item-type={itemType}
   data-item-id={item.id || item.title}
   on:click={handleClick}
-  style:touch-action="none"
-  style:user-select="none"
 >
   <!-- Pass simplified drag state to slot content -->
-  <slot 
-    {item} 
-    {isDragging} 
+  <slot
+    {item}
+    {isDragging}
     {itemIndex}
     dragState={$dragState}
   />
@@ -122,7 +126,6 @@
 
 <style>
   .drag-zone {
-    cursor: pointer;
     transition: transform 0.2s ease, opacity 0.2s ease;
     position: relative;
   }
@@ -138,18 +141,7 @@
     opacity: 0.6;
   }
 
-  .drag-zone:not(.disabled):not(.dragging):hover {
-    transform: translateY(-2px);
-  }
-
-  /* Ensure proper spacing and layout */
-  .drag-zone > :global(*) {
-    pointer-events: auto;
-  }
-
   .drag-zone.dragging > :global(*) {
     pointer-events: none;
   }
-
-  /* 🔧 REMOVED: drag-over and receiving-drag styles since DragZone is no longer a drop target */
 </style>

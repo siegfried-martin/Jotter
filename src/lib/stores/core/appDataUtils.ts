@@ -6,11 +6,20 @@ import { clearPendingRequests, deletePendingRequest } from './appDataOperations'
 // === STATE MANAGEMENT ===
 export function setCurrentContext(collectionId: string | null, containerId: string | null = null): void {
   console.log('Setting app context:', { collectionId, containerId });
-  appStore.update(app => ({
-    ...app,
-    currentCollectionId: collectionId,
-    currentContainerId: containerId
-  }));
+  appStore.update(app => {
+    // Track last visited container per collection
+    const newLastVisited = new Map(app.lastVisitedContainerByCollection);
+    if (collectionId && containerId) {
+      newLastVisited.set(collectionId, containerId);
+    }
+
+    return {
+      ...app,
+      currentCollectionId: collectionId,
+      currentContainerId: containerId,
+      lastVisitedContainerByCollection: newLastVisited
+    };
+  });
 }
 
 export function setLoading(key: string, loading: boolean): void {
@@ -65,6 +74,12 @@ export function getDebugInfo(): any {
     errors: Object.fromEntries(app.errors),
     cacheSize: app.collectionData.size
   };
+}
+
+// Get last visited container for a specific collection
+export function getLastVisitedContainer(collectionId: string): string | null {
+  const app = get(appStore);
+  return app.lastVisitedContainerByCollection.get(collectionId) || null;
 }
 
 // === ENHANCED DEBUG UTILITIES ===

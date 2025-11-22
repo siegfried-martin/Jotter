@@ -10,7 +10,8 @@
   let isGenerating = false;
   let generationError = false;
   let thumbnailTimeout: number;
-  
+  let hasInitialized = false;
+
   async function generateThumbnail() {
     if (!browser || !diagramContent || isGenerating) return;
     
@@ -65,11 +66,14 @@
   
   onMount(() => {
     if (diagramContent) {
-      // Small delay to avoid blocking UI on initial load
-      setTimeout(generateThumbnail, 100);
+      // Generate immediately on mount (no debounce)
+      setTimeout(() => {
+        generateThumbnail();
+        hasInitialized = true;
+      }, 100);
     }
   });
-  
+
   onDestroy(() => {
     // Cleanup thumbnail URL
     if (thumbnailUrl) {
@@ -78,9 +82,9 @@
     // Cleanup timeout
     clearTimeout(thumbnailTimeout);
   });
-  
-  // Debounced regeneration on content changes - only after user stops editing
-  $: if (diagramContent) {
+
+  // Debounced regeneration on content changes - only AFTER initialization
+  $: if (diagramContent && hasInitialized) {
     debouncedThumbnailGeneration();
   }
 </script>

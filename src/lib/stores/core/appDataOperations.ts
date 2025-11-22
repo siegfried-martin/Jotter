@@ -88,26 +88,46 @@ async function _loadAllCollections(): Promise<Collection[]> {
 }
 
 /**
- * Preload first 10 containers for each collection into cache
+ * Preload first 10 containers + their sections for each collection into cache
  */
 async function preloadCollectionContainers(collections: Collection[]): Promise<void> {
   const { NoteService } = await import('$lib/services/noteService');
+  const { SectionService } = await import('$lib/services/sectionService');
 
-  // Load containers for all collections in parallel
+  // Load containers + sections for all collections in parallel
   const preloadPromises = collections.map(async (collection) => {
     try {
+      // Fetch containers
       const containers = await NoteService.getNoteContainers(collection.id);
-
-      // Limit to first 10 containers to keep memory reasonable
       const limitedContainers = containers.slice(0, 10);
 
-      // Update cache with collection data
+      // Fetch sections for each container in parallel
+      const sectionPromises = limitedContainers.map(async (container) => {
+        try {
+          const sections = await SectionService.getSections(container.id);
+          return { containerId: container.id, sections };
+        } catch (error) {
+          console.warn(`⚠️ Failed to load sections for container ${container.id}:`, error);
+          return { containerId: container.id, sections: [] };
+        }
+      });
+
+      const sectionResults = await Promise.all(sectionPromises);
+
+      // Build containerSections map
+      const containerSections = new Map<string, NoteSection[]>();
+      sectionResults.forEach(({ containerId, sections }) => {
+        containerSections.set(containerId, deepCloneArray(sections));
+      });
+
+      // Update cache with collection + containers + sections
       appStore.update(app => {
         const newCollectionData = new Map(app.collectionData);
+
         newCollectionData.set(collection.id, {
           collection: deepCloneObject(collection),
           containers: deepCloneArray(limitedContainers),
-          containerSections: new Map(), // Sections will be loaded on demand
+          containerSections, // All sections for the 10 containers
           lastUpdated: Date.now()
         });
 
@@ -117,7 +137,8 @@ async function preloadCollectionContainers(collections: Collection[]): Promise<v
         };
       });
 
-      console.log(`✅ Preloaded ${limitedContainers.length} containers for: ${collection.name}`);
+      const totalSections = sectionResults.reduce((sum, r) => sum + r.sections.length, 0);
+      console.log(`✅ Preloaded ${limitedContainers.length} containers + ${totalSections} sections for: ${collection.name}`);
     } catch (error) {
       // Don't fail the entire preload if one collection fails
       console.warn(`⚠️ Failed to preload containers for ${collection.name}:`, error);

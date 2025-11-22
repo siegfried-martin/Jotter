@@ -24,7 +24,8 @@ import {
   setCurrentContext,
   clearCache,
   invalidateCollection,
-  getDebugInfo
+  getDebugInfo,
+  getLastVisitedContainer
 } from './core/appDataUtils';
 
 // === EXACT SAME API AS BEFORE ===
@@ -85,5 +86,9 @@ export class AppDataManager {
   
   static getDebugInfo() {
     return getDebugInfo();
+  }
+
+  static getLastVisitedContainer(collectionId: string) {
+    return getLastVisitedContainer(collectionId);
   }
 }

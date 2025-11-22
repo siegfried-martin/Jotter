@@ -7,7 +7,7 @@ export interface AppData {
   // All collections for header tabs
   allCollections: Collection[];
   allCollectionsLoaded: boolean;
-  
+
   // Collection-specific cache
   collectionData: Map<string, {
     collection: Collection;
@@ -15,11 +15,14 @@ export interface AppData {
     containerSections: Map<string, NoteSection[]>;
     lastUpdated: number;
   }>;
-  
+
   // Current navigation context
   currentCollectionId: string | null;
   currentContainerId: string | null;
-  
+
+  // Track last visited container per collection (for smooth tab navigation)
+  lastVisitedContainerByCollection: Map<string, string>;
+
   // Loading and error states
   loading: Set<string>;
   errors: Map<string, string>;
@@ -32,6 +35,7 @@ export const defaultState: AppData = {
   collectionData: new Map(),
   currentCollectionId: null,
   currentContainerId: null,
+  lastVisitedContainerByCollection: new Map(),
   loading: new Set(),
   errors: new Map()
 };
