@@ -98,9 +98,9 @@ export function getDetailedDebugInfo(): any {
     loading: Array.from(app.loading),
     errors: Object.fromEntries(app.errors),
     cacheSize: app.collectionData.size,
-    collectionDetails: {}
+    collectionDetails: {} as { [key: string]: any }
   };
-  
+
   // Add collection-specific debug info
   for (const [collectionId, data] of app.collectionData.entries()) {
     debugData.collectionDetails[collectionId] = {

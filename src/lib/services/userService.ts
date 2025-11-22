@@ -68,6 +68,10 @@ export class UserService {
       preferences = data;
     }
 
+    if (!preferences) {
+      throw new Error('Failed to create or load user preferences');
+    }
+
     return preferences;
   }
 

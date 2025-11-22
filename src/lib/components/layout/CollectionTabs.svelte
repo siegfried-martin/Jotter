@@ -17,7 +17,7 @@
   $: collections = $allCollectionsStore.collections || [];
   $: loading = $allCollectionsStore.loading;
 
-  function navigateTo(collection) {
+  function navigateTo(collection: any) {
     console.log('CollectionTabs - Navigate to:', collection?.name);
     if (!collection?.id) {
       console.error('Collection missing ID:', collection);

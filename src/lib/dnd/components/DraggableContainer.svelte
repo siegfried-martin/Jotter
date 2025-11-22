@@ -35,7 +35,7 @@
   ].filter(Boolean).join(' ');
 
   // Handle click events
-  function handleClick(event) {
+  function handleClick(event: MouseEvent) {
     dispatch('click', { item, itemType });
   }
 </script>

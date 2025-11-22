@@ -54,7 +54,8 @@
       }
     } catch (error) {
       console.error('❌ Callback handling failed:', error);
-      goto(`/?error=callback_failed&message=${encodeURIComponent(error.message)}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      goto(`/?error=callback_failed&message=${encodeURIComponent(errorMessage)}`);
     }
   });
 </script>

@@ -10,7 +10,7 @@
   import { AppDataManager } from '$lib/stores/appDataStore';
   import DragProvider from '$lib/dnd/components/DragProvider.svelte';
 
-  let user = null;
+  let user: any = null;
   let hasLoadedOnce = false;
   let layoutElement: HTMLElement;
   let cacheReady = false; // Track when cache is fully populated
@@ -27,7 +27,7 @@
   }
 
   // Handle cross-collection container moves from AppHeader
-  function handleMoveToCollectionFromHeader(event) {
+  function handleMoveToCollectionFromHeader(event: any) {
     console.log('App layout: Received moveToCollection from header:', event.detail);
     console.log('App layout: Forwarding event to slot content...');
     
@@ -94,7 +94,7 @@
       console.error('❌ Cache loading failed:', error);
 
       // If it's an auth error, don't spam logs
-      if (error.message && error.message.includes('not authenticated')) {
+      if (error instanceof Error && error.message.includes('not authenticated')) {
         console.log('Cache loading skipped - user not authenticated');
         return;
       }

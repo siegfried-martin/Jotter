@@ -8,14 +8,14 @@ export function parseChecklistItems(section: any): Array<ChecklistItem & { isOve
     ? section.checklist_data
     : parseChecklistFromContent(section.content);
 
-  return items.map(item => {
+  return items.map((item: ChecklistItem) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let itemDate = null;
     let isOverdue = false;
     let displayDate = null;
-    
+
     if (item.date) {
       const [year, month, day] = item.date.split('-');
       itemDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -23,7 +23,7 @@ export function parseChecklistItems(section: any): Array<ChecklistItem & { isOve
       isOverdue = itemDate.getTime() < today.getTime();
       displayDate = itemDate.toLocaleDateString();
     }
-    
+
     return { ...item, isOverdue, displayDate };
   });
 }
@@ -35,8 +35,8 @@ function parseChecklistFromContent(content: string): ChecklistItem[] {
       const [taskPart, datePart] = line.split('|');
       const checked = taskPart.includes('[x]');
       const text = taskPart.replace(/^- \[[x ]\] /, '');
-      const date = datePart ? datePart.trim() : null;
-      
+      const date = datePart ? datePart.trim() : undefined;
+
       return { text, checked, date };
     });
 }

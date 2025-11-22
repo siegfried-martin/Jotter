@@ -80,7 +80,8 @@ async function _loadAllCollections(): Promise<Collection[]> {
 
   } catch (error) {
     console.error('Failed to load all collections:', error);
-    setError('allCollections', error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    setError('allCollections', errorMessage);
     throw error;
   } finally {
     setLoading('allCollections', false);
@@ -214,10 +215,15 @@ async function _loadCollectionData(collectionId: string): Promise<{
       CollectionService.getCollection(collectionId),
       NoteService.getNoteContainers(collectionId)
     ]);
-    
+
+    // Validate collection exists
+    if (!collection) {
+      throw new Error(`Collection ${collectionId} not found`);
+    }
+
     // Sort containers by sequence
     const sortedContainers = containers.sort((a, b) => a.sequence - b.sequence);
-    
+
     // CRITICAL FIX: Deep clone data before caching
     appStore.update(app => {
       const newCollectionData = new Map(app.collectionData);
@@ -247,7 +253,8 @@ async function _loadCollectionData(collectionId: string): Promise<{
     
   } catch (error) {
     console.error('Failed to load collection data:', error);
-    setError(collectionId, error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    setError(collectionId, errorMessage);
     throw error;
   } finally {
     setLoading(collectionId, false);
@@ -352,7 +359,8 @@ async function _loadContainerSections(collectionId: string, containerId: string)
     
   } catch (error) {
     console.error('Failed to load container sections:', error);
-    setError(loadingKey, error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    setError(loadingKey, errorMessage);
     throw error;
   } finally {
     setLoading(loadingKey, false);

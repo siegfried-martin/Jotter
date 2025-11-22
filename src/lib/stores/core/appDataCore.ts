@@ -79,10 +79,10 @@ export const currentContainerStore = derived(appStore, $app => {
   const collectionId = $app.currentCollectionId;
   const containerId = $app.currentContainerId;
   
-  console.log('🔍 currentContainerStore derived update:', { 
-    collectionId, 
+  console.log('🔍 currentContainerStore derived update:', {
+    collectionId,
     containerId,
-    hasCollectionData: !!$app.collectionData.get(collectionId)
+    hasCollectionData: collectionId ? !!$app.collectionData.get(collectionId) : false
   });
   
   if (!collectionId || !containerId) {
