@@ -1,0 +1,123 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e8]:
+      - img "Google" [ref=e10]
+      - generic [ref=e11]: Sign in with Google
+    - generic [ref=e12]:
+      - generic [ref=e14]:
+        - heading "Sign in" [level=1] [ref=e15]
+        - paragraph [ref=e16]:
+          - text: to continue to
+          - button "cfryekoikwicltltflrc.supabase.co" [ref=e17] [cursor=pointer]
+      - generic [ref=e18]:
+        - generic [ref=e21]:
+          - generic [ref=e26]:
+            - textbox "Email or phone" [active] [ref=e27]
+            - generic:
+              - generic: Email or phone
+          - paragraph [ref=e28]:
+            - link "Forgot email?" [ref=e29] [cursor=pointer]:
+              - /url: /signin/v2/usernamerecovery?app_domain=https://cfryekoikwicltltflrc.supabase.co&client_id=167907908304-2v6fdd741juc11vh5bk30qnrqhcvb0qd.apps.googleusercontent.com&continue=https://accounts.google.com/signin/oauth/legacy/consent?authuser%3Dunknown%26part%3DAJi8hANRAmGE9R4djl2iYTtEz3YhbruXXEG6mwg6wYc2RfPfpYU-GNvHD9BqdRsm6QF_m_h81NyN3PfDmRLN98bIRQVJ0a6CrIwC4zM4zV_Lzs1nm89AWb6p_H7qvWCjJfz3Zc-xGDcZf6y9oKxSjj6UXkYWjvEjoCvXHyn6THV_x1-K9RugUsuJfRo9dn3IvMY7LyLCnHnjTFCThOKhpF19ZtvUy0LGyvl0KAummOJmdj3hY2PFqTWeL-6INkwkS5i_HJ1PRVrwVWv6fxxPDzBBQuhSrASZrTSHjAzAqM6dhflXmiijXgM_HsIHx9Ax7mWx4RSNoVoU0OKNjDwVJOl0SsPFBVNHP-28FN3F0_uuu8TM_HtiSeODBpB7nWAICZMQRn20tYZ9rYE-K53hEFsazdAS7EZNis_ofTsqkikCBKCPgrchXk9fm_2JQNRzCCxlgGofaNyYjG3Cx5lKb0fixt8fcETGVIPE2LB2oQc9eEuLjHgV24s%26flowName%3DGeneralOAuthFlow%26as%3DS1025060374%253A1763831101682561%26client_id%3D167907908304-2v6fdd741juc11vh5bk30qnrqhcvb0qd.apps.googleusercontent.com%23&dsh=S1025060374:1763831101682561&flowName=GeneralOAuthLite&o2v=2&opparams=%253Fredirect_to%253Dhttp%25253A%25252F%25252Flocalhost%25253A5174%25252Fauth%25252Fcallback&rart=ANgoxccOUDeaybudk0Zxq_mDfEjHQSaaita_x76xWLOG_jkhgGNlgbJ3Zv2I3DdTXZh4iESECGQ3Wn2KiXGdLxxu4TKAA-h5qPfvwzWqJxy22lmh1fz6xTM&redirect_uri=https://cfryekoikwicltltflrc.supabase.co/auth/v1/callback&response_type=code&scope=email+profile&service=lso&state=eyJhbGciOiJIUzI1NiIsImtpZCI6IjIrV09PWnJTaml4ZE0zWWQiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3NjM4MzE0MDEsInNpdGVfdXJsIjoiaHR0cDovL2xvY2FsaG9zdDo1MTczIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJmdW5jdGlvbl9ob29rcyI6bnVsbCwicHJvdmlkZXIiOiJnb29nbGUiLCJyZWZlcnJlciI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NC9hdXRoL2NhbGxiYWNrIiwiZmxvd19zdGF0ZV9pZCI6IiJ9.f_TTYwnlgy09GS6D8c0SWW0kpCaPVT7OJXPK7hTjo4w
+        - generic [ref=e31]:
+          - button "Next" [ref=e33]
+          - link "Create account" [ref=e35] [cursor=pointer]:
+            - /url: /lifecycle/flows/signup?app_domain=https://cfryekoikwicltltflrc.supabase.co&client_id=167907908304-2v6fdd741juc11vh5bk30qnrqhcvb0qd.apps.googleusercontent.com&continue=https://accounts.google.com/signin/oauth/legacy/consent?authuser%3Dunknown%26part%3DAJi8hANRAmGE9R4djl2iYTtEz3YhbruXXEG6mwg6wYc2RfPfpYU-GNvHD9BqdRsm6QF_m_h81NyN3PfDmRLN98bIRQVJ0a6CrIwC4zM4zV_Lzs1nm89AWb6p_H7qvWCjJfz3Zc-xGDcZf6y9oKxSjj6UXkYWjvEjoCvXHyn6THV_x1-K9RugUsuJfRo9dn3IvMY7LyLCnHnjTFCThOKhpF19ZtvUy0LGyvl0KAummOJmdj3hY2PFqTWeL-6INkwkS5i_HJ1PRVrwVWv6fxxPDzBBQuhSrASZrTSHjAzAqM6dhflXmiijXgM_HsIHx9Ax7mWx4RSNoVoU0OKNjDwVJOl0SsPFBVNHP-28FN3F0_uuu8TM_HtiSeODBpB7nWAICZMQRn20tYZ9rYE-K53hEFsazdAS7EZNis_ofTsqkikCBKCPgrchXk9fm_2JQNRzCCxlgGofaNyYjG3Cx5lKb0fixt8fcETGVIPE2LB2oQc9eEuLjHgV24s%26flowName%3DGeneralOAuthFlow%26as%3DS1025060374%253A1763831101682561%26client_id%3D167907908304-2v6fdd741juc11vh5bk30qnrqhcvb0qd.apps.googleusercontent.com%23&dsh=S1025060374:1763831101682561&flowEntry=SignUp&flowName=GlifWebSignIn&o2v=2&opparams=%253Fredirect_to%253Dhttp%25253A%25252F%25252Flocalhost%25253A5174%25252Fauth%25252Fcallback&rart=ANgoxccOUDeaybudk0Zxq_mDfEjHQSaaita_x76xWLOG_jkhgGNlgbJ3Zv2I3DdTXZh4iESECGQ3Wn2KiXGdLxxu4TKAA-h5qPfvwzWqJxy22lmh1fz6xTM&redirect_uri=https://cfryekoikwicltltflrc.supabase.co/auth/v1/callback&response_type=code&scope=email+profile&service=lso&signInUrl=https://accounts.google.com/signin/oauth?app_domain%3Dhttps://cfryekoikwicltltflrc.supabase.co%26client_id%3D167907908304-2v6fdd741juc11vh5bk30qnrqhcvb0qd.apps.googleusercontent.com%26continue%3Dhttps://accounts.google.com/signin/oauth/legacy/consent?authuser%253Dunknown%2526part%253DAJi8hANRAmGE9R4djl2iYTtEz3YhbruXXEG6mwg6wYc2RfPfpYU-GNvHD9BqdRsm6QF_m_h81NyN3PfDmRLN98bIRQVJ0a6CrIwC4zM4zV_Lzs1nm89AWb6p_H7qvWCjJfz3Zc-xGDcZf6y9oKxSjj6UXkYWjvEjoCvXHyn6THV_x1-K9RugUsuJfRo9dn3IvMY7LyLCnHnjTFCThOKhpF19ZtvUy0LGyvl0KAummOJmdj3hY2PFqTWeL-6INkwkS5i_HJ1PRVrwVWv6fxxPDzBBQuhSrASZrTSHjAzAqM6dhflXmiijXgM_HsIHx9Ax7mWx4RSNoVoU0OKNjDwVJOl0SsPFBVNHP-28FN3F0_uuu8TM_HtiSeODBpB7nWAICZMQRn20tYZ9rYE-K53hEFsazdAS7EZNis_ofTsqkikCBKCPgrchXk9fm_2JQNRzCCxlgGofaNyYjG3Cx5lKb0fixt8fcETGVIPE2LB2oQc9eEuLjHgV24s%2526flowName%253DGeneralOAuthFlow%2526as%253DS1025060374%25253A1763831101682561%2526client_id%253D167907908304-2v6fdd741juc11vh5bk30qnrqhcvb0qd.apps.googleusercontent.com%2523%26dsh%3DS1025060374:1763831101682561%26flowName%3DGeneralOAuthLite%26o2v%3D2%26opparams%3D%25253Fredirect_to%25253Dhttp%2525253A%2525252F%2525252Flocalhost%2525253A5174%2525252Fauth%2525252Fcallback%26rart%3DANgoxccOUDeaybudk0Zxq_mDfEjHQSaaita_x76xWLOG_jkhgGNlgbJ3Zv2I3DdTXZh4iESECGQ3Wn2KiXGdLxxu4TKAA-h5qPfvwzWqJxy22lmh1fz6xTM%26redirect_uri%3Dhttps://cfryekoikwicltltflrc.supabase.co/auth/v1/callback%26response_type%3Dcode%26scope%3Demail%2Bprofile%26service%3Dlso%26state%3DeyJhbGciOiJIUzI1NiIsImtpZCI6IjIrV09PWnJTaml4ZE0zWWQiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3NjM4MzE0MDEsInNpdGVfdXJsIjoiaHR0cDovL2xvY2FsaG9zdDo1MTczIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJmdW5jdGlvbl9ob29rcyI6bnVsbCwicHJvdmlkZXIiOiJnb29nbGUiLCJyZWZlcnJlciI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NC9hdXRoL2NhbGxiYWNrIiwiZmxvd19zdGF0ZV9pZCI6IiJ9.f_TTYwnlgy09GS6D8c0SWW0kpCaPVT7OJXPK7hTjo4w&state=eyJhbGciOiJIUzI1NiIsImtpZCI6IjIrV09PWnJTaml4ZE0zWWQiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3NjM4MzE0MDEsInNpdGVfdXJsIjoiaHR0cDovL2xvY2FsaG9zdDo1MTczIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJmdW5jdGlvbl9ob29rcyI6bnVsbCwicHJvdmlkZXIiOiJnb29nbGUiLCJyZWZlcnJlciI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NC9hdXRoL2NhbGxiYWNrIiwiZmxvd19zdGF0ZV9pZCI6IiJ9.f_TTYwnlgy09GS6D8c0SWW0kpCaPVT7OJXPK7hTjo4w
+  - contentinfo [ref=e36]:
+    - combobox [ref=e39] [cursor=pointer]:
+      - option "Afrikaans"
+      - option "azərbaycan"
+      - option "bosanski"
+      - option "català"
+      - option "Čeština"
+      - option "Cymraeg"
+      - option "Dansk"
+      - option "Deutsch"
+      - option "eesti"
+      - option "English (United Kingdom)"
+      - option "English (United States)" [selected]
+      - option "Español (España)"
+      - option "Español (Latinoamérica)"
+      - option "euskara"
+      - option "Filipino"
+      - option "Français (Canada)"
+      - option "Français (France)"
+      - option "Gaeilge"
+      - option "galego"
+      - option "Hrvatski"
+      - option "Indonesia"
+      - option "isiZulu"
+      - option "íslenska"
+      - option "Italiano"
+      - option "Kiswahili"
+      - option "latviešu"
+      - option "lietuvių"
+      - option "magyar"
+      - option "Melayu"
+      - option "Nederlands"
+      - option "norsk"
+      - option "o‘zbek"
+      - option "polski"
+      - option "Português (Brasil)"
+      - option "Português (Portugal)"
+      - option "română"
+      - option "shqip"
+      - option "Slovenčina"
+      - option "slovenščina"
+      - option "srpski (latinica)"
+      - option "Suomi"
+      - option "Svenska"
+      - option "Tiếng Việt"
+      - option "Türkçe"
+      - option "Ελληνικά"
+      - option "беларуская"
+      - option "български"
+      - option "кыргызча"
+      - option "қазақ тілі"
+      - option "македонски"
+      - option "монгол"
+      - option "Русский"
+      - option "српски (ћирилица)"
+      - option "Українська"
+      - option "ქართული"
+      - option "հայերեն"
+      - option "‫עברית‬‎"
+      - option "‫اردو‬‎"
+      - option "‫العربية‬‎"
+      - option "‫فارسی‬‎"
+      - option "አማርኛ"
+      - option "नेपाली"
+      - option "मराठी"
+      - option "हिन्दी"
+      - option "অসমীয়া"
+      - option "বাংলা"
+      - option "ਪੰਜਾਬੀ"
+      - option "ગુજરાતી"
+      - option "ଓଡ଼ିଆ"
+      - option "தமிழ்"
+      - option "తెలుగు"
+      - option "ಕನ್ನಡ"
+      - option "മലയാളം"
+      - option "සිංහල"
+      - option "ไทย"
+      - option "ລາວ"
+      - option "မြန်မာ"
+      - option "ខ្មែរ"
+      - option "한국어"
+      - option "中文（香港）"
+      - option "日本語"
+      - option "简体中文"
+      - option "繁體中文"
+    - list [ref=e40]:
+      - listitem [ref=e41]:
+        - link "Help" [ref=e42] [cursor=pointer]:
+          - /url: https://support.google.com/accounts?hl=en-US&p=account_iph
+      - listitem [ref=e43]:
+        - link "Privacy" [ref=e44] [cursor=pointer]:
+          - /url: https://accounts.google.com/TOS?loc=US&hl=en-US&privacy=true
+      - listitem [ref=e45]:
+        - link "Terms" [ref=e46] [cursor=pointer]:
+          - /url: https://accounts.google.com/TOS?loc=US&hl=en-US
+```

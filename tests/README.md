@@ -48,15 +48,49 @@ tests/
 
 ## Authentication for Tests
 
-Tests require a test user account. Set up environment variables:
+The app uses **Google OAuth**, but tests support two authentication modes:
 
+### Mode 1: Mock Auth (Default - Fast & Automated) ⚡
+
+Perfect for AI agents and rapid development. No manual login required!
+
+**First Time Setup:**
+1. Log in to your app manually once
+2. Extract real auth tokens:
+   ```bash
+   npx playwright test tests/e2e/extract-tokens.spec.ts --headed
+   ```
+3. Copy the tokens to `.env.test`:
+   ```bash
+   TEST_ACCESS_TOKEN=eyJhbGc...
+   TEST_REFRESH_TOKEN=v2_abc...
+   TEST_USER_ID=uuid-here
+   TEST_USER_EMAIL=your-email@example.com
+   ```
+4. Run tests normally:
+   ```bash
+   npm run test:e2e
+   ```
+
+Tests will inject these tokens and run fully automated!
+
+### Mode 2: Real OAuth (Optional - Comprehensive) 🔐
+
+For end-to-end validation including the full OAuth flow.
+
+**Setup:**
 ```bash
-# Create .env.test
-TEST_USER_EMAIL=your-test-user@example.com
-TEST_USER_PASSWORD=your-test-password
+npx playwright test --project=oauth-setup --headed
 ```
 
-Or create a test account in your Supabase project specifically for testing.
+Complete Google OAuth manually, then run:
+```bash
+npx playwright test --project=chromium-oauth
+```
+
+**When to use:**
+- Mock auth: Daily development, AI agents, CI/CD
+- Real OAuth: Final validation, security testing
 
 ## Writing Tests
 

@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 // This test verifies BUG-DRAG-001 fix: Container drag & drop persistence
 test.describe('Container Drag & Drop', () => {
-  test.skip('should persist container reorder after drag and drop', async ({ page }) => {
-    // TODO: This test requires authentication setup
+  test('should persist container reorder after drag and drop', async ({ page }) => {
+    // Authentication is handled by setup project
     // Navigate to app
     await page.goto('/app');
 

@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load test environment variables
+dotenv.config({ path: path.resolve(process.cwd(), '.env.test') });
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -15,9 +20,34 @@ export default defineConfig({
   },
 
   projects: [
+    // Mock auth setup (default - fast, automated)
+    {
+      name: 'mock-auth-setup',
+      testMatch: /auth-mock\.setup\.ts/,
+    },
+    // Real OAuth setup (optional - comprehensive but manual)
+    {
+      name: 'oauth-setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    // Test projects with mock auth (default)
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Use mock auth by default (fast, automated)
+        storageState: 'playwright/.auth/mock-user.json',
+      },
+      dependencies: ['mock-auth-setup'],
+    },
+    // Test projects with real OAuth (optional, run manually)
+    {
+      name: 'chromium-oauth',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'playwright/.auth/user.json',
+      },
+      dependencies: ['oauth-setup'],
     },
   ],
 
