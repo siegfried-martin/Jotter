@@ -12,7 +12,8 @@
 1. **Eliminate TypeScript Warnings** - Achieve zero TS errors/warnings
 2. **Remove Unused Code** - Delete unused components, utilities, and imports
 3. **Code Smell Cleanup** - Fix duplicated code, overly long functions, unclear naming
-4. **Improve Maintainability** - Make codebase easier to understand and modify
+4. **Audit & Update Documentation** - Review and update functionality docs to match current implementation
+5. **Improve Maintainability** - Make codebase easier to understand and modify
 
 ## Why This First?
 
@@ -37,7 +38,19 @@
 - [ ] Remove commented-out code
 - [ ] Delete unused CSS/styles
 
-### Phase 3: Code Smell Cleanup
+### Phase 3: Audit & Update Functionality Documentation
+- [ ] Review `docs/functionality/` directory for accuracy
+- [ ] Update `docs/functionality/authentication.md` to match current OAuth implementation
+- [ ] Update `docs/functionality/collections.md` to reflect cache architecture
+- [ ] Update `docs/functionality/containers.md` with Load More feature
+- [ ] Update `docs/functionality/sections.md` with drag & drop improvements
+- [ ] Review all editor docs (`checklist.md`, `code.md`, `diagram.md`, `rich-text.md`)
+- [ ] Document any missing features or behaviors
+- [ ] Remove documentation for removed features
+- [ ] Add examples and edge cases for each feature
+- [ ] Ensure docs are ready to drive regression test creation
+
+### Phase 4: Code Smell Cleanup
 - [ ] Identify duplicated code (DRY violations)
 - [ ] Extract repeated logic into utilities
 - [ ] Break down overly long functions (>50 lines)
@@ -51,6 +64,7 @@
 - ✅ No commented-out code
 - ✅ Functions <50 lines
 - ✅ Clear, descriptive naming throughout
+- ✅ Functionality documentation accurate and complete
 - ✅ Build completes without warnings
 
 ## Implementation Approach
@@ -73,6 +87,7 @@
 - Clean TypeScript compilation
 - Reduced codebase size (removed unused code)
 - Improved code readability
+- Updated and accurate functionality documentation
 - Documentation of any complex changes
 - List of improvements made
 
@@ -82,6 +97,8 @@
 - Don't over-engineer - simple is better
 - Document any non-obvious changes
 - Keep existing functionality exactly the same
+- **Functionality documentation is critical**: It will drive regression test creation in the next initiative
+- Ensure docs include edge cases, error scenarios, and expected behaviors
 
 ---
 

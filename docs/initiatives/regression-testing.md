@@ -22,6 +22,30 @@
 - **Stable Foundation**: No TypeScript errors means tests won't break from type issues
 - **Less Noise**: Removed unused code means fewer false test failures
 - **Better Test Design**: Understanding clean code structure leads to better test design
+- **Accurate Documentation**: Updated functionality docs provide test scenarios and expected behaviors
+
+## Test Planning Approach
+
+### Documentation-Driven Testing
+Test scenarios will be driven primarily from the **functionality documentation** in `docs/functionality/`:
+
+- **`authentication.md`** - OAuth flows, session management, protected routes
+- **`collections.md`** - CRUD operations, cache behavior, navigation
+- **`containers.md`** - CRUD operations, Load More, drag & drop
+- **`sections.md`** - CRUD operations, cross-container moves, reordering
+- **`editors/`** - All editor types (checklist, code, diagram, rich-text)
+
+Each documented feature should have corresponding test coverage. The documentation will provide:
+- Expected behaviors and edge cases
+- User workflows and interactions
+- Error scenarios and validation rules
+
+### Test Creation Workflow
+1. Review functionality documentation for a feature area
+2. Extract test scenarios from documented behaviors
+3. Write Playwright tests for each scenario
+4. Verify tests pass against current implementation
+5. Update documentation if discrepancies found
 
 ## Tasks
 
@@ -124,12 +148,14 @@
 
 ## Notes
 
+- **Use functionality docs as test driver**: All test scenarios should come from `docs/functionality/` first
 - Start with happy path tests, then add edge cases
 - Focus on user-facing behavior, not implementation details
 - Don't test third-party libraries (Supabase, svelte-dnd-action)
 - Use visual regression testing for diagram thumbnails
 - Consider mobile viewport testing for responsive design
 - Document any test-specific configuration or environment setup
+- If documentation and implementation diverge, update documentation first, then write tests
 
 ## Test Coverage Targets
 
