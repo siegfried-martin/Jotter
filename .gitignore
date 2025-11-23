@@ -23,3 +23,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 playwright/.auth/
 .env.test
+
+# Playwright test artifacts
+playwright-report/
+test-results/
