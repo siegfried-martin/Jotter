@@ -25,21 +25,24 @@
 
   // Subscribe to drag state for live reordering
   $: dragState = dragCore?.store;
-  $: isCurrentlyDragging = $dragState?.phase === 'dragging' && 
+  $: isCurrentlyDragging = $dragState?.phase === 'dragging' &&
                            $dragState?.itemType === 'section' &&
                            $dragState?.sourceZone === zoneId;
-  
+
   // Calculate display order based on drag state with safety checks
-  $: displaySections = isCurrentlyDragging && $dragState?.dropTarget?.targetType === 'reorder' 
+  $: displaySections = isCurrentlyDragging && $dragState?.dropTarget?.targetType === 'reorder'
     ? reorderSectionsForPreview(sections, $dragState)
     : sections;
 
   // Filter out any undefined sections and ensure all have valid IDs
-  $: safeSections = (displaySections || []).filter(section => 
-    section && 
-    typeof section === 'object' && 
+  $: safeSections = (displaySections || []).filter(section =>
+    section &&
+    typeof section === 'object' &&
     section.id
   );
+
+  // Create a map of section ID to original index for stable drag targets
+  $: originalIndexMap = new Map(sections.map((section, index) => [section.id, index]));
 
   function reorderSectionsForPreview(originalSections: NoteSection[], dragState: any) {
     if (!dragState.dropTarget || !dragState.item || !originalSections) return originalSections;
@@ -108,7 +111,7 @@
       <DraggableContainer
         item={section}
         itemType="section"
-        itemIndex={index}
+        itemIndex={originalIndexMap.get(section.id) ?? index}
         {zoneId}
         disabled={!sortMode}
         className="section-draggable-container"

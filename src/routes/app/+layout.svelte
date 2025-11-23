@@ -14,6 +14,7 @@
   let hasLoadedOnce = false;
   let layoutElement: HTMLElement;
   let cacheReady = false; // Track when cache is fully populated
+  let cacheLoadError: string | null = null; // Debug: track cache load errors
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
@@ -89,9 +90,13 @@
 
       // Mark cache as ready - app can now render
       cacheReady = true;
+      cacheLoadError = null;
 
     } catch (error) {
       console.error('❌ Cache loading failed:', error);
+
+      // Store error for debugging
+      cacheLoadError = error instanceof Error ? error.message : String(error);
 
       // If it's an auth error, don't spam logs
       if (error instanceof Error && error.message.includes('not authenticated')) {
@@ -121,11 +126,21 @@
   />
 {:else if !cacheReady}
   <!-- Wait for cache to populate before showing app -->
-  <LoadingSpinner
-    fullScreen={true}
-    size="lg"
-    text="Loading collections..."
-  />
+  <div class="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div class="text-center">
+      <LoadingSpinner
+        centered={true}
+        size="lg"
+        text="Loading collections..."
+      />
+      {#if cacheLoadError}
+        <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded text-left max-w-2xl" data-test-error="cache-load-error">
+          <p class="text-red-800 font-semibold mb-2">Debug: Cache Load Error</p>
+          <p class="text-red-600 text-sm font-mono">{cacheLoadError}</p>
+        </div>
+      {/if}
+    </div>
+  </div>
 {:else}
   <!-- Wrap everything in DragProvider so header can access drag context -->
   <DragProvider behaviors={[]}>

@@ -23,10 +23,10 @@ export const authStore = writable<AuthState>({
 export const initAuth = async () => {
   try {
     console.log('🔐 Initializing auth system...');
-    
+
     // Get initial session
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     // Set initial state
     authStore.set({
       user: session?.user ?? null,
@@ -34,7 +34,7 @@ export const initAuth = async () => {
       loading: false,
       initialized: true
     });
-    
+
     console.log('🔐 Auth initialized:', { hasUser: !!session?.user });
 
     // Listen for auth changes - ONLY update state

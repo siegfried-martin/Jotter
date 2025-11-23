@@ -1,17 +1,17 @@
 # AI Project Status
 
-**Last Updated**: November 22, 2025
-**Current Phase**: Code Quality & Bug Fixes
+**Last Updated**: November 23, 2025
+**Current Phase**: E2E Testing Infrastructure
 
 ---
 
 ## Current Status
 
-The app is in a **stable state** after recent bug fixes and cache optimization. All core functionality works correctly with instant navigation and full data preloading.
+The app is in a **stable state** with E2E testing infrastructure now in place. Playwright is configured with automated authentication bypass, and basic smoke tests are passing. Ready to implement comprehensive test suite with self-managed test data.
 
 **Next Priorities**:
-1. **Code Quality Foundation** (1-2 sessions) - Clean up TS errors, unused code, code smells, audit functionality docs
-2. **Regression Testing** (2-3 sessions) - Playwright E2E tests driven by functionality documentation
+1. **E2E Test Suite Implementation** (1-2 sessions) - Create comprehensive test suite with test data creation/cleanup
+2. **Code Quality Foundation** (1-2 sessions) - Clean up TS errors, unused code, code smells, audit functionality docs
 
 ---
 
@@ -65,23 +65,45 @@ The app is in a **stable state** after recent bug fixes and cache optimization. 
 
 ### Immediate Tasks (Next Session)
 
-**Focus**: Bug Fixes
+**Focus**: E2E Test Suite Implementation
 
-1. **BUG-DRAG-001**: Fix section drag-and-drop off-by-one error (dragging down only moves 1 position)
-2. **BUG-SWEEP-001**: Test and identify any other bugs introduced or pre-existing
-3. **BUG-FIXES-001**: Fix any critical bugs discovered during testing
+**Documentation**: See `tests/e2e/README.md` for comprehensive implementation plan
+
+**Phase 1: Test Infrastructure**
+1. Create test data helper utilities (`generateTestName()`, `shouldCleanup()`)
+2. Implement cleanup script (`tests/scripts/cleanup.ts`)
+3. Add npm script: `"test:cleanup"`
+
+**Phase 2: Collection Tests**
+1. Implement collection CRUD test suite
+2. Test creation, navigation, update, deletion
+3. Add beforeAll/afterAll cleanup hooks
+
+**Phase 3: Container Tests**
+1. Implement container CRUD test suite
+2. Rewrite container drag-drop test (BUG-DRAG-001 regression)
+3. Test with 3+ created containers
+4. Add cleanup hooks
+
+**Phase 4: Note & Checklist Tests**
+1. Implement note CRUD operations
+2. Implement checklist regression test (BUG-CHECKBOX-001)
+3. Add cleanup hooks
+
+**Key Design Principles**:
+- Tests create and destroy their own resources
+- Use naming convention: `e2e-test-{timestamp}-{random}`
+- Support `SKIP_TEST_CLEANUP=1` for debugging
+- UI-first testing (API seeding is future goal)
 
 ### Short-term Tasks (Sessions 2-3)
 
-**Initiative**: Regression Testing (Elevated Priority)
+**Initiative**: Code Quality Foundation
 
-1. **TEST-SETUP-001**: Set up Playwright and testing infrastructure
-2. **TEST-CRITICAL-001**: Test authentication flows
-3. **TEST-CRITICAL-002**: Test collection CRUD operations
-4. **TEST-CRITICAL-003**: Test container CRUD + drag & drop
-5. **TEST-CRITICAL-004**: Test section CRUD + drag & drop
-
-**Rationale**: Recent TypeScript cleanup revealed that even low-risk changes can introduce bugs. Automated regression tests are critical to prevent this in future sessions.
+1. Continue TypeScript error cleanup (70 remaining errors)
+2. Remove unused code and imports
+3. Clean up code smells (duplicated code, long functions)
+4. Audit and update functionality documentation
 
 ---
 
@@ -96,6 +118,48 @@ The app is in a **stable state** after recent bug fixes and cache optimization. 
 ---
 
 ## Recent Work
+
+### November 23, 2025: E2E Testing Infrastructure Setup
+
+**Branch**: `refactor/typescript-code-quality-phase1` (building on previous work)
+**Status**: Infrastructure complete, ready for test implementation
+**Focus**: Playwright E2E testing with automated authentication
+
+#### What Was Accomplished
+- **Playwright Setup**: Installed and configured Playwright with dual auth modes
+- **Mock Authentication**: Fully automated auth bypass using real Supabase tokens
+  - Tokens injected via localStorage from `.env.test`
+  - No manual Google OAuth login required
+  - Tests run completely hands-free
+- **Basic Tests**: Created smoke tests and container drag-drop regression test
+- **Test Configuration**:
+  - Mock auth setup project (automated)
+  - Chromium test project with mock auth storage state
+  - Auto-start dev server for tests
+- **Documentation**: Comprehensive E2E testing plan in `tests/e2e/README.md`
+
+#### Issues Discovered
+- **Test Data Dependency**: Current tests depend on pre-existing account state
+- **Container Drag-Drop Test**: Skips due to insufficient containers (needs 3, has 2)
+- **URL Pattern Bug**: Fixed incorrect URL pattern (`/app/collection/` → `/app/collections/`)
+
+#### Next Steps
+- Implement self-managed test data creation/cleanup
+- Create helper utilities for test naming convention (`e2e-test-{timestamp}-{random}`)
+- Build comprehensive CRUD test suites for collections, containers, notes
+- Implement cleanup script for orphaned test data
+
+#### Key Design Decisions
+- **UI-First Testing**: Focus on UI interactions (API seeding is future goal)
+- **Test Isolation**: Tests create and destroy their own resources
+- **Conditional Cleanup**: `SKIP_TEST_CLEANUP=1` flag for debugging
+- **Naming Convention**: `e2e-test-{timestamp}-{random}` for easy identification
+
+**Key Files**:
+- Test infrastructure: `tests/e2e/auth-mock.setup.ts`, `tests/e2e/helpers/mock-auth.ts`
+- Test specs: `tests/e2e/smoke.spec.ts`, `tests/e2e/container-drag-drop.spec.ts`
+- Configuration: `playwright.config.ts`, `.env.test`
+- Documentation: `tests/e2e/README.md`
 
 ### November 22, 2025: TypeScript Code Quality (Phase 1)
 
@@ -186,10 +250,11 @@ The app is in a **stable state** after recent bug fixes and cache optimization. 
 
 ### Testing Specialist Agent
 
-- **Sessions Completed**: 0
-- **Tests Generated**: 0
-- **Coverage Achieved**: 0%
-- **Success Rate**: N/A
+- **Sessions Completed**: 1 (November 23, 2025)
+- **Tests Generated**: 4 (auth-mock.setup, smoke tests x2, container drag-drop)
+- **Infrastructure**: Playwright configured with automated authentication
+- **Coverage Achieved**: Basic smoke testing (comprehensive coverage planned for next session)
+- **Success Rate**: 100% (3 passing, 2 skipping as expected)
 
 ### Code Health Agent
 

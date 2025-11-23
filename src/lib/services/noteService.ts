@@ -263,19 +263,33 @@ export class NoteService {
 
     // Get current note containers for this collection (user-filtered)
     const containers = await this.getNoteContainers(collectionId);
-    
+    console.log('🔧 reorderNoteContainers: Current containers from DB:', {
+      count: containers.length,
+      order: containers.map(c => ({ id: c.id.slice(0, 8), title: c.title, seq: c.sequence }))
+    });
+
     // Calculate sequence updates
     const updates = calculateReorderSequences(containers, fromIndex, toIndex);
-    
+    console.log('🔧 reorderNoteContainers: Sequence updates to apply:', {
+      updateCount: updates.length,
+      updates: updates.map(u => ({ id: u.id.slice(0, 8), newSeq: u.sequence }))
+    });
+
     // Apply updates to database
     const success = await updateNoteContainerSequences(updates);
-    
+    console.log('🔧 reorderNoteContainers: Database update success:', success);
+
     if (!success) {
       throw new Error('Failed to update note container sequences');
     }
-    
+
     // Return updated containers
-    return await this.getNoteContainers(collectionId);
+    const updatedContainers = await this.getNoteContainers(collectionId);
+    console.log('🔧 reorderNoteContainers: Updated containers from DB:', {
+      count: updatedContainers.length,
+      order: updatedContainers.map(c => ({ id: c.id.slice(0, 8), title: c.title, seq: c.sequence }))
+    });
+    return updatedContainers;
   }
 
   // Move note container to specific position within collection
