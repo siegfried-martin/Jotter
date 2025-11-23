@@ -41,6 +41,13 @@ Follow the instructions in `docs/ai_project_status.md` for current priorities an
 - **Human oversight** - AI handles implementation, human reviews and directs
 - **Functionality docs drive tests** - `docs/functionality/` is the source of truth for expected behavior
 
+**Git & Branch Safety**:
+- ⚠️ **NEVER push directly to main without asking first** - Even for cleanup commits or documentation updates
+- **Always work on feature branches** - Create branches for all changes (e.g., `feat/`, `fix/`, `refactor/`, `chore/`)
+- **Ask before pushing to main** - Get explicit user confirmation before `git push` to main
+- **PRs are preferred** - Encourage pull requests for all changes when possible
+- **Exception**: Only push to main if user explicitly requests it or confirms it
+
 ---
 
 ## Technical Architecture
