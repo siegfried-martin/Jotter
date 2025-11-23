@@ -1,32 +1,30 @@
 import { Page } from '@playwright/test';
 
 /**
- * Mock authentication by injecting Supabase session directly into localStorage
- * This bypasses Google OAuth for faster automated testing
- *
- * To set up:
- * 1. Create a test user in Supabase (can be done via Dashboard or admin API)
- * 2. Get the user's access_token and refresh_token
- * 3. Set environment variables or hardcode for test user
+ * Mock authentication by injecting real Supabase session
+ * Uses TEST_ACCESS_TOKEN and TEST_REFRESH_TOKEN from .env.test
  */
 
-interface MockAuthOptions {
-  accessToken?: string;
-  refreshToken?: string;
-  userId?: string;
-  email?: string;
-}
+export async function mockAuth(page: Page) {
+  const accessToken = process.env.TEST_ACCESS_TOKEN;
+  const refreshToken = process.env.TEST_REFRESH_TOKEN;
+  const userId = process.env.TEST_USER_ID;
+  const userEmail = process.env.TEST_USER_EMAIL;
+  const projectRef = process.env.SUPABASE_PROJECT_REF;
 
-export async function mockAuth(page: Page, options: MockAuthOptions = {}) {
+  if (!accessToken || !refreshToken) {
+    throw new Error('TEST_ACCESS_TOKEN and TEST_REFRESH_TOKEN must be set in .env.test');
+  }
+
   const mockSession = {
-    access_token: options.accessToken || process.env.TEST_ACCESS_TOKEN || 'mock-access-token',
-    refresh_token: options.refreshToken || process.env.TEST_REFRESH_TOKEN || 'mock-refresh-token',
+    access_token: accessToken,
+    refresh_token: refreshToken,
     expires_in: 3600,
     expires_at: Math.floor(Date.now() / 1000) + 3600,
     token_type: 'bearer',
     user: {
-      id: options.userId || process.env.TEST_USER_ID || 'mock-user-id',
-      email: options.email || process.env.TEST_USER_EMAIL || 'test@example.com',
+      id: userId || 'test-user-id',
+      email: userEmail || 'test@example.com',
       aud: 'authenticated',
       role: 'authenticated',
       created_at: new Date().toISOString(),
@@ -34,15 +32,11 @@ export async function mockAuth(page: Page, options: MockAuthOptions = {}) {
     }
   };
 
-  // Navigate to app first
+  // Navigate to app first to initialize page
   await page.goto('/');
 
-  // Inject mock session into Supabase's localStorage format
-  const projectRef = process.env.SUPABASE_PROJECT_REF;
-
+  // Inject session into Supabase localStorage
   await page.evaluate(({ session, projectRef }) => {
-    // Construct the Supabase localStorage key
-    // Format: sb-{project-ref}-auth-token
     const supabaseKey = projectRef
       ? `sb-${projectRef}-auth-token`
       : Object.keys(localStorage).find(key =>
@@ -51,18 +45,18 @@ export async function mockAuth(page: Page, options: MockAuthOptions = {}) {
 
     if (supabaseKey) {
       localStorage.setItem(supabaseKey, JSON.stringify(session));
-      console.log('✓ Injected auth session into', supabaseKey);
+      console.log('✅ Injected real auth session into', supabaseKey);
     } else {
       console.error('❌ Could not determine Supabase auth key');
-      console.error('Set SUPABASE_PROJECT_REF in .env.test');
     }
   }, { session: mockSession, projectRef });
 
-  // Reload to apply auth
+  // Reload to apply the session
   await page.reload();
-  await page.waitForURL('/app/**', { timeout: 5000 }).catch(() => {
-    console.warn('Mock auth may not have worked - app did not redirect to /app');
-  });
+
+  // Wait for redirect to /app (can be /app or /app/something)
+  await page.waitForURL(/\/app/, { timeout: 10000 });
+  console.log('✅ Mock auth complete - authenticated with real tokens');
 }
 
 /**

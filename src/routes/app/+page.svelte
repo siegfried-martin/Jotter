@@ -17,23 +17,23 @@
   onMount(async () => {
     console.log('📱 Collections page loaded');
     console.log('📱 App state:', $appStore);
-    
+
     // Check if we should redirect to last visited location
     const shouldRedirect = await NavigationService.shouldRedirectToLastVisited();
     console.log('📱 Should redirect to last visited?', shouldRedirect);
-    
+
     if (shouldRedirect) {
       console.log('🚀 Redirecting to last visited location');
       const redirected = await NavigationService.redirectToLastVisited();
       console.log('🚀 Redirect completed?', redirected);
-      
+
       if (redirected) {
         // Successfully redirected, don't load collections
         console.log('✅ Successfully redirected, exiting');
         return;
       }
     }
-    
+
     // If we reach here, user should see the collections page
     console.log('📋 Showing collections page');
     shouldShowCollections = true;

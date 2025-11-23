@@ -2,7 +2,9 @@ import { test as setup, expect } from '@playwright/test';
 
 const authFile = 'playwright/.auth/user.json';
 
-setup('authenticate with Google', async ({ page }) => {
+// Skip this test by default - it requires manual OAuth login
+// Run manually with: npx playwright test --project=oauth-setup
+setup.skip('authenticate with Google', async ({ page }) => {
   console.log('🔐 Starting Google OAuth authentication...');
 
   // Navigate to login page

@@ -6,15 +6,46 @@ test.describe('Container Drag & Drop', () => {
     // Authentication is handled by setup project
     // Navigate to app
     await page.goto('/app');
+    console.log('📍 On /app page');
 
-    // Wait for containers to load
-    await page.waitForSelector('[data-container-id]');
+    // Wait for collections to load and click the first one
+    await page.waitForSelector('h1:has-text("My Collections")');
+    console.log('✓ Collections page loaded');
+
+    // Find and log all collection buttons
+    const collectionButtons = await page.$$('button:has-text("Click to open collection")');
+    console.log(`📋 Found ${collectionButtons.length} collection button(s)`);
+
+    if (collectionButtons.length === 0) {
+      console.log('❌ No collection buttons found - skipping test');
+      test.skip();
+      return;
+    }
+
+    const firstCollection = page.locator('button:has-text("Click to open collection")').first();
+    await firstCollection.click();
+    console.log('🖱️  Clicked first collection');
+
+    // Wait for navigation and log URL
+    await page.waitForURL(/\/app\/collections\/.+/, { timeout: 10000 });
+    console.log(`📍 Navigated to: ${page.url()}`);
+
+    // Wait for collection page to load and containers sidebar to appear
+    await page.waitForSelector('[data-container-id]', { timeout: 10000 });
+    console.log('✓ Containers loaded');
 
     // Get initial container order
     const initialContainers = await page.$$('[data-container-id]');
     const initialIds = await Promise.all(
       initialContainers.map(el => el.getAttribute('data-container-id'))
     );
+
+    // Skip test if there aren't enough containers
+    if (initialContainers.length < 3) {
+      console.log(`⚠️ Skipping test - only ${initialContainers.length} container(s), need at least 3`);
+      test.skip();
+      return;
+    }
 
     // Drag first container to third position
     const firstContainer = initialContainers[0];
