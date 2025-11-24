@@ -18,11 +18,9 @@ setup('mock authentication', async ({ page }) => {
   // Use mock auth helper (sets test mode flag)
   await mockAuth(page);
 
-  // Verify we can access the app by checking for collections heading or create button
+  // Verify we can access the app by checking for collections heading
   try {
-    await page.waitForSelector('h1:has-text("My Collections"), button:has-text("Create New Collection")', {
-      timeout: 10000
-    });
+    await page.locator('h1:has-text("My Collections")').waitFor({ state: 'visible', timeout: 10000 });
     console.log('✓ Mock authentication successful - collections page loaded');
   } catch (error) {
     console.error('❌ Mock auth failed - app did not load collections page');

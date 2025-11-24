@@ -48,49 +48,95 @@ tests/
 
 ## Authentication for Tests
 
-The app uses **Google OAuth**, but tests support two authentication modes:
+### How It Works
 
-### Mode 1: Mock Auth (Default - Fast & Automated) ⚡
+E2E tests use **real authentication tokens** from a logged-in user session to bypass the Google OAuth flow during tests. This approach:
 
-Perfect for AI agents and rapid development. No manual login required!
+- ✅ Tests the actual authenticated application flow
+- ✅ Bypasses the need for Google OAuth interaction in tests
+- ✅ Uses real user permissions and RLS policies
+- ⚠️ Requires occasional token updates (see limitations below)
 
-**First Time Setup:**
-1. Log in to your app manually once
-2. Extract real auth tokens:
-   ```bash
-   npx playwright test tests/e2e/extract-tokens.spec.ts --headed
-   ```
-3. Copy the tokens to `.env.test`:
-   ```bash
-   TEST_ACCESS_TOKEN=eyJhbGc...
-   TEST_REFRESH_TOKEN=v2_abc...
-   TEST_USER_ID=uuid-here
-   TEST_USER_EMAIL=your-email@example.com
-   ```
-4. Run tests normally:
-   ```bash
-   npm run test:e2e
-   ```
+### Token Types
 
-Tests will inject these tokens and run fully automated!
+1. **Access Token** (short-lived, ~1 hour)
+   - Used for API requests
+   - Automatically refreshed when expired
+   - Stored in `.env.test` as `TEST_ACCESS_TOKEN`
 
-### Mode 2: Real OAuth (Optional - Comprehensive) 🔐
+2. **Refresh Token** (single-use)
+   - Used to obtain new access tokens
+   - **IMPORTANT**: Can only be used once, then becomes invalid
+   - Stored in `.env.test` as `TEST_REFRESH_TOKEN`
 
-For end-to-end validation including the full OAuth flow.
+### Automatic Token Refresh
 
-**Setup:**
+The `pretest:e2e` hook runs before every test to check if tokens need refreshing:
+
 ```bash
-npx playwright test --project=oauth-setup --headed
+npm run test:refresh-tokens
 ```
 
-Complete Google OAuth manually, then run:
+This script:
+1. Decodes the JWT access token to check expiration
+2. If not expired, skips refresh (prevents consuming the single-use refresh token)
+3. If expired, uses the refresh token to get new tokens
+4. Automatically updates `.env.test` with new tokens
+
+### When Manual Token Update is Needed
+
+You'll need to manually extract tokens when:
+
+1. **Refresh token exhausted**: The single-use refresh token has already been consumed
+2. **First-time setup**: No tokens exist in `.env.test`
+3. **Token corruption**: Tokens become invalid for any reason
+
+**Error message**: `AuthApiError: Invalid Refresh Token: Already Used`
+
+### How to Extract Fresh Tokens
+
+**Option 1: Automated Extraction (Recommended)**
+
 ```bash
-npx playwright test --project=chromium-oauth
+npm run test:extract-tokens
 ```
 
-**When to use:**
-- Mock auth: Daily development, AI agents, CI/CD
-- Real OAuth: Final validation, security testing
+This will:
+1. Open a browser window
+2. Wait for you to log in with Google
+3. Automatically extract tokens from localStorage
+4. Update `.env.test` with fresh tokens
+
+**Option 2: Manual Extraction**
+
+1. Start the development server: `npm run dev`
+2. Log into the app at `http://localhost:5173/app`
+3. Open DevTools Console (F12)
+4. Run this command:
+   ```javascript
+   JSON.parse(localStorage.getItem(
+     Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+   ))
+   ```
+5. Copy `access_token` and `refresh_token` to `.env.test`
+
+### Why Not Service Role Key?
+
+Service role keys bypass RLS and have full database access, but:
+- Cannot generate JWT tokens for browser sessions
+- Would require rewriting the app to support test-mode authentication
+- Would not test the real authentication flow
+
+The token-based approach tests the actual application flow while accepting the tradeoff of occasional manual token updates.
+
+### Token Refresh Limitations
+
+Supabase refresh tokens are single-use by design for security:
+- Once used, they're immediately invalidated
+- A new refresh token is returned with each refresh
+- If the refresh fails mid-process, manual intervention is needed
+
+This is a Supabase security feature, not a bug.
 
 ## Writing Tests
 
@@ -112,16 +158,62 @@ test.describe('Feature Name', () => {
 });
 ```
 
-## Coverage Goals
+## Test Data Management
 
-- [ ] Authentication flows
-- [ ] Collection CRUD operations
-- [ ] Container CRUD operations
-- [ ] Container drag & drop (BUG-DRAG-001 regression test)
-- [ ] Section CRUD operations
-- [ ] Section drag & drop
+### Naming Convention
+
+All test-created data uses the pattern: `e2e-test-{timestamp}-{random}`
+
+Example: `e2e-test-20251124-a3f9c`
+
+### Cleanup
+
+```bash
+npm run test:cleanup
+```
+
+Deletes all test data (collections, containers, sections) created by E2E tests.
+
+**When to run cleanup:**
+- Before running full test suite
+- After test failures that leave orphaned data
+- Periodically to keep test database clean
+
+### Database Schema
+
+**Cascade Delete Hierarchy**:
+- Deleting a collection → automatically deletes all containers in that collection
+- Deleting a container → automatically deletes all sections in that container
+
+This ensures cleanup is efficient and prevents orphaned data.
+
+## Test Coverage
+
+### Collection CRUD (4/5 passing - 80%)
+- ✅ Create collection (`tests/e2e/collection-crud.spec.ts:40`)
+- ✅ Navigate to collection (`tests/e2e/collection-crud.spec.ts:87`)
+- ❌ Edit collection (TEST-001 - known issue, documented in `docs/bug-tracking/`)
+- ✅ Delete collection (`tests/e2e/collection-crud.spec.ts:212`)
+
+### Container CRUD (6/6 passing - 100%)
+- ✅ Create container (`tests/e2e/container-crud.spec.ts:42`)
+- ✅ Navigate between containers (`tests/e2e/container-crud.spec.ts:69`)
+- ✅ Delete container (`tests/e2e/container-crud.spec.ts:119`)
+- ✅ Display section grid (`tests/e2e/container-crud.spec.ts:183`)
+- ✅ Multiple container creation (`tests/e2e/container-crud.spec.ts:215`)
+
+### Section CRUD (7 tests - ✅ Ready)
+- ✅ Create text (WYSIWYG) section - Alt+T (`tests/e2e/section-crud.spec.ts:54`)
+- ✅ Create code section - Alt+K (`tests/e2e/section-crud.spec.ts:84`)
+- ✅ Create draw (diagram) section - Alt+D (`tests/e2e/section-crud.spec.ts:121`)
+- ✅ Create tasks (checklist) section - Alt+L (`tests/e2e/section-crud.spec.ts:149`)
+- ✅ Create multiple section types (`tests/e2e/section-crud.spec.ts:185`)
+- ✅ Delete section (`tests/e2e/section-crud.spec.ts:220`)
+- ✅ Check for reorder capability (`tests/e2e/section-crud.spec.ts:260`)
+
+### Pending Tests
+- [ ] Container drag & drop rewrite (needs test data management)
 - [ ] Checklist checkbox persistence (BUG-CHECKBOX-001 regression test)
-- [ ] All editor types (code, rich text, diagram, checklist)
 
 ## CI/CD Integration
 

@@ -339,11 +339,19 @@ The `docs/functionality/` directory is the **source of truth** for:
 ### Session Workflow
 
 1. **Read required docs**: ai_overview.md (this file), project_overview.md, ai_project_status.md
-2. **Check current initiative**: See `docs/ai_project_status.md` for current focus
-3. **Work systematically**: Follow initiative phases, don't skip ahead
-4. **Test thoroughly**: Manual testing after each change, automated tests when available
-5. **Update status doc**: Suggest updating `ai_project_status.md` when completing work
-6. **Commit clearly**: Clear messages, AI signature footer
+2. **Refresh authentication tokens** (if working with tests): Run `npm run test:extract-tokens` to ensure fresh tokens for E2E tests (~30 seconds, browser-based)
+3. **Check current initiative**: See `docs/ai_project_status.md` for current focus
+4. **Work systematically**: Follow initiative phases, don't skip ahead
+5. **Test thoroughly**: Manual testing after each change, automated tests when available
+6. **Update status doc**: Suggest updating `ai_project_status.md` when completing work
+7. **Commit clearly**: Clear messages, AI signature footer
+
+**Note on Token Refresh**:
+- Only needed when working with E2E tests or testing functionality
+- Takes ~30 seconds - browser opens, you log in, tokens auto-update
+- Ensures tokens are fresh for entire session (avoids mid-session auth failures)
+- Skip this step if not running tests in the current session
+- See `tests/README.md` for details on why this is needed
 
 ### Updating ai_project_status.md
 
