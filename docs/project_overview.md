@@ -25,17 +25,81 @@
 **Database Schema**:
 
 ```sql
--- Core tables with sequence and title support
-note_container (id, title, user_id, collection_id, sequence, created_at, updated_at)
-note_section (id, note_container_id, user_id, type, title, content, sequence, meta, checklist_data, created_at, updated_at)
-collections (id, name, description, color, is_default, user_id, sequence, created_at, updated_at)
-user_preferences (id, user_id, theme, default_editor, auto_save_delay, keyboard_shortcuts, last_visited_collection_id, last_visited_container_id, created_at, updated_at)
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.collections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  description text,
+  user_id uuid NOT NULL,
+  color character varying DEFAULT '#3B82F6'::character varying,
+  is_default boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  sequence integer NOT NULL DEFAULT 0,
+  CONSTRAINT collections_pkey PRIMARY KEY (id),
+  CONSTRAINT collections_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+CREATE TABLE public.note_container (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  user_id uuid NOT NULL,
+  collection_id uuid NOT NULL,
+  sequence integer NOT NULL DEFAULT 0,
+  CONSTRAINT note_container_pkey PRIMARY KEY (id),
+  CONSTRAINT note_container_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT note_container_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id)
+);
+
+CREATE TABLE public.note_section (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  note_container_id uuid NOT NULL,
+  type text NOT NULL CHECK (type = ANY (ARRAY['checklist'::text, 'code'::text, 'wysiwyg'::text, 'diagram'::text])),
+  content text NOT NULL DEFAULT ''::text,
+  sequence integer NOT NULL,
+  meta jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  checklist_data jsonb,
+  user_id uuid NOT NULL,
+  title text,
+  CONSTRAINT note_section_pkey PRIMARY KEY (id),
+  CONSTRAINT note_sections_container_id_fkey FOREIGN KEY (note_container_id) REFERENCES public.note_container(id),
+  CONSTRAINT note_section_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+CREATE TABLE public.user_preferences (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  theme character varying DEFAULT 'light'::character varying,
+  default_editor character varying DEFAULT 'code'::character varying,
+  auto_save_delay integer DEFAULT 1000,
+  keyboard_shortcuts jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  last_visited_collection_id uuid,
+  last_visited_container_id uuid,
+  CONSTRAINT user_preferences_pkey PRIMARY KEY (id),
+  CONSTRAINT user_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT user_preferences_last_visited_collection_id_fkey FOREIGN KEY (last_visited_collection_id) REFERENCES public.collections(id),
+  CONSTRAINT user_preferences_last_visited_container_id_fkey FOREIGN KEY (last_visited_container_id) REFERENCES public.note_container(id)
+);
 
 -- Database functions for sequence management
 get_next_collection_sequence(user_id)
 get_next_note_container_sequence(collection_id) -- Modified for newest-first ordering
 get_next_note_section_sequence(note_container_id)
 ```
+
+**Foreign Key Cascade Behavior** (configured November 24, 2025):
+- ✅ `note_container.collection_id` → `ON DELETE CASCADE` (containers deleted when collection is deleted)
+- ✅ `note_section.note_container_id` → `ON DELETE CASCADE` (sections deleted when container is deleted)
+- ✅ `user_preferences.last_visited_collection_id` → `ON DELETE SET NULL`
+- ✅ `user_preferences.last_visited_container_id` → `ON DELETE SET NULL`
 
 ## Current Status - September 13, 2025
 
