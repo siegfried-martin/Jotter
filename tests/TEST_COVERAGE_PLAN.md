@@ -198,11 +198,19 @@ Legend:
 7. Title validation (empty → "Untitled")
 8. Collection edit validation
 
-### Phase 3: Drag & Drop (Medium Priority)
-9. Container reorder within collection (fix existing test)
-10. Section reorder within container
-11. Cross-container section moves
-12. Cross-collection container moves
+### Phase 3: Drag & Drop (CRITICAL Priority)
+
+**See detailed plan**: `tests/PHASE3_DRAG_DROP_TEST_PLAN.md`
+
+**Key Insight**: The app uses THREE different DnD systems:
+1. **Custom Pointer-Based DnD** - Sections (8px threshold, pointer events)
+2. **svelte-dnd-action** - Container reorder (standard mouse events)
+3. **HTML5 DnD + svelte-dnd-action** - Cross-collection container moves
+
+9. Container reorder within collection (svelte-dnd-action)
+10. Section reorder within container (custom DnD)
+11. Cross-container section moves (custom DnD)
+12. Cross-collection container moves (HTML5 + svelte-dnd-action)
 
 ### Phase 4: Editor Features (Medium Priority)
 13. Checklist item management (add, edit, delete, toggle)
@@ -247,4 +255,4 @@ All test data uses: `e2e-test-{timestamp}-{random}-{description}`
 
 ---
 
-**Last Updated**: November 24, 2025
+**Last Updated**: November 25, 2025

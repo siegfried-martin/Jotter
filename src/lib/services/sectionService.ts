@@ -1,5 +1,5 @@
 // src/lib/services/sectionService.ts
-import { supabase } from '$lib/supabase';
+import { supabase, getAuthenticatedUser } from '$lib/supabase';
 import type { NoteSection, CreateNoteSection, ChecklistItem, SequenceUpdate } from '$lib/types';
 import { getNextNoteSectionSequence, updateNoteSectionSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
@@ -23,7 +23,7 @@ export class SectionService {
 
   // Create a new section - NOW WITH ENHANCED SEQUENCE SUPPORT
   static async createSection(section: CreateNoteSection): Promise<NoteSection> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Get next sequence if not provided

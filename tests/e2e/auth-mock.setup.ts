@@ -18,12 +18,17 @@ setup('mock authentication', async ({ page }) => {
   // Use mock auth helper (sets test mode flag)
   await mockAuth(page);
 
-  // Verify we can access the app by checking for collections heading
+  // Verify we can access the app by checking for the Jotter header (exists on all authenticated pages)
   try {
-    await page.locator('h1:has-text("My Collections")').waitFor({ state: 'visible', timeout: 10000 });
-    console.log('✓ Mock authentication successful - collections page loaded');
+    // Wait for network to settle first
+    await page.waitForLoadState('networkidle');
+
+    // Look for Jotter header which exists on any authenticated page
+    const jotterHeader = page.locator('h1:has-text("Jotter")');
+    await jotterHeader.waitFor({ state: 'visible', timeout: 15000 });
+    console.log('✓ Mock authentication successful - app loaded');
   } catch (error) {
-    console.error('❌ Mock auth failed - app did not load collections page');
+    console.error('❌ Mock auth failed - app did not load');
     console.error('Check that TEST_ACCESS_TOKEN and TEST_REFRESH_TOKEN are valid in .env.test');
     throw error;
   }

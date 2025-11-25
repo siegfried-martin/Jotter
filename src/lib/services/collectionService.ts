@@ -1,5 +1,5 @@
 // src/lib/services/collectionService.ts
-import { supabase } from '$lib/supabase';
+import { supabase, getAuthenticatedUser } from '$lib/supabase';
 import type { Collection, CreateCollection, SequenceUpdate } from '$lib/types';
 import { getNextCollectionSequence, updateCollectionSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
@@ -7,7 +7,7 @@ import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 export class CollectionService {
   // Get all collections for current user - NOW WITH PROPER USER FILTERING
   static async getCollections(): Promise<Collection[]> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -26,7 +26,7 @@ export class CollectionService {
 
   // Get single collection by ID - WITH PROPER USER FILTERING
   static async getCollection(collectionId: string): Promise<Collection | null> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -50,7 +50,7 @@ export class CollectionService {
 
   // Get default collection for current user - NOW WITH PROPER USER FILTERING
   static async getDefaultCollection(): Promise<Collection | null> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -72,7 +72,7 @@ export class CollectionService {
 
   // Create new collection - ENHANCED with default collection logic
   static async createCollection(collection: CreateCollection): Promise<Collection> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Get next sequence if not provided
@@ -106,10 +106,10 @@ export class CollectionService {
 
   // Update collection - NOW SUPPORTS SEQUENCE UPDATES
   static async updateCollection(
-    id: string, 
+    id: string,
     updates: Partial<CreateCollection> & { sequence?: number }
   ): Promise<Collection> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -133,7 +133,7 @@ export class CollectionService {
 
   // Delete collection - ENHANCED with orphan note handling
   static async deleteCollection(id: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // First, move any notes in this collection to the user's default collection
@@ -164,7 +164,7 @@ export class CollectionService {
     fromIndex: number,
     toIndex: number
   ): Promise<Collection[]> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Get current collections for this user
