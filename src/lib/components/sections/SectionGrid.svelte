@@ -4,6 +4,7 @@
   import DraggableContainer from '$lib/dnd/components/DraggableContainer.svelte';
   import SectionCard from './SectionCard.svelte';
   import type { NoteSection } from '$lib/types';
+  import { isTouchDevice } from '$lib/utils/deviceUtils';
 
   export let sections: NoteSection[] = [];
   export let noteContainerId: string;
@@ -113,7 +114,7 @@
         itemType="section"
         itemIndex={originalIndexMap.get(section.id) ?? index}
         {zoneId}
-        disabled={!sortMode}
+        disabled={!sortMode || $isTouchDevice}
         className="section-draggable-container"
         on:click={handleSectionClick}
       >

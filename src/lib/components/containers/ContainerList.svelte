@@ -4,6 +4,7 @@
   import { dndzone } from 'svelte-dnd-action';
   import ContainerItem from './ContainerItem.svelte';
   import type { NoteContainer } from '$lib/types';
+  import { isTouchDevice } from '$lib/utils/deviceUtils';
   
   export let containers: NoteContainer[] = [];
   export let selectedContainer: NoteContainer | null = null;
@@ -196,7 +197,7 @@
         backgroundColor: 'rgba(59, 130, 246, 0.05)'
       },
       transformDraggedElement: dragTransform.transform,
-      dragDisabled: false,
+      dragDisabled: $isTouchDevice,
       morphDisabled: true,
       dropFromOthersDisabled: false,
       centreDraggedOnCursor: true
@@ -205,10 +206,10 @@
     on:finalize={handleContainerFinalize}
   >
     {#each dndContainers as container (container.id)}
-      <div 
+      <div
         class="container-wrapper"
         data-container-id={container.id}
-        draggable="true"
+        draggable={!$isTouchDevice}
         on:dragstart={(e) => {
           console.log('HTML5 dragstart fired for container:', container.id);
           if (e.dataTransfer) {

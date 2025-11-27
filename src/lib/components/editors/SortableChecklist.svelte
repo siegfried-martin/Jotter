@@ -4,6 +4,7 @@
   import SortableList from '../ui/SortableList.svelte';
   import SortableChecklistItem from './SortableChecklistItem.svelte';
   import type { ChecklistItem } from '$lib/types';
+  import { isTouchDevice } from '$lib/utils/deviceUtils';
 
   export let items: ChecklistItem[] = [];
   export let isMobile: boolean = false;
@@ -32,11 +33,12 @@
   }
 </script>
 
-<SortableList 
+<SortableList
   {items}
   direction="vertical"
   spacing="space-y-2"
   containerClass={isMobile ? "w-full" : "lg:w-full"}
+  disabled={$isTouchDevice}
   on:reorder={handleReorder}
 >
   <svelte:fragment slot="default" let:item let:index>

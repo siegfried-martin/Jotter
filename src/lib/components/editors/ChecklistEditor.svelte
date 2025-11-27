@@ -3,13 +3,14 @@
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import type { ChecklistItem } from '$lib/types';
   import SortableChecklist from './SortableChecklist.svelte';
-  
+  import { isTouchDevice } from '$lib/utils/deviceUtils';
+
   export let checklistData: ChecklistItem[] = [];
-  
+
   const dispatch = createEventDispatcher<{
     dataChange: ChecklistItem[];
   }>();
-  
+
   let items: ChecklistItem[] = [];
   let isMobile = false;
   
@@ -160,7 +161,7 @@
     <!-- Keyboard Hints - Hidden on mobile -->
     {#if !isMobile}
       <div class="mt-2 text-xs text-gray-500">
-        <div>⌨️ Shortcuts: Enter = new item • Backspace on empty = delete • Drag handle to reorder</div>
+        <div>⌨️ Shortcuts: Enter = new item • Backspace on empty = delete{#if !$isTouchDevice} • Drag handle to reorder{/if}</div>
       </div>
     {/if}
   </div>
