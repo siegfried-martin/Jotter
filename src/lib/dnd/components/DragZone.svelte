@@ -58,22 +58,29 @@
     };
   });
 
-  // Re-setup drag when key props change
-  $: if (element && !disabled) {
-    // Clean up previous attachment
-    if (cleanup) {
-      cleanup();
+  // Re-setup drag when key props change, or clean up when disabled
+  // Note: We reference `disabled` explicitly to ensure reactivity when it changes
+  $: {
+    const isDisabled = disabled; // Explicit reference for reactivity
+    if (element) {
+      // Clean up previous attachment
+      if (cleanup) {
+        cleanup();
+        cleanup = null;
+      }
+
+      // Only set up new attachment if not disabled
+      if (!isDisabled) {
+        const config: DragConfig = {
+          item,
+          itemType,
+          zoneId,
+          itemIndex
+        };
+
+        cleanup = attachDragTo(element, config);
+      }
     }
-
-    // Set up new attachment
-    const config: DragConfig = {
-      item,
-      itemType,
-      zoneId,
-      itemIndex
-    };
-
-    cleanup = attachDragTo(element, config);
   }
 
   // Handle external click events (forwarded from DragProvider)

@@ -2,6 +2,7 @@
 <script lang="ts">
   import { createEventDispatcher, tick } from 'svelte';
   import type { ChecklistItem } from '$lib/types';
+  import { isTouchDevice } from '$lib/utils/deviceUtils';
 
   export let item: ChecklistItem;
   export let index: number;
@@ -58,12 +59,14 @@
   class:bg-gray-50={!item.priority}
   style={priorityStyle}
 >
-  <!-- Drag Handle -->
-  <div class="drag-handle cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-400 hover:text-gray-600">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
-    </svg>
-  </div>
+  <!-- Drag Handle - Hidden on touch devices -->
+  {#if !$isTouchDevice}
+    <div class="drag-handle cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-400 hover:text-gray-600">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+      </svg>
+    </div>
+  {/if}
 
   <!-- Checkbox -->
   <input 

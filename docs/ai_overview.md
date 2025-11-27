@@ -345,6 +345,33 @@ The `docs/functionality/` directory is the **source of truth** for:
 5. **Update status doc**: Suggest updating `ai_project_status.md` when completing work
 6. **Commit clearly**: Clear messages, AI signature footer
 
+**Testing Strategy**:
+
+Use a tiered approach to balance speed with confidence:
+
+1. **After each code change**: Run `npm run build` to catch TypeScript/compilation errors
+2. **After completing a feature/fix**: Run targeted tests if available (e.g., `npx playwright test tests/e2e/checklist.spec.ts`)
+3. **Before committing**: Run full E2E suite (`npm run test:e2e`) + cleanup (`npm run test:cleanup`)
+
+**Targeted Test Files** (use when changes are localized):
+- `tests/e2e/collection-crud.spec.ts` - Collection operations
+- `tests/e2e/container-crud.spec.ts` - Container operations
+- `tests/e2e/section-crud.spec.ts` - Section operations
+- `tests/e2e/inline-editing.spec.ts` - Title editing
+- `tests/e2e/drag-drop.spec.ts` - Drag and drop
+- `tests/e2e/checklist.spec.ts` - Checklist editor
+- `tests/e2e/edge-cases.spec.ts` - Validation and navigation
+
+**When to run full suite**:
+- Before any commit (mandatory)
+- After changes to shared components (stores, utils, types)
+- After changes to DnD system or cache architecture
+- When unsure which tests are affected
+
+**Cleanup Rules**:
+- **Always run `npm run test:cleanup` after E2E tests** to remove test data
+- **Exception**: Only skip cleanup if user explicitly asks to keep test data for debugging
+
 **Note on Token Management**:
 - **Automatic token refresh**: E2E tests automatically check and refresh tokens when needed
 - **No manual action required**: Just run `npm run test:e2e` and tokens will refresh automatically
