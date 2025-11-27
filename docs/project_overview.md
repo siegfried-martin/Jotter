@@ -22,6 +22,24 @@
 - Editors: CodeMirror 6 (code) + Quill (rich text) + Excalidraw (diagrams)
 - Drag & Drop: Hybrid system (Custom for sections, svelte-dnd-action for containers)
 
+**Application Routes/States**:
+
+The app has three primary views:
+
+1. **Collections Grid** (`/app`)
+   - Displays all collections as a grid of cards
+   - Entry point after login
+
+2. **Container Page** (`/app/collections/{collectionId}/containers/{containerId}`)
+   - Left sidebar: List of container tabs for the collection (reorderable via drag)
+   - Right area: Grid of note sections for the selected container
+   - Always has exactly one container selected (invariant)
+   - Navigating to `/app/collections/{id}` redirects to the most recently visited container for that collection
+
+3. **Section Editor** (`/app/collections/{collectionId}/containers/{containerId}/sections/{sectionId}`)
+   - Full-screen editor for a single note section
+   - Editor type depends on section type (code, wysiwyg, diagram, checklist)
+
 **Database Schema**:
 
 ```sql

@@ -3,6 +3,11 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 
 export const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
 
+// Expose supabase client for E2E testing (no security impact - client uses public anon key)
+if (typeof window !== 'undefined') {
+	(window as any).__SUPABASE_CLIENT__ = supabase;
+}
+
 /**
  * Get authenticated user with timeout protection.
  * Prevents infinite hangs when getUser() network call fails silently.

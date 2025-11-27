@@ -60,7 +60,12 @@ export async function dragSectionTo(
 
 /**
  * Performs a mouse-based drag for svelte-dnd-action (containers).
- * Uses standard mouse events without threshold requirements.
+ *
+ * svelte-dnd-action requires specific timing and event sequence to work with Playwright.
+ * Key findings from testing:
+ * - Hover first to let element register
+ * - Add delays between mouse events
+ * - Use many steps (20) for the move
  *
  * @param page - Playwright page object
  * @param source - Source element locator
@@ -73,24 +78,30 @@ export async function dragContainerTo(
 	target: Locator,
 	options: { steps?: number; waitAfter?: number } = {}
 ): Promise<void> {
-	const { steps = 5, waitAfter = 500 } = options;
+	const { steps = 20, waitAfter = 500 } = options;
 
-	const sourceBox = await source.boundingBox();
 	const targetBox = await target.boundingBox();
 
-	if (!sourceBox || !targetBox) {
-		throw new Error('Could not get bounding boxes for drag operation');
+	if (!targetBox) {
+		throw new Error('Could not get bounding box for target');
 	}
 
-	// svelte-dnd-action uses hover + mousedown + mousemove + mouseup
+	// svelte-dnd-action requires specific timing to work with Playwright
+	// 1. Hover first to let the element register
 	await source.hover();
-	await page.mouse.down();
+	await page.waitForTimeout(200);
 
-	// Move to target
+	// 2. Mouse down with delay
+	await page.mouse.down();
+	await page.waitForTimeout(100);
+
+	// 3. Move with many steps (important for svelte-dnd-action)
 	await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
 		steps
 	});
 
+	// 4. Small delay before releasing
+	await page.waitForTimeout(100);
 	await page.mouse.up();
 	await page.waitForTimeout(waitAfter);
 }
@@ -217,6 +228,114 @@ export async function getCenter(locator: Locator): Promise<{ x: number; y: numbe
 		x: box.x + box.width / 2,
 		y: box.y + box.height / 2
 	};
+}
+
+/**
+ * Bypasses drag UI to move a section to a different container via direct API call.
+ * Uses the app's Supabase client to update the section's container.
+ *
+ * @param page - Playwright page object
+ * @param sectionId - ID of the section to move
+ * @param toContainerId - Target container ID
+ */
+export async function moveSectionToContainer(
+	page: Page,
+	sectionId: string,
+	toContainerId: string
+): Promise<boolean> {
+	// Use the app's Supabase client directly
+	const result = await page.evaluate(
+		async ({ sectionId, toContainerId }) => {
+			try {
+				// Access the Supabase client from the app's window context
+				// @ts-ignore - window.__SUPABASE_CLIENT__ is set by the app
+				const supabase = window.__SUPABASE_CLIENT__;
+				if (!supabase) {
+					console.error('Supabase client not found on window');
+					return { success: false, error: 'Supabase client not found' };
+				}
+
+				const { data, error } = await supabase
+					.from('note_section')
+					.update({
+						note_container_id: toContainerId,
+						updated_at: new Date().toISOString()
+					})
+					.eq('id', sectionId)
+					.select()
+					.single();
+
+				if (error) {
+					console.error('Error moving section:', error);
+					return { success: false, error: error.message };
+				}
+
+				console.log('Section moved successfully:', data);
+				return { success: true, data };
+			} catch (e: any) {
+				console.error('Exception moving section:', e);
+				return { success: false, error: e.message };
+			}
+		},
+		{ sectionId, toContainerId }
+	);
+
+	await page.waitForTimeout(500);
+	return result.success;
+}
+
+/**
+ * Bypasses drag UI to move a container to a different collection via direct API call.
+ * Uses the app's Supabase client to update the container's collection.
+ *
+ * @param page - Playwright page object
+ * @param containerId - ID of the container to move
+ * @param targetCollectionId - Target collection ID
+ */
+export async function moveContainerToCollection(
+	page: Page,
+	containerId: string,
+	targetCollectionId: string
+): Promise<boolean> {
+	// Use the app's Supabase client directly
+	const result = await page.evaluate(
+		async ({ containerId, targetCollectionId }) => {
+			try {
+				// Access the Supabase client from the app's window context
+				// @ts-ignore - window.__SUPABASE_CLIENT__ is set by the app
+				const supabase = window.__SUPABASE_CLIENT__;
+				if (!supabase) {
+					console.error('Supabase client not found on window');
+					return { success: false, error: 'Supabase client not found' };
+				}
+
+				const { data, error } = await supabase
+					.from('note_container')
+					.update({
+						collection_id: targetCollectionId,
+						updated_at: new Date().toISOString()
+					})
+					.eq('id', containerId)
+					.select()
+					.single();
+
+				if (error) {
+					console.error('Error moving container:', error);
+					return { success: false, error: error.message };
+				}
+
+				console.log('Container moved successfully:', data);
+				return { success: true, data };
+			} catch (e: any) {
+				console.error('Exception moving container:', e);
+				return { success: false, error: e.message };
+			}
+		},
+		{ containerId, targetCollectionId }
+	);
+
+	await page.waitForTimeout(500);
+	return result.success;
 }
 
 /**

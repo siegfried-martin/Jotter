@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
+    "test:e2e:no-cleanup": "SKIP_CLEANUP=1 playwright test",
     "test:cleanup": "tsx tests/scripts/cleanup.ts",
     "test:refresh-tokens": "tsx tests/scripts/refresh-tokens.ts",
     "test:extract-tokens": "tsx tests/scripts/extract-tokens.ts",

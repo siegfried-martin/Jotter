@@ -12,6 +12,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
+  // Run cleanup before tests (set SKIP_CLEANUP=1 to skip when debugging)
+  globalSetup: './tests/e2e/global-setup.ts',
+  // Increase timeout for tests that create sections and do page reloads
+  timeout: 60000,
 
   use: {
     baseURL: 'http://localhost:5174',
