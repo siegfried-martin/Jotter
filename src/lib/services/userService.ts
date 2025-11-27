@@ -1,5 +1,5 @@
 // src/lib/services/userService.ts
-import { supabase } from '$lib/supabase';
+import { supabase, getAuthenticatedUser } from '$lib/supabase';
 
 export interface UserPreferences {
   id: string;
@@ -17,7 +17,7 @@ export interface UserPreferences {
 export class UserService {
   // Get user preferences
   static async getUserPreferences(): Promise<UserPreferences | null> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -36,7 +36,7 @@ export class UserService {
 
   // Create default user preferences if they don't exist
   static async ensureUserPreferences(): Promise<UserPreferences> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Try to get existing preferences
@@ -79,7 +79,7 @@ export class UserService {
   static async getLastVisitedContainerId(): Promise<string | null> {
     console.log('🔍 UserService.getLastVisitedContainerId called');
     
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) {
       console.log('❌ No authenticated user');
       throw new Error('User not authenticated');
@@ -109,7 +109,7 @@ export class UserService {
   static async updateLastVisitedContainer(containerId: string): Promise<void> {
     console.log('🔄 Updating last visited container to:', containerId);
     
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Ensure user preferences exist
@@ -135,7 +135,7 @@ export class UserService {
   static async getContainerCollection(containerId: string): Promise<string | null> {
     console.log('🔍 Checking which collection contains container:', containerId);
     
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -171,7 +171,7 @@ export class UserService {
 
   // Update last visited collection
   static async updateLastVisitedCollection(collectionId: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Ensure user preferences exist
@@ -197,7 +197,7 @@ export class UserService {
     await this.updateLastVisitedCollection(collectionId);
     
     // Update collection to be default (unset others first)
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
     
     // First, unset all collections as default
@@ -216,7 +216,7 @@ export class UserService {
 
   // Update user preferences
   static async updateUserPreferences(updates: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserPreferences> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Ensure user preferences exist
@@ -242,7 +242,7 @@ export class UserService {
 
   // Clear last visited container (useful when container is deleted)
   static async clearLastVisitedContainer(): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
@@ -261,7 +261,7 @@ export class UserService {
 
   // Clear last visited collection (useful when collection is deleted)
   static async clearLastVisitedCollection(): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase

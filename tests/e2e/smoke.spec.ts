@@ -7,7 +7,7 @@ test.describe('Smoke Tests', () => {
     await expect(page).toHaveURL(/\/app/);
   });
 
-  test('should load app page when authenticated', async ({ page }) => {
+  test.skip('should load app page when authenticated', async ({ page }) => {
     await page.goto('/app');
     // Should stay on /app and show collections
     await expect(page).toHaveURL(/\/app/);

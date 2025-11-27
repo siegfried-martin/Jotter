@@ -199,6 +199,23 @@ SKIP_TEST_CLEANUP=1 npx playwright test
 npm run test:cleanup
 ```
 
+### Recommended Cleanup Frequency
+**Run cleanup frequently to prevent test data accumulation:**
+- Before starting a new test development session
+- After running tests multiple times during debugging
+- Before running the full test suite
+- If tests start behaving unexpectedly (stale data can cause issues)
+
+```bash
+# Quick workflow: cleanup then run tests
+npm run test:cleanup && npm run test:e2e
+
+# Or cleanup before specific test file
+npm run test:cleanup && npm run test:e2e -- tests/e2e/drag-drop.spec.ts
+```
+
+**Warning**: Test data can accumulate quickly (100+ collections) if cleanup is not run regularly, which may slow down tests and cause unexpected failures.
+
 ## Configuration
 
 ### Environment Variables (.env.test)
@@ -229,9 +246,11 @@ SKIP_TEST_CLEANUP=0  # Set to 1 to preserve test data
 - Run with `SKIP_TEST_CLEANUP=1` and manually add containers to test collection
 
 ### Authentication Failures
-- Check that `TEST_ACCESS_TOKEN` in `.env.test` is fresh (tokens expire)
+- **Tokens expire after 1 hour** - if tests fail with auth errors, refresh the token
 - Get new token from browser localStorage: `sb-{projectRef}-auth-token`
-- Update `.env.test` with new token
+- Update `.env.test` with new `TEST_ACCESS_TOKEN` and `TEST_REFRESH_TOKEN`
+- After updating tokens, delete `playwright/.auth/mock-user.json` to force re-authentication
+- **Tip**: The `pretest:e2e` script attempts to refresh tokens automatically, but manual refresh may be needed if the refresh token itself has expired
 
 ### Port Conflicts
 - If `EADDRINUSE` errors occur, stop other dev servers or Playwright report viewers

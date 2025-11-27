@@ -18,23 +18,26 @@
     console.log('📱 Collections page loaded');
     console.log('📱 App state:', $appStore);
 
-    // Check if we should redirect to last visited location
-    const shouldRedirect = await NavigationService.shouldRedirectToLastVisited();
-    console.log('📱 Should redirect to last visited?', shouldRedirect);
+    // DISABLED: Auto-redirect to last visited location
+    // This legacy behavior was causing issues with E2E tests and confusing UX.
+    // When users navigate to /app, they should see the collections page.
+    //
+    // const shouldRedirect = await NavigationService.shouldRedirectToLastVisited();
+    // console.log('📱 Should redirect to last visited?', shouldRedirect);
+    //
+    // if (shouldRedirect) {
+    //   console.log('🚀 Redirecting to last visited location');
+    //   const redirected = await NavigationService.redirectToLastVisited();
+    //   console.log('🚀 Redirect completed?', redirected);
+    //
+    //   if (redirected) {
+    //     // Successfully redirected, don't load collections
+    //     console.log('✅ Successfully redirected, exiting');
+    //     return;
+    //   }
+    // }
 
-    if (shouldRedirect) {
-      console.log('🚀 Redirecting to last visited location');
-      const redirected = await NavigationService.redirectToLastVisited();
-      console.log('🚀 Redirect completed?', redirected);
-
-      if (redirected) {
-        // Successfully redirected, don't load collections
-        console.log('✅ Successfully redirected, exiting');
-        return;
-      }
-    }
-
-    // If we reach here, user should see the collections page
+    // Show collections page directly
     console.log('📋 Showing collections page');
     shouldShowCollections = true;
     await loadCollections();

@@ -1,5 +1,5 @@
 // src/lib/services/noteService.ts
-import { supabase } from '$lib/supabase';
+import { supabase, getAuthenticatedUser } from '$lib/supabase';
 import type { NoteContainer, CreateNoteContainer, SequenceUpdate } from '$lib/types';
 import { getNextNoteContainerSequence, updateNoteContainerSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
@@ -8,7 +8,7 @@ import { CollectionService } from './collectionService';
 export class NoteService {
   // Get all note containers for current user - NOW WITH PROPER USER FILTERING
   static async getNoteContainers(collectionId?: string): Promise<NoteContainer[]> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     let query = supabase
@@ -41,7 +41,7 @@ export class NoteService {
 
   // Get a single note container by ID - ENHANCED with user ownership check
   static async getNoteContainer(containerId: string): Promise<NoteContainer | null> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -85,7 +85,7 @@ export class NoteService {
     container: CreateNoteContainer, 
     collectionId?: string
   ): Promise<NoteContainer> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // If no collection specified, use user's default collection
@@ -131,7 +131,7 @@ export class NoteService {
     id: string, 
     updates: Partial<CreateNoteContainer> & { sequence?: number }
   ): Promise<NoteContainer> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -165,7 +165,7 @@ export class NoteService {
     id: string, 
     title: string
   ): Promise<NoteContainer> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -196,7 +196,7 @@ export class NoteService {
 
   // Delete note container - ENHANCED with user ownership check
   static async deleteNoteContainer(id: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
@@ -213,7 +213,7 @@ export class NoteService {
 
   // Move note container to different collection - ENHANCED with ownership checks
   static async moveToCollection(noteId: string, collectionId: string | null): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // If moving to null, use default collection instead
@@ -258,7 +258,7 @@ export class NoteService {
     fromIndex: number,
     toIndex: number
   ): Promise<NoteContainer[]> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     // Get current note containers for this collection (user-filtered)

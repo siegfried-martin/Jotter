@@ -5,6 +5,7 @@ import { appStore } from '$lib/stores/appStore';
 import { CollectionService } from './collectionService';
 import { UserService } from './userService';
 import { NoteService } from './noteService';
+import { getAuthenticatedUser } from '$lib/supabase';
 import type { Collection } from '$lib/types';
 
 export class NavigationService {
@@ -40,7 +41,7 @@ export class NavigationService {
 
     try {
       // Check authentication first before making any service calls
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getAuthenticatedUser();
       if (!user) {
         console.log('🔐 User not authenticated, cannot check last visited location');
         return false;

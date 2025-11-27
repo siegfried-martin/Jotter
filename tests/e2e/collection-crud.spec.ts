@@ -121,81 +121,80 @@ test.describe('Collection CRUD Operations', () => {
 		console.log(`✅ Navigated to collection: ${testCollectionName}`);
 	});
 
-	// TEST-001: Collection edit functionality - Known issue, documented in bug-tracking
-	// Uncomment when UI implementation is fixed
-	// test('should edit collection name and description', async ({ page }) => {
-	// 	// Create a collection first
-	// 	await page.goto('/app');
-	// 	await page.waitForLoadState('networkidle');
+	// TEST-001: Collection edit functionality - Skipped (selector issue, debug later)
+	test.skip('should edit collection name and description', async ({ page }) => {
+		// Create a collection first
+		await page.goto('/app');
+		await page.waitForLoadState('networkidle');
 
-	// 	const createButton = page.locator('button:has-text("Create New Collection")');
-	// 	if (!(await createButton.isVisible().catch(() => false))) {
-	// 		await page.goto('/app', { waitUntil: 'networkidle' });
-	// 		await createButton.waitFor({ state: 'visible', timeout: 10000 });
-	// 	}
+		const createButton = page.locator('button:has-text("Create New Collection")');
+		if (!(await createButton.isVisible().catch(() => false))) {
+			await page.goto('/app', { waitUntil: 'networkidle' });
+			await createButton.waitFor({ state: 'visible', timeout: 10000 });
+		}
 
-	// 	await createButton.click();
-	// 	await wait(300);
+		await createButton.click();
+		await wait(300);
 
-	// 	const nameInput = page.locator('input[placeholder="Collection name"]');
-	// 	await nameInput.fill(testCollectionName);
+		const nameInput = page.locator('input[placeholder="Collection name"]');
+		await nameInput.fill(testCollectionName);
 
-	// 	const descriptionInput = page.locator('textarea[placeholder*="What will you store"]');
-	// 	await descriptionInput.fill('Original description');
+		const descriptionInput = page.locator('textarea[placeholder*="What will you store"]');
+		await descriptionInput.fill('Original description');
 
-	// 	const submitButton = page.locator('button:has-text("Create Collection")');
-	// 	await submitButton.click();
-	// 	await wait(2000);
+		const submitButton = page.locator('button:has-text("Create Collection")');
+		await submitButton.click();
+		await wait(2000);
 
-	// 	// Store collection ID
-	// 	const url = page.url();
-	// 	const match = url.match(/\/app\/collections\/([a-f0-9-]+)/);
-	// 	if (match) {
-	// 		testCollectionId = match[1];
-	// 	}
+		// Store collection ID
+		const url = page.url();
+		const match = url.match(/\/app\/collections\/([a-f0-9-]+)/);
+		if (match) {
+			testCollectionId = match[1];
+		}
 
-	// 	// Navigate back to collections page
-	// 	await page.goto('/app');
-	// 	await page.waitForLoadState('networkidle');
+		// Navigate back to collections page
+		await page.goto('/app');
+		await page.waitForLoadState('networkidle');
 
-	// 	// Find the collection card and scroll into view
-	// 	const collectionCard = page.locator(`.group:has-text("${testCollectionName}")`).first();
-	// 	await collectionCard.scrollIntoViewIfNeeded();
-	// 	await collectionCard.hover();
+		// Find the collection card and scroll into view
+		const collectionCard = page.locator(`.group:has-text("${testCollectionName}")`).first();
+		await collectionCard.scrollIntoViewIfNeeded();
+		await collectionCard.hover();
 
-	// 	// Click edit button
-	// 	const editButton = collectionCard.locator('button[title="Edit collection"]');
-	// 	await editButton.click();
-	// 	await wait(1000);
+		// Click edit button
+		const editButton = collectionCard.locator('button[title="Edit collection"]');
+		await editButton.click();
+		await wait(1000);
 
-	// 	// After clicking edit, look for the edit form inputs that appear
-	// 	// Find inputs by their placeholder text and context
-	// 	const editNameInput = page.locator('input[placeholder="Collection name"]').first();
-	// 	await editNameInput.waitFor({ state: 'visible', timeout: 5000 });
+		// After clicking edit, look for the edit form inputs that appear
+		// Find inputs by their placeholder text and context
+		const editNameInput = page.locator('input[placeholder="Collection name"]').first();
+		await editNameInput.waitFor({ state: 'visible', timeout: 5000 });
 
-	// 	const updatedName = testCollectionName + '-edited';
-	// 	await editNameInput.fill(updatedName);
+		const updatedName = testCollectionName + '-edited';
+		await editNameInput.fill(updatedName);
 
-	// 	// Find the description textarea
-	// 	const editDescriptionInput = page.locator('textarea[placeholder*="What will you store"]').first();
-	// 	await editDescriptionInput.waitFor({ state: 'visible', timeout: 5000 });
-	// 	await editDescriptionInput.fill('Updated description');
+		// Find the description textarea
+		const editDescriptionInput = page.locator('textarea[placeholder*="What will you store"]').first();
+		await editDescriptionInput.waitFor({ state: 'visible', timeout: 5000 });
+		await editDescriptionInput.fill('Updated description');
 
-	// 	// Find and click Save Changes button
-	// 	const saveButton = page.locator('button:has-text("Save Changes")').first();
-	// 	await saveButton.scrollIntoViewIfNeeded();
-	// 	await saveButton.click();
-	// 	await wait(1000);
+		// Find and click Save Changes button
+		const saveButton = page.locator('button:has-text("Save Changes")').first();
+		await saveButton.scrollIntoViewIfNeeded();
+		await saveButton.click();
+		await wait(1000);
 
-	// 	// Verify updated name is visible
-	// 	const updatedCard = page.locator(`.group:has-text("${updatedName}")`);
-	// 	await expect(updatedCard).toBeVisible();
+		// Verify updated name is visible
+		const updatedCard = page.locator(`.group:has-text("${updatedName}")`);
+		await expect(updatedCard).toBeVisible();
 
-	// 	console.log(`✅ Edited collection: ${testCollectionName} → ${updatedName}`);
+		console.log(`✅ Edited collection: ${testCollectionName} → ${updatedName}`);
 
-	// 	// Update name for cleanup
-	// 	testCollectionName = updatedName;
-	// });
+		// Update name for cleanup
+		testCollectionName = updatedName;
+	});
 
 	test('should delete collection', async ({ page }) => {
 		// Create a collection first
