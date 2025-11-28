@@ -1,13 +1,15 @@
 # AI Project Status
 
 **Last Updated**: November 28, 2025
-**Current Phase**: Test Parallelization (Next Session)
+**Current Phase**: Ko-fi Integration & About Page
 
 ---
 
 ## Current Status
 
 The app is in a **stable state** with comprehensive E2E testing complete. The regression testing initiative has been successfully completed with 75 passing tests covering all critical functionality.
+
+**Ready for Initial Public Release** - Core features complete, tests passing, mobile UI optimized.
 
 **Test Coverage** (Final):
 - ✅ Collection CRUD: 4/4 passing (100%)
@@ -24,50 +26,111 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 **Overall Coverage**: ~90% of critical user flows covered
 
 **Next Priorities**:
-1. **Mobile UI Improvements** (next session) - Better mobile compatibility
-2. **Optional**: Additional edge case tests as needed
+1. **Ko-fi Integration & About Page** (next session) - Add support link before public release
+2. **Public Release** - Deploy and announce to dev communities
+3. See `docs/roadmap.md` for longer-term feature plans
 
 ---
 
 ## Current Initiatives
 
-### Test Parallelization (Priority 1) - NEXT
+### Ko-fi Integration & About Page (Priority 1) - NEXT
 
 **Status**: Not Started
 **Estimated Duration**: 1 session
-**Goal**: Speed up E2E test execution by running tests in parallel
+**Goal**: Add Ko-fi support link and About page before public release
 
-#### Background
-- Tests currently take 3+ minutes to run (too slow for development workflow)
-- Each test creates its own collection, so tests SHOULD be isolated
-- `fullyParallel: true` is already set in playwright.config.ts but tests still run slowly
-- Need to investigate why parallelization isn't working effectively
+#### Task 1: Ko-fi Account Setup (User-Assisted)
 
-#### Planned Investigation
-1. **Check test isolation** - Verify tests don't share state beyond collections
-2. **Worker configuration** - Experiment with explicit worker counts (2, 4, 8)
-3. **Test dependencies** - Ensure mock-auth-setup doesn't bottleneck parallel runs
-4. **Browser contexts** - May need separate browser contexts per worker
-5. **Database contention** - Check if Supabase rate limits are causing slowdowns
+Walk the user through creating a Ko-fi account:
+
+1. Go to [ko-fi.com](https://ko-fi.com)
+2. Create account (Google or email signup)
+3. Connect payment method:
+   - PayPal Business (linked to Marstol account), OR
+   - Stripe (linked to Marstol business entity)
+4. Customize page (optional):
+   - Add profile picture
+   - Write description about Jotter
+   - Set suggested donation amount
+5. Copy the page URL: `https://ko-fi.com/[USERNAME]`
+
+Provide URL to Claude for integration.
+
+#### Task 2: Create About Page
+
+Create a new route at `/about` with:
+- App name and brief description
+- Version number (can pull from package.json)
+- Key features overview
+- Credits/attribution if needed
+- Ko-fi support button/link
+
+**Suggested location**: `src/routes/about/+page.svelte`
+
+#### Task 3: Add About Link to User Menu
+
+Add "About" option to the user dropdown menu (top right):
+- Location: Below "Settings", above "Sign Out"
+- Should navigate to `/about`
+
+**File to modify**: Look for user menu component (likely in header/layout)
+
+#### Task 4: Add Ko-fi Link to Login Page
+
+Add Ko-fi button/link to the login page:
+- Subtle placement (footer or side)
+- Should not distract from primary login flow
+- Use Ko-fi's official button/branding if desired
+
+**File to modify**: `src/routes/auth/login/+page.svelte` (or similar)
+
+#### Ko-fi Integration Options
+
+**Option A: Simple Link**
+```svelte
+<a href="https://ko-fi.com/[USERNAME]" target="_blank" rel="noopener">
+  Support Jotter on Ko-fi
+</a>
+```
+
+**Option B: Ko-fi Button Image**
+```svelte
+<a href="https://ko-fi.com/[USERNAME]" target="_blank" rel="noopener">
+  <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi" />
+</a>
+```
+
+**Option C: Floating Widget (optional)**
+```html
+<script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+<script>
+  kofiWidgetOverlay.draw('[USERNAME]', {
+    'type': 'floating-chat',
+    'floating-chat.donateButton.text': 'Support Jotter'
+  });
+</script>
+```
 
 #### Expected Outcome
-- Tests should run in under 1 minute with parallelization
-- Each test worker should have its own authenticated browser context
+- About page accessible at `/about`
+- About link in user menu dropdown
+- Ko-fi link on login page and about page
+- Ready for public release announcement
 
-### Mobile UI Improvements (Priority 2) - COMPLETE ✅
+### Mobile UI Improvements - COMPLETE ✅
 
 **Status**: Complete (November 28, 2025)
 **Duration**: 1 session
-**Goal**: Improve mobile usability and compatibility
 
 #### What Was Implemented
-1. **Disable DnD on Mobile** ✅ - Created `isTouchDevice` store, disabled drag-and-drop on touch devices for containers, sections, and checklist items
+1. **Disable DnD on Mobile** ✅ - Created `isTouchDevice` store, disabled drag-and-drop on touch devices
 2. **Header Tabs → Dropdown** ✅ - Collection tabs converted to dropdown selector on mobile (< 640px)
 3. **Reduced Sidebar Width** ✅ - Collapsed sidebar reduced from 80px to 56px on very small screens (< 400px)
-4. **Reduced Content Padding** ✅ - Main content padding reduced from 24px to 8px on mobile, 4px on very small screens
+4. **Reduced Content Padding** ✅ - Main content padding reduced from 24px to 8px on mobile
 5. **Tighter Section Grid** ✅ - Reduced gap and padding in section grid on small screens
 
-### Regression Testing (Priority 2) - COMPLETED ✅
+### Regression Testing - COMPLETE ✅
 
 **Document**: `docs/initiatives/regression-testing.md`
 **Status**: Complete (November 27, 2025)
