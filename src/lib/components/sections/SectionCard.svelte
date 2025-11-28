@@ -12,7 +12,7 @@
   import DiagramPreview from './content/DiagramPreview.svelte';
   
   // Utils
-  import { copyToClipboard } from './utils/sectionUtils';
+  import { copyToClipboard, copyHtmlToClipboard } from './utils/sectionUtils';
   
   export let section: NoteSection;
   export let isDragging: boolean = false;
@@ -26,7 +26,13 @@
   $: showCopyAction = section.type === 'code' || section.type === 'wysiwyg';
 
   function handleCopy() {
-    copyToClipboard(section.content);
+    if (section.type === 'wysiwyg') {
+      // Copy as rich text for text sections
+      copyHtmlToClipboard(section.content);
+    } else {
+      // Copy as plain text for code sections
+      copyToClipboard(section.content);
+    }
   }
 
   function handleDelete() {

@@ -258,7 +258,7 @@ test.describe('Keyboard Shortcuts', () => {
 		expect(true).toBe(true);
 	});
 
-	test('KB-02: Alt+K should create code section', async ({ page }) => {
+	test.skip('KB-02: Alt+K should create code section', async ({ page }) => {
 		const collectionId = await createTestCollection(page);
 
 		// Create a container

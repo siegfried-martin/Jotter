@@ -19,9 +19,15 @@ Based on your task, read:
 - **`docs/functionality/`** - Feature documentation (authentication, collections, containers, sections, editors)
 - **`docs/cache_architecture.md`** - Deep dive into cache system (if working on data/state)
 
-### Step 3: Start Working
+### Step 3: Understand the Roadmap (Optional Context)
 
-Follow the instructions in `docs/ai_project_status.md` for current priorities and tasks.
+For broader context on where the project is heading, see **`docs/roadmap.md`**. This document outlines the high-level project phases, planned features, and overall direction.
+
+**Important**: The roadmap is for general context only. It is NOT your source of tasks. Always take your immediate work instructions from `docs/ai_project_status.md`.
+
+### Step 4: Start Working
+
+Follow the instructions in `docs/ai_project_status.md` for current priorities and tasks. This is your "marching orders" document.
 
 ---
 
