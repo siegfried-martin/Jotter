@@ -211,9 +211,22 @@
       grid-template-columns: 1fr; /* Single column on mobile */
       padding: 0 0.5rem;
     }
-    
+
     :global(.section-draggable-container) {
       min-height: 180px; /* Shorter minimum on mobile */
+    }
+  }
+
+  /* Very small screens (< 400px) - minimal padding */
+  @media (max-width: 400px) {
+    .section-list {
+      padding: 0;
+      gap: 0.75rem;
+    }
+
+    :global(.section-draggable-container) {
+      min-height: 150px;
+      border-radius: 8px;
     }
   }
 </style>

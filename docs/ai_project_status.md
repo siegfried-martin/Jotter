@@ -1,7 +1,7 @@
 # AI Project Status
 
-**Last Updated**: November 27, 2025
-**Current Phase**: Mobile UI Improvements (Starting Next Session)
+**Last Updated**: November 28, 2025
+**Current Phase**: Test Parallelization (Next Session)
 
 ---
 
@@ -31,22 +31,41 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 
 ## Current Initiatives
 
-### Mobile UI Improvements (Priority 1) - NEXT
+### Test Parallelization (Priority 1) - NEXT
 
 **Status**: Not Started
-**Estimated Duration**: 1-2 sessions
+**Estimated Duration**: 1 session
+**Goal**: Speed up E2E test execution by running tests in parallel
+
+#### Background
+- Tests currently take 3+ minutes to run (too slow for development workflow)
+- Each test creates its own collection, so tests SHOULD be isolated
+- `fullyParallel: true` is already set in playwright.config.ts but tests still run slowly
+- Need to investigate why parallelization isn't working effectively
+
+#### Planned Investigation
+1. **Check test isolation** - Verify tests don't share state beyond collections
+2. **Worker configuration** - Experiment with explicit worker counts (2, 4, 8)
+3. **Test dependencies** - Ensure mock-auth-setup doesn't bottleneck parallel runs
+4. **Browser contexts** - May need separate browser contexts per worker
+5. **Database contention** - Check if Supabase rate limits are causing slowdowns
+
+#### Expected Outcome
+- Tests should run in under 1 minute with parallelization
+- Each test worker should have its own authenticated browser context
+
+### Mobile UI Improvements (Priority 2) - COMPLETE ✅
+
+**Status**: Complete (November 28, 2025)
+**Duration**: 1 session
 **Goal**: Improve mobile usability and compatibility
 
-#### Planned Changes
-1. **Disable DnD on Mobile** - Remove drag-and-drop on touch devices (unreliable UX)
-2. **Resize Section Cards** - Better sizing for mobile screens
-3. **Redesign Header Bar** - Mobile-friendly navigation
-4. Additional changes as discovered during implementation
-
-#### Why Now?
-- Core functionality is stable and tested
-- Mobile experience needs improvement for real-world use
-- E2E tests provide safety net for UI refactoring
+#### What Was Implemented
+1. **Disable DnD on Mobile** ✅ - Created `isTouchDevice` store, disabled drag-and-drop on touch devices for containers, sections, and checklist items
+2. **Header Tabs → Dropdown** ✅ - Collection tabs converted to dropdown selector on mobile (< 640px)
+3. **Reduced Sidebar Width** ✅ - Collapsed sidebar reduced from 80px to 56px on very small screens (< 400px)
+4. **Reduced Content Padding** ✅ - Main content padding reduced from 24px to 8px on mobile, 4px on very small screens
+5. **Tighter Section Grid** ✅ - Reduced gap and padding in section grid on small screens
 
 ### Regression Testing (Priority 2) - COMPLETED ✅
 
@@ -88,37 +107,37 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 
 ### Immediate Tasks (Next Session)
 
-**Focus**: Mobile UI Improvements
+**Focus**: Test Parallelization
 
-**Why Important**: Mobile experience is critical for real-world use. With comprehensive E2E tests in place, we can safely refactor UI components.
+**Why Important**: Tests currently take 3+ minutes which slows down development. Parallelization should reduce this to under 1 minute.
 
 #### Planned Work:
 
-1. **Disable DnD on Mobile**:
-   - Detect touch devices
-   - Disable drag-and-drop interactions on mobile
-   - Provide alternative UI for reordering (if needed)
+1. **Investigate Current Bottleneck**:
+   - Run tests with `--workers=4` explicitly and measure timing
+   - Check if `mock-auth-setup` dependency is blocking all workers
+   - Look for shared state between tests
 
-2. **Resize Section Cards**:
-   - Improve card sizing for smaller screens
-   - Better touch targets
-   - Responsive grid layout adjustments
+2. **Fix Parallelization**:
+   - Ensure each worker has its own browser context with auth state
+   - Consider copying auth state to each worker instead of depending on setup project
+   - Check if database/API rate limits are causing slowdowns
 
-3. **Redesign Header Bar**:
-   - Mobile-friendly navigation
-   - Hamburger menu or simplified controls
-   - Better use of screen real estate
+3. **Verify Test Isolation**:
+   - Confirm tests don't interfere with each other when running in parallel
+   - Each test creates unique collection with timestamp + random ID
+   - Tests should be fully independent
 
-4. **Additional Improvements** (as discovered):
-   - Touch-friendly buttons and controls
-   - Better scrolling behavior
-   - Font size adjustments
+4. **Update Configuration**:
+   - Set explicit worker count if needed
+   - Document any changes to test architecture
 
 ### Running Tests After Changes
 
 With the comprehensive test suite now in place:
 ```bash
 npm run test:e2e  # Run full suite (77 tests)
+npm run test:cleanup  # Always run after tests!
 ```
 
 Tests will catch any regressions introduced by UI changes.
@@ -136,6 +155,53 @@ Tests will catch any regressions introduced by UI changes.
 ---
 
 ## Recent Work
+
+### November 28, 2025: Mobile UI Improvements Complete ✅
+
+**Branch**: `feat/mobile-ui-improvements`
+**Status**: Complete - Ready for PR
+**Focus**: Improving mobile usability on small screens (360px width tested)
+
+#### What Was Accomplished
+
+1. **Disable DnD on Mobile** (`feat/disable-dnd-mobile` - merged separately):
+   - Created `src/lib/utils/deviceUtils.ts` with `isTouchDevice` store
+   - Disabled container DnD (svelte-dnd-action) on touch devices
+   - Disabled section DnD (custom pointer-based) on touch devices
+   - Disabled checklist item DnD and hid drag handle on touch devices
+
+2. **Header: Tabs → Dropdown on Mobile**:
+   - Collection tabs now show as dropdown selector on screens < 640px
+   - Saves significant horizontal space in header
+   - Dropdown shows collection color indicator
+
+3. **Sidebar: Reduced Width on Small Screens**:
+   - Collapsed width: 80px → 56px on screens < 400px
+   - Expanded width: 256px → 176px on screens < 400px
+   - Reduced internal padding from 16px to 8px
+
+4. **Main Content: Reduced Padding**:
+   - Padding reduced from 24px to 16px on screens < 640px
+   - Padding reduced to 8px on screens < 400px
+   - Floating add section bar padding also reduced
+
+5. **Section Grid: Tighter Layout**:
+   - Removed horizontal padding on very small screens
+   - Reduced gap between cards from 12px to 12px
+   - Smaller border radius on cards
+
+#### Key Files Modified
+- `src/lib/components/layout/CollectionTabs.svelte` - Dropdown on mobile
+- `src/lib/components/containers/ContainerSidebar.svelte` - Smaller widths
+- `src/lib/components/containers/ContainerPageLayout.svelte` - Reduced padding
+- `src/lib/components/sections/SectionGrid.svelte` - Tighter grid
+- `docs/ai_overview.md` - Updated testing strategy
+
+#### Space Savings at 360px Width
+- Before: ~224px available for content
+- After: ~280px available for content (+25%)
+
+---
 
 ### November 27, 2025: E2E Testing Complete - All Phases Done ✅
 
