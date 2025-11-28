@@ -59,7 +59,7 @@
   />
 
   <!-- Main Content Area -->
-  <div class="flex-1 p-6 overflow-y-auto" style="padding-bottom: 80px;">
+  <div class="main-content flex-1 p-6 sm:p-6 overflow-y-auto" style="padding-bottom: 80px;">
     {#if loading}
       <div class="flex items-center justify-center h-64">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -120,6 +120,25 @@
   @media (max-width: 1024px) {
     .floating-add-section {
       left: 0; /* Full width on smaller screens */
+    }
+  }
+
+  /* Smaller screens - reduce padding */
+  @media (max-width: 640px) {
+    .main-content {
+      padding: 1rem !important;
+    }
+  }
+
+  /* Very small screens (< 400px) - minimal padding */
+  @media (max-width: 400px) {
+    .main-content {
+      padding: 0.5rem !important;
+    }
+
+    .floating-add-section-content {
+      margin: 0 0.5rem 0.5rem 0.5rem;
+      padding: 0.5rem;
     }
   }
 </style>

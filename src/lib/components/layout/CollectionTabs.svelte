@@ -4,6 +4,7 @@
   import { createEventDispatcher } from 'svelte';
   import { dndzone } from 'svelte-dnd-action';
   import { allCollectionsStore, AppDataManager } from '$lib/stores/appDataStore';
+  import { isTouchDevice } from '$lib/utils/deviceUtils';
 
   export let currentCollectionId: string;
 
@@ -16,6 +17,7 @@
 
   $: collections = $allCollectionsStore.collections || [];
   $: loading = $allCollectionsStore.loading;
+  $: currentCollection = collections.find(c => c.id === currentCollectionId);
 
   function navigateTo(collection: any) {
     console.log('CollectionTabs - Navigate to:', collection?.name);
@@ -46,25 +48,33 @@
     }
   }
 
+  function handleSelectChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    const collection = collections.find(c => c.id === select.value);
+    if (collection) {
+      navigateTo(collection);
+    }
+  }
+
   // Handle container drops on collection tabs
   function createDropHandler(collectionId: string) {
     return function handleDrop(e: CustomEvent) {
       const { items, info } = e.detail;
-      
-      console.log('Collection tab drop event:', { 
-        collectionId, 
-        info, 
+
+      console.log('Collection tab drop event:', {
+        collectionId,
+        info,
         itemsLength: items.length,
         trigger: info.trigger
       });
-      
+
       // Check for any drop that has a container ID and is on a different collection
       if (info.trigger === 'droppedIntoZone' && info.id && collectionId !== currentCollectionId) {
         console.log('Container dropped on collection tab:', {
           containerId: info.id,
           targetCollectionId: collectionId
         });
-        
+
         dispatch('moveToCollection', {
           containerId: info.id,
           targetCollectionId: collectionId
@@ -86,41 +96,55 @@
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
-    Loading collections...
+    Loading...
   </div>
 {:else if !collections || collections.length === 0}
   <div class="px-4 py-2 text-sm text-gray-500">
-    No collections found
+    No collections
   </div>
 {:else}
-  <div class="flex space-x-2 overflow-x-auto p-2 border-b border-gray-300 bg-white dark:bg-gray-800">
+  <!-- Mobile: Dropdown selector (< 640px) -->
+  <div class="mobile-dropdown sm:hidden">
+    <select
+      value={currentCollectionId}
+      on:change={handleSelectChange}
+      class="collection-select"
+      style="border-left: 4px solid {currentCollection?.color || '#3B82F6'};"
+    >
+      {#each collections as collection (collection.id)}
+        <option value={collection.id}>{collection.name}</option>
+      {/each}
+    </select>
+  </div>
+
+  <!-- Desktop: Horizontal tabs (>= 640px) -->
+  <div class="desktop-tabs hidden sm:flex space-x-1 overflow-x-auto p-1 border-b border-gray-200 bg-white">
     {#each collections as collection (collection?.id || Math.random())}
       {#if collection && collection.id && collection.name}
         {@const isCurrentCollection = collection.id === currentCollectionId}
-        
+
         <!-- Collection Tab with Drop Zone -->
         <div class="collection-tab-container">
           {#if !isCurrentCollection}
             <!-- Make non-current tabs into drop zones -->
-            <div 
-              class="collection-drop-zone lg:w-20 md:w-16 sm:w-12 xl:w-24 2xl:w-28 w-12 overflow-hidden"
+            <div
+              class="collection-drop-zone"
               use:dndzone={{
-                items: [], // Empty - this is just a drop target
-                type: 'containers', // Same type as ContainerList
+                items: [],
+                type: 'containers',
                 dropTargetStyle: {
                   outline: '2px solid #3b82f6',
                   backgroundColor: 'rgba(59, 130, 246, 0.1)'
                 },
-                dropFromOthersDisabled: false, // Accept drops from other zones
-                dragDisabled: true, // Don't allow dragging from this zone
+                dropFromOthersDisabled: false,
+                dragDisabled: true,
                 morphDisabled: true
               }}
               on:finalize={createDropHandler(collection.id)}
             >
               <button
                 on:click={() => navigateTo(collection)}
-                class="collection-tab-button px-4 py-2 rounded-t-md text-sm font-medium transition-all duration-200 whitespace-nowrap
-                  hover:bg-gray-100 dark:hover:bg-gray-700 bg-transparent text-gray-600 dark:text-gray-300 pl-1 pr-1"
+                class="collection-tab-button"
                 style="border-bottom: 3px solid {collection.color || '#3B82F6'};"
               >
                 {collection.name}
@@ -128,12 +152,10 @@
             </div>
           {:else}
             <!-- Current collection tab - no drop zone needed -->
-            <div class="lg:w-24 md:w-19 sm:w-14 xl:w-28 2xl:w-32 w-14 overflow-hidden">
+            <div class="collection-tab-current">
               <button
-                on:click={() => navigateTo(collection)}
-                class="collection-tab-button px-4 py-2 rounded-t-md text-sm font-medium transition-all duration-200 whitespace-nowrap
-                  bg-gray-200 dark:bg-gray-700 text-black dark:text-white opacity-75 pl-1 pr-1"
-                style="border-bottom: 3px solid {collection.color || '#3B82F6'}; 
+                class="collection-tab-button current"
+                style="border-bottom: 3px solid {collection.color || '#3B82F6'};
                       background-color: {collection.color || '#3B82F6'}15;"
                 disabled
               >
@@ -142,36 +164,75 @@
             </div>
           {/if}
         </div>
-      {:else}
-        <!-- Debug: Show invalid collection data -->
-        <div class="px-4 py-2 text-sm text-red-500 border border-red-300 rounded">
-          Invalid collection: {JSON.stringify(collection)}
-        </div>
       {/if}
     {/each}
   </div>
 {/if}
 
 <style>
+  /* Mobile dropdown styles */
+  .mobile-dropdown {
+    padding: 0.25rem;
+  }
+
+  .collection-select {
+    width: 100%;
+    max-width: 150px;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    appearance: auto;
+  }
+
+  .collection-select:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #3b82f6;
+    border-color: #3b82f6;
+  }
+
+  /* Desktop tab styles */
   .collection-tab-container {
     position: relative;
     flex-shrink: 0;
   }
-  
-  .collection-drop-zone {
-    min-height: 40px;
+
+  .collection-drop-zone,
+  .collection-tab-current {
+    min-height: 36px;
     display: flex;
     align-items: center;
   }
-  
+
   .collection-tab-button {
     display: block;
-    width: 100%;
-    text-align: center;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #4b5563;
+    background: transparent;
+    border: none;
+    border-radius: 0.25rem 0.25rem 0 0;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  
-  /* Enhanced hover effects */
-  .collection-tab-button:not(:disabled):hover {
+
+  .collection-tab-button:hover:not(:disabled) {
+    background-color: #f3f4f6;
     transform: translateY(-1px);
+  }
+
+  .collection-tab-button.current {
+    color: #111827;
+    cursor: default;
   }
 </style>

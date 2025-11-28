@@ -277,15 +277,39 @@
     .sidebar-container {
       /* On mobile, respect the collapsed/expanded state properly */
     }
-    
+
     /* Ensure collapsed state stays narrow on mobile */
     .sidebar-container.w-20 {
       width: 5rem !important; /* 80px - same as desktop collapsed */
     }
-    
+
     /* Expanded state can be wider on mobile but not full screen */
     .sidebar-container.w-72 {
-      width: 16rem !important; /* 256px - reasonable mobile width */
+      width: 14rem !important; /* 224px - smaller for mobile */
+    }
+  }
+
+  /* Very small screens (< 400px) - tighter spacing */
+  @media (max-width: 400px) {
+    .sidebar-container.w-20 {
+      width: 3.5rem !important; /* 56px - minimal collapsed width */
+    }
+
+    .sidebar-container.w-72 {
+      width: 11rem !important; /* 176px - compact expanded */
+    }
+
+    .header-section {
+      padding: 0.5rem !important;
+    }
+
+    .scroll-container {
+      padding: 0.5rem !important;
+    }
+
+    /* Smaller new note button padding */
+    :global(.p-4.border-b.border-gray-100) {
+      padding: 0.5rem !important;
     }
   }
 </style>
