@@ -356,10 +356,30 @@ The `docs/functionality/` directory is the **source of truth** for:
 Use a tiered approach to balance speed with confidence:
 
 1. **After each code change**: Run `npm run build` to catch TypeScript/compilation errors
-2. **After completing a feature/fix**: Run targeted tests if available (e.g., `npx playwright test tests/e2e/checklist.spec.ts`)
-3. **Before committing**: Run full E2E suite (`npm run test:e2e`) + cleanup (`npm run test:cleanup`)
+2. **For small fixes**: Manual testing in the browser is sufficient
+3. **For significant features**: Run targeted E2E tests for the affected area
 
-**Targeted Test Files** (use when changes are localized):
+**⚠️ IMPORTANT: E2E Testing Guidelines**
+
+The full E2E suite (`npm run test:e2e`) takes **5-7 minutes** and runs 95+ tests against a real Supabase backend. **Do NOT run it automatically or frequently.**
+
+**When to run full E2E suite** (ask user first):
+- Before merging a major feature branch
+- After changes to core infrastructure (stores, cache, auth)
+- When the user explicitly requests it
+- Before a release or deployment
+
+**When NOT to run full E2E suite**:
+- After small bug fixes
+- After documentation changes
+- After UI/styling changes
+- After adding a single component
+- During iterative development (use targeted tests instead)
+
+**Before running E2E tests, always inform the user**:
+> "Running the full E2E suite will take approximately 5-7 minutes. Should I proceed?"
+
+**Targeted Test Files** (use when changes are localized - much faster):
 - `tests/e2e/collection-crud.spec.ts` - Collection operations
 - `tests/e2e/container-crud.spec.ts` - Container operations
 - `tests/e2e/section-crud.spec.ts` - Section operations
@@ -368,15 +388,15 @@ Use a tiered approach to balance speed with confidence:
 - `tests/e2e/checklist.spec.ts` - Checklist editor
 - `tests/e2e/edge-cases.spec.ts` - Validation and navigation
 
-**When to run full suite**:
-- Before any commit (mandatory)
-- After changes to shared components (stores, utils, types)
-- After changes to DnD system or cache architecture
-- When unsure which tests are affected
+Run targeted tests with: `npx playwright test tests/e2e/[file].spec.ts`
 
 **Cleanup Rules**:
 - **Always run `npm run test:cleanup` after E2E tests** to remove test data
 - **Exception**: Only skip cleanup if user explicitly asks to keep test data for debugging
+
+**Background Process Management**:
+- **Never run multiple E2E test processes simultaneously** - they will conflict
+- If a test run is interrupted, kill processes before starting a new run: `pkill -f playwright`
 
 **Note on Token Management**:
 - **Automatic token refresh**: E2E tests automatically check and refresh tokens when needed

@@ -7,10 +7,12 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.test') });
 
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  // Disable parallelism to prevent hitting the 12 collection limit
+  // Each test file creates its own collection, so serial execution is safer
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1, // Run tests serially to avoid collection limit issues
   reporter: 'html',
   // Run cleanup before tests (set SKIP_CLEANUP=1 to skip when debugging)
   globalSetup: './tests/e2e/global-setup.ts',

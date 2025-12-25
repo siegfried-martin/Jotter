@@ -7,11 +7,14 @@
   import { AppDataManager } from '$lib/stores/appDataStore';
   import CollectionGrid from '$lib/components/collections/CollectionGrid.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+  import DataErrorToast from '$lib/components/ui/DataErrorToast.svelte';
+  import { parseError } from '$lib/utils/errorUtils';
   import type { Collection } from '$lib/types';
 
   let collections: Collection[] = [];
   let loading = true;
   let error: string | null = null;
+  let toastError: string | null = null;
   let shouldShowCollections = false;
 
   onMount(async () => {
@@ -81,7 +84,8 @@
       NavigationService.navigateToCollection(newCollection);
     } catch (err) {
       console.error('Failed to create collection:', err);
-      error = 'Failed to create collection. Please try again.';
+      const parsed = parseError(err);
+      toastError = parsed.message;
     }
   }
 
@@ -93,30 +97,36 @@
         color: collection.color,
         description: collection.description
       });
-      
+
       // Reload collections to reflect changes
       await loadCollections();
     } catch (err) {
       console.error('Failed to update collection:', err);
-      error = 'Failed to update collection. Please try again.';
+      const parsed = parseError(err);
+      toastError = parsed.message;
     }
   }
 
   async function handleDeleteCollection(event: CustomEvent<Collection>) {
     try {
       const collection = event.detail;
-      
+
       await CollectionService.deleteCollection(collection.id);
-      
+
       // Reload collections to reflect changes
       await loadCollections();
-      
+
       // Clear any previous errors
       error = null;
     } catch (err) {
       console.error('Failed to delete collection:', err);
-      error = 'Failed to delete collection. Please try again.';
+      const parsed = parseError(err);
+      toastError = parsed.message;
     }
+  }
+
+  function dismissToast() {
+    toastError = null;
   }
 </script>
 
@@ -168,4 +178,13 @@
       {/if}
     </div>
   </div>
+{/if}
+
+<!-- Error Toast -->
+{#if toastError}
+  <DataErrorToast
+    message={toastError}
+    type="error"
+    on:dismiss={dismissToast}
+  />
 {/if}

@@ -79,5 +79,5 @@
   {/each}
 
   <!-- Create New Collection Card -->
-  <CollectionCreateCard on:create={handleCreate} />
+  <CollectionCreateCard collectionCount={collections.length} on:create={handleCreate} />
 </div>

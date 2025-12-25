@@ -1,10 +1,15 @@
 <!-- src/lib/components/collections/CollectionCreateCard.svelte -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { LIMITS } from '$lib/constants';
+
+  export let collectionCount: number = 0;
 
   const dispatch = createEventDispatcher<{
     create: { name: string; color: string; description?: string };
   }>();
+
+  $: isAtLimit = collectionCount >= LIMITS.MAX_COLLECTIONS_PER_USER;
 
   let showForm: boolean = false;
   let name: string = '';
@@ -126,6 +131,24 @@
         </button>
       </div>
     </div>
+  {:else if isAtLimit}
+    <!-- Limit Reached State -->
+    <div class="w-full h-full flex items-center justify-center text-center p-4">
+      <div class="text-gray-400">
+        <!-- Lock Icon -->
+        <svg class="w-8 h-8 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+
+        <span class="text-gray-500 font-medium block">
+          Collection Limit Reached
+        </span>
+
+        <p class="text-xs text-gray-400 mt-2">
+          Maximum of {LIMITS.MAX_COLLECTIONS_PER_USER} collections. Delete one to create a new collection.
+        </p>
+      </div>
+    </div>
   {:else}
     <!-- Create Button -->
     <button
@@ -137,11 +160,11 @@
         <svg class="w-8 h-8 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
-        
+
         <span class="text-gray-600 group-hover:text-gray-800 font-medium transition-colors block">
           Create New Collection
         </span>
-        
+
         <p class="text-xs text-gray-500 mt-2 group-hover:text-gray-600 transition-colors">
           Organize your notes into focused collections
         </p>
