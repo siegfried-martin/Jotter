@@ -72,3 +72,63 @@ export function isTestResource(name: string): boolean {
 export function wait(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Deletes a test collection by navigating to the collections page and using the UI.
+ * This ensures proper cleanup between tests to avoid hitting the 12 collection limit.
+ *
+ * @param page - Playwright page object
+ * @param collectionName - The name of the collection to delete
+ *
+ * @example
+ * test.afterAll(async ({ page }) => {
+ *   await cleanupTestCollection(page, testCollectionName);
+ * });
+ */
+export async function cleanupTestCollection(
+	page: import('@playwright/test').Page,
+	collectionName: string
+): Promise<void> {
+	if (!collectionName || !isTestResource(collectionName)) {
+		return;
+	}
+
+	try {
+		// Use full URL to handle worker fixture pages that don't have baseURL
+		const baseURL = 'http://localhost:5174';
+		const currentUrl = page.url();
+
+		// Only navigate if not already on collections page
+		if (!currentUrl.includes('/app') || currentUrl === 'about:blank') {
+			await page.goto(`${baseURL}/app`);
+			await page.waitForLoadState('networkidle');
+		}
+		await wait(500);
+
+		// Find the collection card
+		const collectionCard = page.locator(`.group:has-text("${collectionName}")`).first();
+
+		if (await collectionCard.isVisible({ timeout: 3000 }).catch(() => false)) {
+			await collectionCard.hover();
+			await wait(200);
+
+			// Click delete button
+			const deleteButton = collectionCard.locator('button[title="Delete collection"]');
+			if (await deleteButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+				await deleteButton.click();
+				await wait(300);
+
+				// Confirm deletion
+				const confirmButton = page.locator('button:has-text("Delete")').first();
+				if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+					await confirmButton.click();
+					await wait(500);
+					console.log(`🧹 Cleaned up collection: ${collectionName}`);
+				}
+			}
+		}
+	} catch (error) {
+		// Silently ignore cleanup errors - collection may already be deleted
+		console.log(`⚠️ Could not cleanup collection ${collectionName}: ${error}`);
+	}
+}

@@ -1,65 +1,149 @@
-import { test, expect } from '@playwright/test';
+/**
+ * Inline Title Editing E2E Tests
+ *
+ * Tests for inline editing of container and section titles.
+ * Uses a shared collection across all tests to avoid the 12 collection limit.
+ *
+ * @see tests/TEST_COVERAGE_PLAN.md
+ */
+
+import { test, expect, type Page } from '@playwright/test';
 import { generateTestName, wait } from './helpers/test-data';
 
+const baseURL = 'http://localhost:5174';
+
+// ============================================================
+// TEST STATE (module-level, persists across tests in same worker)
+// ============================================================
+
+const state = {
+	collectionId: '',
+	collectionName: '',
+	created: false
+};
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+/**
+ * Ensures the shared collection exists, creating it if needed.
+ */
+async function ensureCollection(page: Page): Promise<void> {
+	if (state.created && state.collectionId) {
+		return; // Already created
+	}
+
+	state.collectionName = generateTestName('inline-edit');
+
+	await page.goto(`${baseURL}/app`);
+	await page.locator('h1:has-text("Jotter")').waitFor({ state: 'visible', timeout: 15000 });
+
+	const createButton = page.locator('button:has-text("Create New Collection")');
+	await createButton.waitFor({ state: 'visible', timeout: 10000 });
+	await createButton.click();
+	await wait(300);
+
+	const nameInput = page.locator('input[placeholder="Collection name"]');
+	await nameInput.fill(state.collectionName);
+
+	const submitButton = page.locator('button:has-text("Create Collection")');
+	await submitButton.click();
+	await wait(2000);
+
+	const url = page.url();
+	const match = url.match(/\/app\/collections\/([a-f0-9-]+)/);
+	if (match) {
+		state.collectionId = match[1];
+		state.created = true;
+		console.log(`✅ Created collection: ${state.collectionName} (ID: ${state.collectionId})`);
+	} else {
+		throw new Error(`Failed to create collection - URL: ${url}`);
+	}
+}
+
+/**
+ * Creates a fresh container for a test.
+ */
+async function setupContainer(page: Page): Promise<void> {
+	await ensureCollection(page);
+
+	// Check if we're already on the collection page
+	const currentUrl = page.url();
+	const expectedCollectionPath = `/app/collections/${state.collectionId}`;
+
+	if (!currentUrl.includes(expectedCollectionPath)) {
+		await page.goto(`${baseURL}${expectedCollectionPath}`, {
+			waitUntil: 'domcontentloaded'
+		});
+	}
+
+	// Wait for app header to load
+	await page.locator('h1:has-text("Jotter")').waitFor({ state: 'visible', timeout: 15000 });
+
+	// Wait for collection view to be ready
+	const collectionReady = page.locator(
+		'button:has-text("Create First Note"), [data-container-id], .section-list'
+	);
+	await collectionReady.first().waitFor({ state: 'visible', timeout: 20000 });
+	await wait(500);
+
+	// Create a container for this test
+	const createNoteButton = page
+		.locator('button:has-text("Create First Note"), button:has-text("New Note")')
+		.first();
+	await createNoteButton.click();
+	await wait(2000);
+
+	// Verify we're on a container page
+	await expect(page).toHaveURL(/\/app\/collections\/[a-f0-9-]+\/containers\/[a-f0-9-]+/);
+}
+
+/**
+ * Deletes the test collection (called by cleanup test).
+ */
+async function cleanupCollection(page: Page): Promise<void> {
+	if (!state.collectionName || !state.created) return;
+
+	await page.goto(`${baseURL}/app`);
+	await page.locator('h1:has-text("Jotter")').waitFor({ state: 'visible', timeout: 15000 });
+	await wait(500);
+
+	const collectionCard = page.locator(`.group:has-text("${state.collectionName}")`).first();
+	if (await collectionCard.isVisible({ timeout: 3000 }).catch(() => false)) {
+		await collectionCard.hover();
+		await wait(200);
+
+		const deleteButton = collectionCard.locator('button[title="Delete collection"]');
+		if (await deleteButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+			await deleteButton.click();
+			await wait(300);
+
+			const confirmButton = page.locator('button:has-text("Delete")').first();
+			if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+				await confirmButton.click();
+				await wait(500);
+				console.log(`🧹 Deleted collection: ${state.collectionName}`);
+				state.created = false;
+			}
+		}
+	}
+}
+
+// ============================================================
+// TEST SUITE - Tests run in file order, sharing state
+// ============================================================
+
 test.describe('Inline Title Editing', () => {
-	let testCollectionName: string;
-	let testCollectionId: string | null = null;
-	let testContainerId: string | null = null;
-
-	test.beforeEach(async ({ page }) => {
-		// Generate unique name for this test run
-		testCollectionName = generateTestName('collection');
-
-		// Create a collection for inline editing tests
-		await page.goto('/app');
-		await page.waitForLoadState('networkidle');
-
-		const createButton = page.locator('button:has-text("Create New Collection")');
-		if (!(await createButton.isVisible().catch(() => false))) {
-			await page.goto('/app', { waitUntil: 'networkidle' });
-			await createButton.waitFor({ state: 'visible', timeout: 10000 });
-		}
-
-		await createButton.click();
-		await wait(300);
-
-		const nameInput = page.locator('input[placeholder="Collection name"]');
-		await nameInput.fill(testCollectionName);
-
-		const submitButton = page.locator('button:has-text("Create Collection")');
-		await submitButton.click();
-		await wait(2000);
-
-		// Extract collection ID from URL
-		const url = page.url();
-		const collectionMatch = url.match(/\/app\/collections\/([a-f0-9-]+)/);
-		if (collectionMatch) {
-			testCollectionId = collectionMatch[1];
-		}
-
-		// Create a container for section tests
-		const createNoteButton = page
-			.locator('button:has-text("Create First Note"), button:has-text("New Note")')
-			.first();
-		await createNoteButton.click();
-		await wait(2000);
-
-		// Extract container ID from URL
-		const containerUrl = page.url();
-		const containerMatch = containerUrl.match(/\/containers\/([a-f0-9-]+)/);
-		if (containerMatch) {
-			testContainerId = containerMatch[1];
-			console.log(
-				`✅ Setup: Created test container ${testContainerId} in collection ${testCollectionId}`
-			);
-		}
-	});
+	// Tests run serially and share the module-level state
+	test.describe.configure({ mode: 'serial' });
 
 	// ============================================================
 	// CONTAINER TITLE EDITING
 	// ============================================================
 
 	test('should edit container title inline', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		// Container page should be loaded, find the h1 title
@@ -96,6 +180,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should save container title on blur', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		const titleElement = page.locator('h1 span[role="button"]').first();
@@ -118,6 +203,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should cancel container title edit with Escape', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		const titleElement = page.locator('h1 span[role="button"]').first();
@@ -141,6 +227,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should not save empty container title', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		const titleElement = page.locator('h1 span[role="button"]').first();
@@ -166,6 +253,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should not save whitespace-only container title', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		const titleElement = page.locator('h1 span[role="button"]').first();
@@ -195,6 +283,7 @@ test.describe('Inline Title Editing', () => {
 	// ============================================================
 
 	test('should edit section title inline', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		// Create a section first (code section)
@@ -243,6 +332,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should save section title on blur', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		// Create a text section
@@ -273,6 +363,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should cancel section title edit with Escape', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		// Create a checklist section
@@ -303,6 +394,7 @@ test.describe('Inline Title Editing', () => {
 	});
 
 	test('should show section type as placeholder for empty title', async ({ page }) => {
+		await setupContainer(page);
 		await wait(1000);
 
 		// Create a diagram section
@@ -325,7 +417,7 @@ test.describe('Inline Title Editing', () => {
 		console.log(`Navigating back to container: ${containerUrl}`);
 
 		// Navigate directly to container page instead of using goBack()
-		await page.goto(containerUrl);
+		await page.goto(`${baseURL}${containerUrl}`);
 		await wait(2000); // Wait for section grid to render
 
 		// Verify we're on container page
@@ -364,13 +456,15 @@ test.describe('Inline Title Editing', () => {
 	// ============================================================
 
 	test('should edit collection name and description', async ({ page }) => {
+		await ensureCollection(page);
+
 		// Navigate back to collections page
-		await page.goto('/app');
-		await page.waitForLoadState('networkidle');
+		await page.goto(`${baseURL}/app`);
+		await page.locator('h1:has-text("Jotter")').waitFor({ state: 'visible', timeout: 15000 });
 		await wait(1000);
 
 		// Find the collection card
-		const collectionCard = page.locator(`.group:has-text("${testCollectionName}")`).first();
+		const collectionCard = page.locator(`.group:has-text("${state.collectionName}")`).first();
 		await collectionCard.scrollIntoViewIfNeeded();
 		await wait(500);
 
@@ -403,7 +497,7 @@ test.describe('Inline Title Editing', () => {
 		const editNameInput = page.locator('input[placeholder="Collection name"]').first();
 		await editNameInput.waitFor({ state: 'visible', timeout: 5000 });
 
-		const updatedName = testCollectionName + '-edited';
+		const updatedName = state.collectionName + '-edited';
 
 		// Clear the input first, then fill with new name
 		await editNameInput.clear();
@@ -441,6 +535,18 @@ test.describe('Inline Title Editing', () => {
 		const updatedCard = page.locator(`.group:has-text("${updatedName}")`);
 		await expect(updatedCard).toBeVisible();
 
-		console.log(`✅ Edited collection: ${testCollectionName} → ${updatedName}`);
+		// Update state for cleanup
+		state.collectionName = updatedName;
+
+		console.log(`✅ Edited collection: ${state.collectionName}`);
+	});
+
+	// ============================================================
+	// CLEANUP TEST (runs last due to serial mode)
+	// ============================================================
+
+	test('CLEANUP: delete test collection', async ({ page }) => {
+		await cleanupCollection(page);
+		console.log('✅ CLEANUP: Test collection deleted');
 	});
 });
