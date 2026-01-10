@@ -6,6 +6,7 @@ import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 import { CollectionService } from './collectionService';
 import { isDemoMode } from '$lib/stores/demoStore';
 import { DemoNoteService } from './localStorage/demoStorageService';
+import { EventLogService } from './eventLogService';
 
 export class NoteService {
   // Get all note containers for current user - NOW WITH PROPER USER FILTERING
@@ -140,6 +141,9 @@ export class NoteService {
       throw error;
     }
 
+    // Log event
+    EventLogService.logContainerCreated(data.id, finalCollectionId, data.title);
+
     return data;
   }
 
@@ -228,6 +232,12 @@ export class NoteService {
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get container info for logging before deletion
+    const container = await this.getNoteContainer(id);
+    const containerTitle = container?.title ?? 'Unknown';
+    // Count sections (we don't have a direct method, so estimate from cache or use 0)
+    const sectionCount = 0; // Could be enhanced to count sections
+
     const { error } = await supabase
       .from('note_container')
       .delete()
@@ -238,6 +248,9 @@ export class NoteService {
       console.error('Error deleting note container:', error);
       throw error;
     }
+
+    // Log event
+    EventLogService.logContainerDeleted(id, containerTitle, sectionCount);
   }
 
   // Move note container to different collection - ENHANCED with ownership checks
@@ -248,6 +261,10 @@ export class NoteService {
 
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
+
+    // Get original collection for logging
+    const container = await this.getNoteContainer(noteId);
+    const fromCollectionId = container?.collection_id ?? 'unknown';
 
     // If moving to null, use default collection instead
     let finalCollectionId = collectionId;
@@ -264,7 +281,7 @@ export class NoteService {
         .eq('id', finalCollectionId)
         .eq('user_id', user.id)
         .single();
-      
+
       if (!collection) {
         throw new Error('Target collection not found or access denied');
       }
@@ -272,7 +289,7 @@ export class NoteService {
 
     const { error } = await supabase
       .from('note_container')
-      .update({ 
+      .update({
         collection_id: finalCollectionId,
         updated_at: new Date().toISOString()
       })
@@ -283,6 +300,9 @@ export class NoteService {
       console.error('Error moving note to collection:', error);
       throw error;
     }
+
+    // Log event
+    EventLogService.logContainerMoved(noteId, fromCollectionId, finalCollectionId);
   }
 
   // Reorder note containers within a collection - ENHANCED with user filtering

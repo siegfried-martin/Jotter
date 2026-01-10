@@ -1,7 +1,11 @@
 # Event Log Architecture
 
-**Status**: Planned
+**Status**: Implementation Complete (local testing)
 **Created**: January 2026
+
+---
+
+> **PRODUCTION DEPLOYMENT NOTE**: The `event_log` table must be created in production Supabase before shipping this feature. Run the SQL script in the "Schema" section below via the Supabase SQL Editor.
 
 ---
 
@@ -269,12 +273,12 @@ This event log is designed to support future architectural evolution:
 
 ## Implementation Checklist
 
-- [ ] Create event_log table in Supabase
-- [ ] Create RLS policies
-- [ ] Create eventLogService.ts
-- [ ] Add session ID management
-- [ ] Hook into session start/end
-- [ ] Hook into CRUD operations
+- [x] Create event_log table in Supabase (local only - run in prod before deploy)
+- [x] Create RLS policies
+- [x] Create eventLogService.ts
+- [x] Add session ID management
+- [x] Hook into session start/end
+- [x] Hook into CRUD operations
 - [ ] Test with demo mode
 - [ ] Test with authenticated mode
 - [ ] Create analytics dashboard (optional)

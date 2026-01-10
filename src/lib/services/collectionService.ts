@@ -5,6 +5,7 @@ import { getNextCollectionSequence, updateCollectionSequences } from './sequence
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 import { isDemoMode } from '$lib/stores/demoStore';
 import { DemoCollectionService } from './localStorage/demoStorageService';
+import { EventLogService } from './eventLogService';
 
 export class CollectionService {
   // Get all collections for current user - NOW WITH PROPER USER FILTERING
@@ -119,6 +120,9 @@ export class CollectionService {
       throw error;
     }
 
+    // Log event
+    EventLogService.logCollectionCreated(data.id, data.name, data.color);
+
     return data;
   }
 
@@ -162,6 +166,10 @@ export class CollectionService {
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get collection name for logging before deletion
+    const collection = await this.getCollection(id);
+    const collectionName = collection?.name ?? 'Unknown';
+
     // First, move any notes in this collection to the user's default collection
     const defaultCollection = await this.getDefaultCollection();
     if (defaultCollection && defaultCollection.id !== id) {
@@ -183,6 +191,9 @@ export class CollectionService {
       console.error('Error deleting collection:', error);
       throw error;
     }
+
+    // Log event
+    EventLogService.logCollectionDeleted(id, collectionName);
   }
 
   // NEW: Reorder collections via drag & drop

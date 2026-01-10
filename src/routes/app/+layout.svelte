@@ -12,6 +12,7 @@
   import DragProvider from '$lib/dnd/components/DragProvider.svelte';
   import { isDemo } from '$lib/stores/demoStore';
   import { hasPendingMigration, clearPendingMigration } from '$lib/services/migrationService';
+  import { EventLogService } from '$lib/services/eventLogService';
 
   let user: any = null;
   let hasLoadedOnce = false;
@@ -19,6 +20,7 @@
   let cacheReady = false; // Track when cache is fully populated
   let cacheLoadError: string | null = null; // Debug: track cache load errors
   let showMigrationPrompt = false; // Show migration prompt for demo users who sign in
+  let sessionStartTime: number | null = null; // Track session duration for analytics
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
@@ -64,12 +66,26 @@
   }
 
   onMount(async () => {
+    // Initialize event logging and track session start
+    sessionStartTime = Date.now();
+    await EventLogService.initialize();
+    EventLogService.logSessionStart($isDemo);
+
+    // Set up session end tracking on page unload
+    const handleUnload = () => {
+      if (sessionStartTime) {
+        const durationSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+        EventLogService.logSessionEnd(durationSeconds);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
     // In demo mode, skip auth check and load data immediately
     if ($isDemo) {
       console.log('🎮 Demo mode active, skipping auth check');
       hasLoadedOnce = true;
       startBackgroundLoading();
-      return;
+      return () => window.removeEventListener('beforeunload', handleUnload);
     }
 
     const unsubscribe = authStore.subscribe((auth) => {
@@ -81,6 +97,11 @@
       user = auth.user;
       if (!auth.loading) {
         hasLoadedOnce = true;
+
+        // Update event log with user ID when authenticated
+        if (isAuthenticated(auth) && auth.user) {
+          EventLogService.setUserId(auth.user.id);
+        }
 
         // Only start background loading if user is authenticated
         if (isAuthenticated(auth)) {
@@ -95,7 +116,10 @@
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   });
 
   // Handle migration completion

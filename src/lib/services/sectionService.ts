@@ -5,6 +5,7 @@ import { getNextNoteSectionSequence, updateNoteSectionSequences } from './sequen
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 import { isDemoMode } from '$lib/stores/demoStore';
 import { DemoSectionService } from './localStorage/demoStorageService';
+import { EventLogService } from './eventLogService';
 
 export class SectionService {
   // Get all sections for a note container - ALREADY ORDERED BY SEQUENCE
@@ -55,6 +56,12 @@ export class SectionService {
       console.error('Error creating section:', error);
       throw error;
     }
+
+    // Log event
+    const language = section.meta && typeof section.meta === 'object' && 'language' in section.meta
+      ? String(section.meta.language)
+      : undefined;
+    EventLogService.logSectionCreated(data.id, section.note_container_id, section.type, language);
 
     return data;
   }
@@ -130,6 +137,10 @@ export class SectionService {
       return DemoSectionService.deleteSection(id);
     }
 
+    // Get section type for logging before deletion
+    const section = await this.getSection(id);
+    const sectionType = section?.type ?? 'unknown';
+
     const { error } = await supabase
       .from('note_section')
       .delete()
@@ -139,6 +150,9 @@ export class SectionService {
       console.error('Error deleting section:', error);
       throw error;
     }
+
+    // Log event
+    EventLogService.logSectionDeleted(id, sectionType);
   }
 
   // Get single section (for edit page)
@@ -276,6 +290,10 @@ export class SectionService {
       return DemoSectionService.moveSectionToContainer(sectionId, newContainerId);
     }
 
+    // Get original container for logging
+    const section = await this.getSection(sectionId);
+    const fromContainerId = section?.note_container_id ?? 'unknown';
+
     const { data, error } = await supabase
       .from('note_section')
       .update({
@@ -300,8 +318,8 @@ export class SectionService {
       .update({ updated_at: now })
       .eq('id', newContainerId);
 
-    // Update the old container timestamp (if we can determine it)
-    // Note: We could track the old container if needed for more precise updates
+    // Log event
+    EventLogService.logSectionMoved(sectionId, fromContainerId, newContainerId);
 
     return data;
   }

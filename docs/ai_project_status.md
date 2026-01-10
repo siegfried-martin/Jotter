@@ -28,7 +28,7 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 **Next Priorities**:
 1. ~~**Demo Mode**~~ ✅ Complete - localStorage-based no-auth experience
 2. ~~**Demo Data Migration**~~ ✅ Complete - Import local notes to cloud on sign-up
-3. **Event Log System** - Unified analytics + foundation for undo/sync
+3. ~~**Event Log System**~~ ✅ Complete (local) - Run SQL in prod before deploy
 4. **Ko-fi Integration & About Page** - Add support link before public release
 5. **Public Release** - Deploy and announce to dev communities
 6. See `docs/roadmap.md` for longer-term feature plans
@@ -232,9 +232,9 @@ Users who try demo mode and decide to sign up should have a seamless path to kee
 
 ---
 
-### Event Log System (Priority 3) - NEXT
+### Event Log System (Priority 3) - COMPLETE (local)
 
-**Status**: Architecture Documented, Ready for Implementation
+**Status**: Implementation Complete (local testing)
 **Estimated Duration**: 1 session
 **Goal**: Unified event logging for analytics and future features (undo, sync, audit)
 
@@ -270,20 +270,21 @@ CREATE TABLE event_log (
 
 #### Implementation Plan
 
-**Phase 1: Database Setup (User)**
-- [ ] Create event_log table in Supabase
-- [ ] Create RLS policies
-- [ ] Create indexes
+**Phase 1: Database Setup (User)** - DONE (local only)
+- [x] Create event_log table in Supabase
+- [x] Create RLS policies
+- [x] Create indexes
+- **NOTE**: Must run SQL in production Supabase before deploying
 
-**Phase 2: Client Implementation (Claude)**
-- [ ] Create `eventLogService.ts` with `log()` function
-- [ ] Add session ID management (sessionStorage)
-- [ ] Create Supabase RPC for anonymous inserts
+**Phase 2: Client Implementation (Claude)** - DONE
+- [x] Create `eventLogService.ts` with `log()` function
+- [x] Add session ID management (sessionStorage)
+- [x] Fire-and-forget logging (non-blocking)
 
-**Phase 3: Hook into App**
-- [ ] Log session.start on app load
-- [ ] Log CRUD events for collections, containers, sections
-- [ ] Log auth events (signin_clicked, converted)
+**Phase 3: Hook into App** - DONE
+- [x] Log session.start on app load
+- [x] Log CRUD events for collections, containers, sections
+- [ ] Log auth events (signin_clicked, converted) - future enhancement
 
 **Phase 4: Analytics (Optional)**
 - [ ] Create admin dashboard or SQL queries
