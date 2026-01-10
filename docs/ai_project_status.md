@@ -26,11 +26,12 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 **Overall Coverage**: ~90% of critical user flows covered
 
 **Next Priorities**:
-1. **Demo Mode** (this session) - localStorage-based no-auth experience
+1. ~~**Demo Mode**~~ ✅ Complete - localStorage-based no-auth experience
 2. **Demo Data Migration** - Import local notes to cloud on sign-up
-3. **Ko-fi Integration & About Page** - Add support link before public release
-4. **Public Release** - Deploy and announce to dev communities
-5. See `docs/roadmap.md` for longer-term feature plans
+3. **Event Log System** - Unified analytics + foundation for undo/sync
+4. **Ko-fi Integration & About Page** - Add support link before public release
+5. **Public Release** - Deploy and announce to dev communities
+6. See `docs/roadmap.md` for longer-term feature plans
 
 ---
 
@@ -244,7 +245,83 @@ Users who try demo mode and decide to sign up should have a seamless path to kee
 
 ---
 
-### Ko-fi Integration & About Page (Priority 3)
+### Event Log System (Priority 3) - NEXT
+
+**Status**: Architecture Documented, Ready for Implementation
+**Estimated Duration**: 1 session
+**Goal**: Unified event logging for analytics and future features (undo, sync, audit)
+
+#### Background
+
+Need usage analytics for both demo and authenticated users. Rather than building a demo-only solution, we're creating a unified event log that serves as foundation for future features.
+
+#### Architecture
+
+See `docs/architecture/event-log.md` for full documentation.
+
+**Key Design Decisions:**
+- Unified log for demo (user_id = NULL) and authenticated users
+- Rich events with context (not just IDs)
+- Immutable, append-only
+- Fire-and-forget (non-blocking)
+
+#### Schema
+
+```sql
+CREATE TABLE event_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  session_id uuid NOT NULL,
+  event_type text NOT NULL,
+  entity_type text,
+  entity_id uuid,
+  parent_id uuid,
+  event_data jsonb DEFAULT '{}',
+  created_at timestamptz DEFAULT now()
+);
+```
+
+#### Implementation Plan
+
+**Phase 1: Database Setup (User)**
+- [ ] Create event_log table in Supabase
+- [ ] Create RLS policies
+- [ ] Create indexes
+
+**Phase 2: Client Implementation (Claude)**
+- [ ] Create `eventLogService.ts` with `log()` function
+- [ ] Add session ID management (sessionStorage)
+- [ ] Create Supabase RPC for anonymous inserts
+
+**Phase 3: Hook into App**
+- [ ] Log session.start on app load
+- [ ] Log CRUD events for collections, containers, sections
+- [ ] Log auth events (signin_clicked, converted)
+
+**Phase 4: Analytics (Optional)**
+- [ ] Create admin dashboard or SQL queries
+- [ ] Track demo conversion funnel
+- [ ] Track feature adoption
+
+#### Success Criteria
+
+- [ ] Events logged for demo users (user_id = NULL)
+- [ ] Events logged for authenticated users
+- [ ] No impact on UI performance (fire-and-forget)
+- [ ] Privacy maintained (no PII in event_data)
+- [ ] Analytics queries working
+
+#### Future Evolution
+
+This foundation enables:
+- Phase 2: Activity feed for users
+- Phase 3: Undo/redo via event replay
+- Phase 4: Real-time sync via event broadcast
+- Phase 5: Full event sourcing (if needed)
+
+---
+
+### Ko-fi Integration & About Page (Priority 4)
 
 **Status**: Not Started
 **Estimated Duration**: 1 session
