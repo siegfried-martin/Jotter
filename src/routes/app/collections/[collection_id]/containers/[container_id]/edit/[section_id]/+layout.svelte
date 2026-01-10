@@ -4,19 +4,21 @@
   // a clean full-screen experience for editing
   import { page } from '$app/stores';
   import { authStore, isAuthenticated } from '$lib/auth';
+  import { isDemo } from '$lib/stores/demoStore';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
 
   $: authState = $authStore;
   $: userAuthenticated = isAuthenticated(authState);
+  $: inDemoMode = $isDemo;
 </script>
 
-{#if !authState.initialized || authState.loading}
-  <LoadingSpinner 
-    fullScreen={true} 
-    size="lg" 
-    text="Loading..." 
+{#if !authState.initialized || authState.loading && !inDemoMode}
+  <LoadingSpinner
+    fullScreen={true}
+    size="lg"
+    text="Loading..."
   />
-{:else if !userAuthenticated}
+{:else if !userAuthenticated && !inDemoMode}
   <!-- This shouldn't happen due to navigation guard, but just in case -->
   <div class="min-h-screen bg-gray-50 flex items-center justify-center">
     <div class="text-center">

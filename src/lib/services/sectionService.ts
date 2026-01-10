@@ -3,10 +3,16 @@ import { supabase, getAuthenticatedUser } from '$lib/supabase';
 import type { NoteSection, CreateNoteSection, ChecklistItem, SequenceUpdate } from '$lib/types';
 import { getNextNoteSectionSequence, updateNoteSectionSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
+import { isDemoMode } from '$lib/stores/demoStore';
+import { DemoSectionService } from './localStorage/demoStorageService';
 
 export class SectionService {
   // Get all sections for a note container - ALREADY ORDERED BY SEQUENCE
   static async getSections(noteContainerId: string): Promise<NoteSection[]> {
+    if (isDemoMode()) {
+      return DemoSectionService.getSections(noteContainerId);
+    }
+
     const { data, error } = await supabase
       .from('note_section')
       .select('*')
@@ -23,6 +29,10 @@ export class SectionService {
 
   // Create a new section - NOW WITH ENHANCED SEQUENCE SUPPORT
   static async createSection(section: CreateNoteSection): Promise<NoteSection> {
+    if (isDemoMode()) {
+      return DemoSectionService.createSection(section);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -51,9 +61,13 @@ export class SectionService {
 
   // Update section content - NOW SUPPORTS SEQUENCE UPDATES
   static async updateSection(
-    id: string, 
+    id: string,
     updates: Partial<CreateNoteSection> & { sequence?: number }
   ): Promise<NoteSection> {
+    if (isDemoMode()) {
+      return DemoSectionService.updateSection(id, updates);
+    }
+
     console.log('Updating section:', id, updates);
     const { data, error } = await supabase
       .from('note_section')
@@ -81,20 +95,23 @@ export class SectionService {
     return data;
   }
 
-  // Update checklist item
   // Update checklist item with enhanced debugging
-static async updateChecklistItem(
+  static async updateChecklistItem(
     sectionId: string,
     lineIndex: number,
     checked: boolean,
     checklistData: ChecklistItem[]
   ): Promise<void> {
+    if (isDemoMode()) {
+      return DemoSectionService.updateChecklistItem(sectionId, lineIndex, checked, checklistData);
+    }
+
     if (checklistData[lineIndex]) {
       checklistData[lineIndex].checked = checked;
 
       const { error } = await supabase
         .from('note_section')
-        .update({ 
+        .update({
           checklist_data: checklistData,
           updated_at: new Date().toISOString()
         })
@@ -109,6 +126,10 @@ static async updateChecklistItem(
 
   // Delete section
   static async deleteSection(id: string): Promise<void> {
+    if (isDemoMode()) {
+      return DemoSectionService.deleteSection(id);
+    }
+
     const { error } = await supabase
       .from('note_section')
       .delete()
@@ -122,6 +143,10 @@ static async updateChecklistItem(
 
   // Get single section (for edit page)
   static async getSection(id: string): Promise<NoteSection | null> {
+    if (isDemoMode()) {
+      return DemoSectionService.getSection(id);
+    }
+
     const { data, error } = await supabase
       .from('note_section')
       .select('*')
@@ -142,6 +167,10 @@ static async updateChecklistItem(
     fromIndex: number,
     toIndex: number
   ): Promise<NoteSection[]> {
+    if (isDemoMode()) {
+      return DemoSectionService.reorderSections(noteContainerId, fromIndex, toIndex);
+    }
+
     // Get current sections for this note container
     const sections = await this.getSections(noteContainerId);
     
@@ -206,9 +235,13 @@ static async updateChecklistItem(
   }
 
   static async updateSectionTitle(
-    id: string, 
+    id: string,
     title: string | null
   ): Promise<NoteSection> {
+    if (isDemoMode()) {
+      return DemoSectionService.updateSectionTitle(id, title);
+    }
+
     const { data, error } = await supabase
       .from('note_section')
       .update({
@@ -239,6 +272,10 @@ static async updateChecklistItem(
     sectionId: string,
     newContainerId: string
   ): Promise<NoteSection> {
+    if (isDemoMode()) {
+      return DemoSectionService.moveSectionToContainer(sectionId, newContainerId);
+    }
+
     const { data, error } = await supabase
       .from('note_section')
       .update({
@@ -256,7 +293,7 @@ static async updateChecklistItem(
 
     // Update both container timestamps
     const now = new Date().toISOString();
-    
+
     // Update the new container timestamp
     await supabase
       .from('note_container')
@@ -268,6 +305,4 @@ static async updateChecklistItem(
 
     return data;
   }
-
-  
 }

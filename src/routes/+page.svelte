@@ -5,6 +5,7 @@
   import { goto } from '$app/navigation';
   import { authStore, isAuthenticated, signInWithGoogle } from '$lib/auth';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+  import { initDemoMode, hasDemoData } from '$lib/stores/demoStore';
 
   let loading = false;
   let error: string | null = null;
@@ -83,6 +84,15 @@
   function clearError() {
     error = null;
   }
+
+  // Start demo mode
+  function handleTryDemo() {
+    initDemoMode();
+    goto('/app');
+  }
+
+  // Check if returning demo user
+  $: hasExistingDemoData = typeof window !== 'undefined' && hasDemoData();
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -162,6 +172,36 @@
                 Continue with Google
               {/if}
             </button>
+
+            <!-- Divider -->
+            <div class="relative my-4">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300"></div>
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-white text-gray-500">or</span>
+              </div>
+            </div>
+
+            <!-- Try Demo Button -->
+            <button
+              on:click={handleTryDemo}
+              class="w-full flex justify-center items-center py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              {#if hasExistingDemoData}
+                Continue Demo
+              {:else}
+                Try Without Account
+              {/if}
+            </button>
+
+            <p class="text-xs text-center text-gray-500 mt-2">
+              No sign-up required. Your notes are saved locally in your browser.
+            </p>
           </div>
         </div>
 

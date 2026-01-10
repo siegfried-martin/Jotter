@@ -4,10 +4,16 @@ import type { NoteContainer, CreateNoteContainer, SequenceUpdate } from '$lib/ty
 import { getNextNoteContainerSequence, updateNoteContainerSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 import { CollectionService } from './collectionService';
+import { isDemoMode } from '$lib/stores/demoStore';
+import { DemoNoteService } from './localStorage/demoStorageService';
 
 export class NoteService {
   // Get all note containers for current user - NOW WITH PROPER USER FILTERING
   static async getNoteContainers(collectionId?: string): Promise<NoteContainer[]> {
+    if (isDemoMode()) {
+      return DemoNoteService.getNoteContainers(collectionId);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -41,6 +47,10 @@ export class NoteService {
 
   // Get a single note container by ID - ENHANCED with user ownership check
   static async getNoteContainer(containerId: string): Promise<NoteContainer | null> {
+    if (isDemoMode()) {
+      return DemoNoteService.getNoteContainer(containerId);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -75,6 +85,9 @@ export class NoteService {
     collectionId: string,
     title: string = 'Untitled Note'
   ): Promise<NoteContainer> {
+    if (isDemoMode()) {
+      return DemoNoteService.createSimpleNoteContainer(collectionId, title);
+    }
     return await this.createNoteContainer({
       title: title.trim()
     }, collectionId);
@@ -82,9 +95,13 @@ export class NoteService {
 
   // Create a new note container - ENHANCED with default collection logic
   static async createNoteContainer(
-    container: CreateNoteContainer, 
+    container: CreateNoteContainer,
     collectionId?: string
   ): Promise<NoteContainer> {
+    if (isDemoMode()) {
+      return DemoNoteService.createNoteContainer(container, collectionId);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -128,9 +145,13 @@ export class NoteService {
 
   // Update note container - ENHANCED with user ownership check
   static async updateNoteContainer(
-    id: string, 
+    id: string,
     updates: Partial<CreateNoteContainer> & { sequence?: number }
   ): Promise<NoteContainer> {
+    if (isDemoMode()) {
+      return DemoNoteService.updateNoteContainer(id, updates);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -162,9 +183,13 @@ export class NoteService {
 
   // Update note container title - ENHANCED with user ownership check
   static async updateNoteContainerTitle(
-    id: string, 
+    id: string,
     title: string
   ): Promise<NoteContainer> {
+    if (isDemoMode()) {
+      return DemoNoteService.updateNoteContainerTitle(id, title);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -196,6 +221,10 @@ export class NoteService {
 
   // Delete note container - ENHANCED with user ownership check
   static async deleteNoteContainer(id: string): Promise<void> {
+    if (isDemoMode()) {
+      return DemoNoteService.deleteNoteContainer(id);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -213,6 +242,10 @@ export class NoteService {
 
   // Move note container to different collection - ENHANCED with ownership checks
   static async moveToCollection(noteId: string, collectionId: string | null): Promise<void> {
+    if (isDemoMode()) {
+      return DemoNoteService.moveToCollection(noteId, collectionId);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -258,6 +291,10 @@ export class NoteService {
     fromIndex: number,
     toIndex: number
   ): Promise<NoteContainer[]> {
+    if (isDemoMode()) {
+      return DemoNoteService.reorderNoteContainers(collectionId, fromIndex, toIndex);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
