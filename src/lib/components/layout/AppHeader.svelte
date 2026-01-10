@@ -3,11 +3,12 @@
   import { createEventDispatcher } from 'svelte';
   import CollectionTabs from './CollectionTabs.svelte';
   import UserMenu from './UserMenu.svelte';
-  
+
   export let currentCollectionId: string | undefined = undefined;
-  export let user: any = null;
+  export let user: unknown = null;
   export let showKeyboardShortcuts: boolean = false;
-  
+  export let isDemo: boolean = false;
+
   const dispatch = createEventDispatcher<{
     moveToCollection: {
       containerId: string;
@@ -16,16 +17,16 @@
     newNote: void;
     newNoteWithCode: void;
   }>();
-  
-  function handleMoveToCollection(event: any) {
+
+  function handleMoveToCollection(event: CustomEvent<{ containerId: string; targetCollectionId: string }>) {
     // Forward the event up to the parent
     dispatch('moveToCollection', event.detail);
   }
-  
+
   function handleNewNote() {
     dispatch('newNote');
   }
-  
+
   function handleNewNoteWithCode() {
     dispatch('newNoteWithCode');
   }
@@ -77,9 +78,36 @@
         <div class="lg:hidden">
           <!-- <span class="text-xs text-gray-400">Alt+N for new note</span> -->
         </div>
-        
-        <UserMenu {user} />
+
+        <!-- Demo Mode Indicator -->
+        {#if isDemo}
+          <div class="hidden sm:flex items-center px-3 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            Demo Mode
+          </div>
+        {/if}
+
+        <UserMenu {user} {isDemo} />
       </div>
     </div>
   </div>
 </header>
+
+<!-- Demo Mode Banner (mobile) -->
+{#if isDemo}
+  <div class="sm:hidden bg-amber-100 border-b border-amber-200 px-4 py-2">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center text-amber-800 text-xs">
+        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+        <span><strong>Demo Mode</strong> - Data saved locally</span>
+      </div>
+      <a href="/" class="text-xs text-amber-700 hover:text-amber-900 font-medium underline">
+        Sign in
+      </a>
+    </div>
+  </div>
+{/if}

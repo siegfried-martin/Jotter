@@ -1,14 +1,20 @@
 // src/lib/services/sequenceService.ts
 import { supabase } from '$lib/supabase';
 import type { SequenceUpdate } from '$lib/types';
+import { isDemoMode } from '$lib/stores/demoStore';
+import { DemoSequenceService } from './localStorage/demoStorageService';
 
 /**
  * Get next sequence number for collections (corresponds to get_next_collection_sequence DB function)
  */
 export async function getNextCollectionSequence(userId: string): Promise<number> {
+  if (isDemoMode()) {
+    return DemoSequenceService.getNextCollectionSequence();
+  }
+
   const { data, error } = await supabase
     .rpc('get_next_collection_sequence', { p_user_id: userId });
-  
+
   if (error) {
     console.error('Error getting next collection sequence:', error);
     // Fallback: calculate manually
@@ -18,10 +24,10 @@ export async function getNextCollectionSequence(userId: string): Promise<number>
       .eq('user_id', userId)
       .order('sequence', { ascending: false })
       .limit(1);
-    
+
     return collections && collections.length > 0 ? collections[0].sequence + 10 : 10;
   }
-  
+
   return data;
 }
 
@@ -29,9 +35,13 @@ export async function getNextCollectionSequence(userId: string): Promise<number>
  * Get next sequence number for note containers (corresponds to get_next_note_container_sequence DB function)
  */
 export async function getNextNoteContainerSequence(collectionId: string): Promise<number> {
+  if (isDemoMode()) {
+    return DemoSequenceService.getNextNoteContainerSequence(collectionId);
+  }
+
   const { data, error } = await supabase
     .rpc('get_next_note_container_sequence', { p_collection_id: collectionId });
-  
+
   if (error) {
     console.error('Error getting next note container sequence:', error);
     // Fallback: calculate manually
@@ -41,10 +51,10 @@ export async function getNextNoteContainerSequence(collectionId: string): Promis
       .eq('collection_id', collectionId)
       .order('sequence', { ascending: false })
       .limit(1);
-    
+
     return containers && containers.length > 0 ? containers[0].sequence + 10 : 10;
   }
-  
+
   return data;
 }
 
@@ -52,9 +62,13 @@ export async function getNextNoteContainerSequence(collectionId: string): Promis
  * Get next sequence number for note sections (corresponds to get_next_note_section_sequence DB function)
  */
 export async function getNextNoteSectionSequence(noteContainerId: string): Promise<number> {
+  if (isDemoMode()) {
+    return DemoSequenceService.getNextNoteSectionSequence(noteContainerId);
+  }
+
   const { data, error } = await supabase
     .rpc('get_next_note_section_sequence', { p_note_container_id: noteContainerId });
-  
+
   if (error) {
     console.error('Error getting next note section sequence:', error);
     // Fallback: calculate manually
@@ -64,10 +78,10 @@ export async function getNextNoteSectionSequence(noteContainerId: string): Promi
       .eq('note_container_id', noteContainerId)
       .order('sequence', { ascending: false })
       .limit(1);
-    
+
     return sections && sections.length > 0 ? sections[0].sequence + 10 : 10;
   }
-  
+
   return data;
 }
 

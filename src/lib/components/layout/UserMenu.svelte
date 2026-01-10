@@ -2,8 +2,11 @@
 <script lang="ts">
   import type { User } from '@supabase/supabase-js';
   import { signOut } from '$lib/auth';
+  import { goto } from '$app/navigation';
+  import { exitDemoMode } from '$lib/stores/demoStore';
 
   export let user: User | null = null;
+  export let isDemo: boolean = false;
 
   let showUserMenu = false;
 
@@ -17,6 +20,12 @@
     } catch (error) {
       console.error('Sign out failed:', error);
     }
+  };
+
+  const handleSignIn = () => {
+    // Exit demo mode but keep the data (for potential migration)
+    exitDemoMode(false);
+    goto('/');
   };
 
   // Close user menu when clicking outside
@@ -44,7 +53,20 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<div class="relative user-menu-container">
+<!-- Demo Mode: Show Sign In button -->
+{#if isDemo}
+  <button
+    on:click={handleSignIn}
+    class="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+  >
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+    </svg>
+    <span>Sign In</span>
+  </button>
+{:else}
+  <!-- Authenticated: Show user menu -->
+  <div class="relative user-menu-container">
   <button 
     class="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md p-1"
     on:click={toggleUserMenu}
@@ -114,7 +136,7 @@
       
       <hr class="my-1" />
       
-      <button 
+      <button
         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
         on:click={handleSignOut}
       >
@@ -128,3 +150,4 @@
     </div>
   {/if}
 </div>
+{/if}

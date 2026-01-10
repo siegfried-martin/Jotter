@@ -3,10 +3,16 @@ import { supabase, getAuthenticatedUser } from '$lib/supabase';
 import type { Collection, CreateCollection, SequenceUpdate } from '$lib/types';
 import { getNextCollectionSequence, updateCollectionSequences } from './sequenceService';
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
+import { isDemoMode } from '$lib/stores/demoStore';
+import { DemoCollectionService } from './localStorage/demoStorageService';
 
 export class CollectionService {
   // Get all collections for current user - NOW WITH PROPER USER FILTERING
   static async getCollections(): Promise<Collection[]> {
+    if (isDemoMode()) {
+      return DemoCollectionService.getCollections();
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -26,6 +32,10 @@ export class CollectionService {
 
   // Get single collection by ID - WITH PROPER USER FILTERING
   static async getCollection(collectionId: string): Promise<Collection | null> {
+    if (isDemoMode()) {
+      return DemoCollectionService.getCollection(collectionId);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -50,6 +60,10 @@ export class CollectionService {
 
   // Get default collection for current user - NOW WITH PROPER USER FILTERING
   static async getDefaultCollection(): Promise<Collection | null> {
+    if (isDemoMode()) {
+      return DemoCollectionService.getDefaultCollection();
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -72,6 +86,10 @@ export class CollectionService {
 
   // Create new collection - ENHANCED with default collection logic
   static async createCollection(collection: CreateCollection): Promise<Collection> {
+    if (isDemoMode()) {
+      return DemoCollectionService.createCollection(collection);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -109,6 +127,10 @@ export class CollectionService {
     id: string,
     updates: Partial<CreateCollection> & { sequence?: number }
   ): Promise<Collection> {
+    if (isDemoMode()) {
+      return DemoCollectionService.updateCollection(id, updates);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -133,6 +155,10 @@ export class CollectionService {
 
   // Delete collection - ENHANCED with orphan note handling
   static async deleteCollection(id: string): Promise<void> {
+    if (isDemoMode()) {
+      return DemoCollectionService.deleteCollection(id);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -164,6 +190,10 @@ export class CollectionService {
     fromIndex: number,
     toIndex: number
   ): Promise<Collection[]> {
+    if (isDemoMode()) {
+      return DemoCollectionService.reorderCollections(fromIndex, toIndex);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -201,8 +231,12 @@ export class CollectionService {
 
   // NEW: Ensure user has a default collection
   static async ensureDefaultCollection(): Promise<Collection> {
+    if (isDemoMode()) {
+      return DemoCollectionService.ensureDefaultCollection();
+    }
+
     let defaultCollection = await this.getDefaultCollection();
-    
+
     if (!defaultCollection) {
       // Create a default collection for the user
       defaultCollection = await this.createCollection({
@@ -212,7 +246,7 @@ export class CollectionService {
         is_default: true
       });
     }
-    
+
     return defaultCollection;
   }
 }

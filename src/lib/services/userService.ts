@@ -1,5 +1,7 @@
 // src/lib/services/userService.ts
 import { supabase, getAuthenticatedUser } from '$lib/supabase';
+import { isDemoMode } from '$lib/stores/demoStore';
+import { DemoUserService } from './localStorage/demoStorageService';
 
 export interface UserPreferences {
   id: string;
@@ -7,7 +9,7 @@ export interface UserPreferences {
   theme: string;
   default_editor: string;
   auto_save_delay: number;
-  keyboard_shortcuts: Record<string, any>;
+  keyboard_shortcuts: Record<string, unknown>;
   last_visited_collection_id?: string;
   last_visited_container_id?: string;
   created_at: string;
@@ -17,6 +19,10 @@ export interface UserPreferences {
 export class UserService {
   // Get user preferences
   static async getUserPreferences(): Promise<UserPreferences | null> {
+    if (isDemoMode()) {
+      return DemoUserService.getUserPreferences();
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -36,6 +42,10 @@ export class UserService {
 
   // Create default user preferences if they don't exist
   static async ensureUserPreferences(): Promise<UserPreferences> {
+    if (isDemoMode()) {
+      return DemoUserService.ensureUserPreferences();
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -77,8 +87,12 @@ export class UserService {
 
   // Get last visited container ID
   static async getLastVisitedContainerId(): Promise<string | null> {
+    if (isDemoMode()) {
+      return DemoUserService.getLastVisitedContainerId();
+    }
+
     console.log('🔍 UserService.getLastVisitedContainerId called');
-    
+
     const user = await getAuthenticatedUser();
     if (!user) {
       console.log('❌ No authenticated user');
@@ -107,8 +121,12 @@ export class UserService {
 
   // Update last visited container ID
   static async updateLastVisitedContainer(containerId: string): Promise<void> {
+    if (isDemoMode()) {
+      return DemoUserService.updateLastVisitedContainer(containerId);
+    }
+
     console.log('🔄 Updating last visited container to:', containerId);
-    
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -133,8 +151,12 @@ export class UserService {
 
   // Check which collection a container belongs to
   static async getContainerCollection(containerId: string): Promise<string | null> {
+    if (isDemoMode()) {
+      return DemoUserService.getContainerCollection(containerId);
+    }
+
     console.log('🔍 Checking which collection contains container:', containerId);
-    
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -165,12 +187,19 @@ export class UserService {
 
   // Get last visited collection ID
   static async getLastVisitedCollectionId(): Promise<string | null> {
+    if (isDemoMode()) {
+      return DemoUserService.getLastVisitedCollectionId();
+    }
     const preferences = await this.getUserPreferences();
     return preferences?.last_visited_collection_id || null;
   }
 
   // Update last visited collection
   static async updateLastVisitedCollection(collectionId: string): Promise<void> {
+    if (isDemoMode()) {
+      return DemoUserService.updateLastVisitedCollection(collectionId);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -216,6 +245,10 @@ export class UserService {
 
   // Update user preferences
   static async updateUserPreferences(updates: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserPreferences> {
+    if (isDemoMode()) {
+      return DemoUserService.updateUserPreferences(updates);
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -242,12 +275,16 @@ export class UserService {
 
   // Clear last visited container (useful when container is deleted)
   static async clearLastVisitedContainer(): Promise<void> {
+    if (isDemoMode()) {
+      return DemoUserService.clearLastVisitedContainer();
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
       .from('user_preferences')
-      .update({ 
+      .update({
         last_visited_container_id: null,
         updated_at: new Date().toISOString()
       })
@@ -261,12 +298,16 @@ export class UserService {
 
   // Clear last visited collection (useful when collection is deleted)
   static async clearLastVisitedCollection(): Promise<void> {
+    if (isDemoMode()) {
+      return DemoUserService.clearLastVisitedCollection();
+    }
+
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
       .from('user_preferences')
-      .update({ 
+      .update({
         last_visited_collection_id: null,
         updated_at: new Date().toISOString()
       })

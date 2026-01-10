@@ -1,7 +1,7 @@
 # AI Project Status
 
-**Last Updated**: November 28, 2025
-**Current Phase**: Ko-fi Integration & About Page
+**Last Updated**: January 10, 2026
+**Current Phase**: Demo Mode Implementation
 
 ---
 
@@ -9,7 +9,7 @@
 
 The app is in a **stable state** with comprehensive E2E testing complete. The regression testing initiative has been successfully completed with 75 passing tests covering all critical functionality.
 
-**Ready for Initial Public Release** - Core features complete, tests passing, mobile UI optimized.
+**Pivoting to Demo Mode** - User feedback indicates hesitancy to provide email for Google OAuth. Implementing a localStorage-based demo mode to reduce friction.
 
 **Test Coverage** (Final):
 - ✅ Collection CRUD: 4/4 passing (100%)
@@ -26,15 +26,225 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 **Overall Coverage**: ~90% of critical user flows covered
 
 **Next Priorities**:
-1. **Ko-fi Integration & About Page** (next session) - Add support link before public release
-2. **Public Release** - Deploy and announce to dev communities
-3. See `docs/roadmap.md` for longer-term feature plans
+1. **Demo Mode** (this session) - localStorage-based no-auth experience
+2. **Demo Data Migration** - Import local notes to cloud on sign-up
+3. **Ko-fi Integration & About Page** - Add support link before public release
+4. **Public Release** - Deploy and announce to dev communities
+5. See `docs/roadmap.md` for longer-term feature plans
 
 ---
 
 ## Current Initiatives
 
-### Ko-fi Integration & About Page (Priority 1) - NEXT
+### Demo Mode (Priority 1) - COMPLETE
+
+**Status**: Implementation Complete
+**Estimated Duration**: 1-2 sessions
+**Goal**: Allow users to try Jotter without signing in, using localStorage for persistence
+
+#### Background
+
+User feedback from initial release: "I'm not giving you my email address." Developers are skeptical about OAuth for a notes app. Solution: provide a fully-functional demo mode that persists to browser storage.
+
+**Reference**: mermaid.live uses this pattern effectively - full functionality without auth, account adds cloud sync.
+
+#### Architecture Decision
+
+**Pattern**: Global `isDemo` flag checked at the service layer only.
+
+```
+┌─────────────────────────────────────────────┐
+│  UI Components / Routes (unchanged)         │
+├─────────────────────────────────────────────┤
+│  AppDataManager / Stores (unchanged)        │
+├─────────────────────────────────────────────┤
+│  Services (CollectionService, etc.)         │
+│  ┌─────────────────────────────────────┐    │
+│  │ if (get(isDemo)) → localStorage     │    │
+│  │ else             → Supabase         │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+```
+
+- Same feature set in demo and authenticated modes
+- Same `/app` route for both modes
+- Persistence: `localStorage` (5-10MB limit, sufficient for demo use)
+
+#### Implementation Plan
+
+**Phase 1: Core Infrastructure**
+
+- [ ] Create `$lib/stores/demoStore.ts`
+  - `isDemo` writable store (boolean)
+  - `initDemoMode()` function to set demo state and create starter data
+  - `exitDemoMode()` function to clear demo state
+
+- [ ] Create `$lib/services/localStorage/` directory with:
+  - `localStorageService.ts` - Generic CRUD helpers for localStorage
+  - `demoDataService.ts` - Demo-specific data management
+
+**Phase 2: Service Layer Modifications**
+
+Files to modify (add demo mode routing):
+
+- [ ] `src/lib/services/collectionService.ts`
+  - Add `import { get } from 'svelte/store'; import { isDemo } from '$lib/stores/demoStore';`
+  - Each method: `if (get(isDemo)) return localStorageImpl(); else return supabaseImpl();`
+
+- [ ] `src/lib/services/noteService.ts` (containers)
+  - Same pattern as collectionService
+
+- [ ] `src/lib/services/sectionService.ts`
+  - Same pattern as collectionService
+
+- [ ] `src/lib/services/userService.ts`
+  - Return mock/localStorage preferences in demo mode
+
+- [ ] `src/lib/services/sequenceService.ts`
+  - Sequence management for localStorage operations
+
+**Phase 3: Auth Layer Bypass**
+
+- [ ] `src/lib/auth.ts`
+  - Add `isDemoMode()` helper that checks the demo store
+
+- [ ] `src/routes/app/+layout.svelte`
+  - Modify auth check: `if (!userIsAuthenticated && !get(isDemo)) { redirect }`
+  - Skip `startBackgroundLoading()` Supabase calls in demo mode
+
+- [ ] `src/lib/supabase.ts`
+  - `getAuthenticatedUser()` should return mock user in demo mode
+
+**Phase 4: UI Integration**
+
+- [ ] `src/routes/+page.svelte` (landing page)
+  - Add "Try Without Account" button below Google sign-in
+  - On click: `initDemoMode()` → `goto('/app')`
+
+- [ ] Demo mode indicator in app
+  - Persistent banner or badge showing "Demo Mode - data saved locally"
+  - "Sign in to sync across devices" call-to-action
+
+- [ ] `src/lib/components/layout/AppHeader.svelte`
+  - Show demo indicator
+  - Replace user menu with "Sign In" option in demo mode
+
+**Phase 5: Data Structure**
+
+localStorage key: `jotter_demo_data`
+
+```typescript
+interface DemoData {
+  collections: Collection[];
+  containers: NoteContainer[];
+  sections: NoteSection[];
+  preferences: UserPreferences;
+  meta: {
+    createdAt: string;
+    lastModified: string;
+    version: number; // For future migrations
+  };
+}
+```
+
+**Demo User ID**: Use fixed ID `demo-user-local` for all records (maintains data model consistency).
+
+#### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/lib/stores/demoStore.ts` | Demo mode state management |
+| `src/lib/services/localStorage/localStorageService.ts` | Generic localStorage CRUD |
+| `src/lib/services/localStorage/demoDataService.ts` | Demo data initialization/management |
+
+#### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/lib/services/collectionService.ts` | Add demo mode routing |
+| `src/lib/services/noteService.ts` | Add demo mode routing |
+| `src/lib/services/sectionService.ts` | Add demo mode routing |
+| `src/lib/services/userService.ts` | Add demo mode routing |
+| `src/lib/services/sequenceService.ts` | Add demo mode routing |
+| `src/lib/auth.ts` | Add demo mode helper |
+| `src/lib/supabase.ts` | Mock user in demo mode |
+| `src/routes/app/+layout.svelte` | Allow demo users through |
+| `src/routes/+page.svelte` | Add "Try Demo" button |
+| `src/lib/components/layout/AppHeader.svelte` | Demo mode UI |
+
+#### Success Criteria
+
+- [x] User can click "Try Without Account" and immediately use full app
+- [x] All CRUD operations work in demo mode
+- [x] Data persists across browser sessions (localStorage)
+- [x] Clear indication that user is in demo mode
+- [x] Easy path to sign in from demo mode
+- [x] Existing authenticated flow unchanged
+
+#### Out of Scope (This Phase)
+
+- Demo usage limits (artificial constraints)
+- Demo data export/import
+
+---
+
+### Demo Data Migration (Priority 2) - NEXT
+
+**Status**: Not Started
+**Estimated Duration**: 1 session
+**Goal**: When a demo user signs in, offer to migrate their local data to the cloud
+
+#### Background
+
+Users who try demo mode and decide to sign up should have a seamless path to keep their work. This is a key conversion feature.
+
+#### User Flow
+
+1. User is in demo mode with existing data
+2. User clicks "Sign In" from demo mode
+3. After successful OAuth, detect:
+   - User has demo data in localStorage
+   - User just authenticated
+4. Show migration prompt:
+   - "You have notes saved locally. Would you like to import them to your account?"
+   - Options: "Import Notes" / "Start Fresh"
+5. If import:
+   - Copy all collections, containers, sections to Supabase
+   - Update `user_id` fields to new authenticated user
+   - Clear localStorage demo data
+   - Show success message
+6. If start fresh:
+   - Clear localStorage demo data
+   - Continue to empty app
+
+#### Implementation Notes
+
+- Migration happens client-side (read localStorage → write to Supabase)
+- Handle ID conflicts (generate new UUIDs on import)
+- Preserve relationships (collection → container → section)
+- Preserve sequences for ordering
+- Consider: show migration progress for large datasets
+
+#### Files to Create/Modify
+
+| File | Purpose |
+|------|---------|
+| `src/lib/services/migrationService.ts` | Handle demo → cloud data migration |
+| `src/lib/components/ui/MigrationPrompt.svelte` | Migration UI modal |
+| `src/routes/app/+layout.svelte` | Detect migration opportunity on auth |
+
+#### Success Criteria
+
+- [ ] Migration prompt appears after sign-in when demo data exists
+- [ ] "Import Notes" successfully copies all data to cloud
+- [ ] "Start Fresh" clears demo data without import
+- [ ] Relationships preserved (sections stay in correct containers)
+- [ ] Ordering preserved (sequences maintained)
+- [ ] Demo mode flag cleared after migration
+
+---
+
+### Ko-fi Integration & About Page (Priority 3)
 
 **Status**: Not Started
 **Estimated Duration**: 1 session

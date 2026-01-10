@@ -9,6 +9,7 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { AppDataManager } from '$lib/stores/appDataStore';
   import DragProvider from '$lib/dnd/components/DragProvider.svelte';
+  import { isDemo } from '$lib/stores/demoStore';
 
   let user: any = null;
   let hasLoadedOnce = false;
@@ -20,6 +21,7 @@
   $: currentCollectionId = $page.params.collection_id;
   $: currentRoute = $page.url.pathname;
   $: userIsAuthenticated = isAuthenticated($authStore);
+  $: inDemoMode = $isDemo;
   
   // Initialize app state when layout first loads
   $: if ($authStore.initialized && !$authStore.loading && $appStore && !$appStore.hasInitialized) {
@@ -59,6 +61,14 @@
   }
 
   onMount(async () => {
+    // In demo mode, skip auth check and load data immediately
+    if ($isDemo) {
+      console.log('🎮 Demo mode active, skipping auth check');
+      hasLoadedOnce = true;
+      startBackgroundLoading();
+      return;
+    }
+
     const unsubscribe = authStore.subscribe((auth) => {
       if (!auth.loading && !isAuthenticated(auth)) {
         console.log('User not authenticated, redirecting to landing page');
@@ -68,7 +78,7 @@
       user = auth.user;
       if (!auth.loading) {
         hasLoadedOnce = true;
-        
+
         // Only start background loading if user is authenticated
         if (isAuthenticated(auth)) {
           startBackgroundLoading();
@@ -111,13 +121,13 @@
 </script>
 
 <!-- Only show loading on initial load or while populating cache -->
-{#if $authStore.loading && !hasLoadedOnce}
+{#if $authStore.loading && !hasLoadedOnce && !inDemoMode}
   <LoadingSpinner
     fullScreen={true}
     size="lg"
     text="Loading..."
   />
-{:else if !userIsAuthenticated}
+{:else if !userIsAuthenticated && !inDemoMode}
   <!-- User not authenticated, redirect should happen automatically -->
   <LoadingSpinner
     fullScreen={true}
@@ -149,6 +159,7 @@
         {user}
         {currentCollectionId}
         showKeyboardShortcuts={true}
+        isDemo={inDemoMode}
         on:moveToCollection={handleMoveToCollectionFromHeader}
         on:newNote={() => handleNewNote(false)}
         on:newNoteWithCode={() => handleNewNote(true)}
