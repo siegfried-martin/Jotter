@@ -12,6 +12,7 @@ import {
 	type DemoPreferences
 } from '$lib/stores/demoStore';
 import type { Collection, NoteContainer, NoteSection, CreateCollection, CreateNoteContainer, CreateNoteSection } from '$lib/types';
+import { EventLogService } from '$lib/services/eventLogService';
 
 // Helper to ensure demo data exists
 function ensureDemoData(): DemoData {
@@ -73,6 +74,9 @@ export class DemoCollectionService {
 		data.collections.push(newCollection);
 		saveDemoData(data);
 
+		// Log event
+		EventLogService.logCollectionCreated(newCollection.id, newCollection.name, newCollection.color);
+
 		return newCollection as Collection;
 	}
 
@@ -87,6 +91,16 @@ export class DemoCollectionService {
 			throw new Error('Collection not found');
 		}
 
+		// Track changes for logging
+		const original = data.collections[index];
+		const changes: Record<string, { from: unknown; to: unknown }> = {};
+		if (updates.name !== undefined && updates.name !== original.name) {
+			changes.name = { from: original.name, to: updates.name };
+		}
+		if (updates.color !== undefined && updates.color !== original.color) {
+			changes.color = { from: original.color, to: updates.color };
+		}
+
 		data.collections[index] = {
 			...data.collections[index],
 			...updates,
@@ -94,11 +108,21 @@ export class DemoCollectionService {
 		};
 
 		saveDemoData(data);
+
+		// Log event if there were meaningful changes
+		if (Object.keys(changes).length > 0) {
+			EventLogService.logCollectionUpdated(id, changes);
+		}
+
 		return data.collections[index] as Collection;
 	}
 
 	static async deleteCollection(id: string): Promise<void> {
 		const data = ensureDemoData();
+
+		// Get collection name for logging
+		const collection = data.collections.find(c => c.id === id);
+		const collectionName = collection?.name ?? 'Unknown';
 
 		// Get default collection for orphan handling
 		const defaultCollection = data.collections.find(
@@ -125,6 +149,9 @@ export class DemoCollectionService {
 		// Delete the collection
 		data.collections = data.collections.filter(c => c.id !== id);
 		saveDemoData(data);
+
+		// Log event
+		EventLogService.logCollectionDeleted(id, collectionName);
 	}
 
 	static async reorderCollections(fromIndex: number, toIndex: number): Promise<Collection[]> {
@@ -252,6 +279,9 @@ export class DemoNoteService {
 		data.containers.push(newContainer);
 		saveDemoData(data);
 
+		// Log event
+		EventLogService.logContainerCreated(newContainer.id, finalCollectionId, newContainer.title);
+
 		// Return with collection info
 		const collection = data.collections.find(c => c.id === finalCollectionId);
 		return {
@@ -275,6 +305,13 @@ export class DemoNoteService {
 			throw new Error('Container not found');
 		}
 
+		// Track changes for logging
+		const original = data.containers[index];
+		const changes: Record<string, { from: unknown; to: unknown }> = {};
+		if (updates.title !== undefined && updates.title !== original.title) {
+			changes.title = { from: original.title, to: updates.title };
+		}
+
 		data.containers[index] = {
 			...data.containers[index],
 			...updates,
@@ -282,6 +319,11 @@ export class DemoNoteService {
 		};
 
 		saveDemoData(data);
+
+		// Log event if there were meaningful changes
+		if (Object.keys(changes).length > 0) {
+			EventLogService.logContainerUpdated(id, changes);
+		}
 
 		const container = data.containers[index];
 		const collection = data.collections.find(c => c.id === container.collection_id);
@@ -302,6 +344,11 @@ export class DemoNoteService {
 	static async deleteNoteContainer(id: string): Promise<void> {
 		const data = ensureDemoData();
 
+		// Get container info for logging
+		const container = data.containers.find(c => c.id === id);
+		const containerTitle = container?.title ?? 'Unknown';
+		const sectionCount = data.sections.filter(s => s.note_container_id === id).length;
+
 		// Delete sections in this container
 		data.sections = data.sections.filter(s => s.note_container_id !== id);
 
@@ -309,10 +356,21 @@ export class DemoNoteService {
 		data.containers = data.containers.filter(c => c.id !== id);
 
 		saveDemoData(data);
+
+		// Log event
+		EventLogService.logContainerDeleted(id, containerTitle, sectionCount);
 	}
 
 	static async moveToCollection(noteId: string, collectionId: string | null): Promise<void> {
 		const data = ensureDemoData();
+
+		const index = data.containers.findIndex(c => c.id === noteId && c.user_id === DEMO_USER_ID);
+		if (index === -1) {
+			throw new Error('Container not found');
+		}
+
+		// Get original collection for logging
+		const fromCollectionId = data.containers[index].collection_id;
 
 		let finalCollectionId = collectionId;
 		if (!finalCollectionId) {
@@ -320,15 +378,13 @@ export class DemoNoteService {
 			finalCollectionId = defaultCollection.id;
 		}
 
-		const index = data.containers.findIndex(c => c.id === noteId && c.user_id === DEMO_USER_ID);
-		if (index === -1) {
-			throw new Error('Container not found');
-		}
-
 		data.containers[index].collection_id = finalCollectionId;
 		data.containers[index].updated_at = new Date().toISOString();
 
 		saveDemoData(data);
+
+		// Log event
+		EventLogService.logContainerMoved(noteId, fromCollectionId, finalCollectionId);
 	}
 
 	static async reorderNoteContainers(
@@ -408,6 +464,13 @@ export class DemoSectionService {
 		}
 
 		saveDemoData(data);
+
+		// Log event
+		const language = section.meta && typeof section.meta === 'object' && 'language' in section.meta
+			? String(section.meta.language)
+			: undefined;
+		EventLogService.logSectionCreated(newSection.id, section.note_container_id, section.type, language);
+
 		return newSection as NoteSection;
 	}
 
@@ -422,6 +485,10 @@ export class DemoSectionService {
 		if (index === -1) {
 			throw new Error('Section not found');
 		}
+
+		// Check if this is a content update (not just sequence)
+		const isContentUpdate = updates.content !== undefined || updates.title !== undefined;
+		const sectionType = data.sections[index].type;
 
 		data.sections[index] = {
 			...data.sections[index],
@@ -438,6 +505,13 @@ export class DemoSectionService {
 		}
 
 		saveDemoData(data);
+
+		// Log event if content was updated
+		if (isContentUpdate) {
+			const contentLength = data.sections[index].content?.length ?? 0;
+			EventLogService.logSectionUpdated(id, sectionType, contentLength);
+		}
+
 		return data.sections[index] as NoteSection;
 	}
 
@@ -470,8 +544,16 @@ export class DemoSectionService {
 
 	static async deleteSection(id: string): Promise<void> {
 		const data = ensureDemoData();
+
+		// Get section type for logging
+		const section = data.sections.find(s => s.id === id);
+		const sectionType = section?.type ?? 'unknown';
+
 		data.sections = data.sections.filter(s => s.id !== id);
 		saveDemoData(data);
+
+		// Log event
+		EventLogService.logSectionDeleted(id, sectionType);
 	}
 
 	static async reorderSections(
@@ -513,6 +595,9 @@ export class DemoSectionService {
 			throw new Error('Section not found');
 		}
 
+		// Get original container for logging
+		const fromContainerId = data.sections[index].note_container_id;
+
 		data.sections[index].note_container_id = newContainerId;
 		data.sections[index].updated_at = now;
 
@@ -524,6 +609,10 @@ export class DemoSectionService {
 		});
 
 		saveDemoData(data);
+
+		// Log event
+		EventLogService.logSectionMoved(sectionId, fromContainerId, newContainerId);
+
 		return data.sections[index] as NoteSection;
 	}
 }

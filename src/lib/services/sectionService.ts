@@ -75,6 +75,9 @@ export class SectionService {
       return DemoSectionService.updateSection(id, updates);
     }
 
+    // Check if this is a content update (not just sequence reorder)
+    const isContentUpdate = updates.content !== undefined || updates.title !== undefined;
+
     console.log('Updating section:', id, updates);
     const { data, error } = await supabase
       .from('note_section')
@@ -97,6 +100,12 @@ export class SectionService {
         .from('note_container')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', data.note_container_id);
+    }
+
+    // Log event if content was updated
+    if (isContentUpdate) {
+      const contentLength = data.content?.length ?? 0;
+      EventLogService.logSectionUpdated(id, data.type, contentLength);
     }
 
     return data;

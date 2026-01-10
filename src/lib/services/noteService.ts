@@ -159,6 +159,9 @@ export class NoteService {
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get original values for change tracking
+    const original = await this.getNoteContainer(id);
+
     const { data, error } = await supabase
       .from('note_container')
       .update({
@@ -182,6 +185,17 @@ export class NoteService {
       throw error;
     }
 
+    // Log event if there were meaningful changes
+    if (original) {
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      if (updates.title !== undefined && updates.title !== original.title) {
+        changes.title = { from: original.title, to: updates.title };
+      }
+      if (Object.keys(changes).length > 0) {
+        EventLogService.logContainerUpdated(id, changes);
+      }
+    }
+
     return data;
   }
 
@@ -196,6 +210,9 @@ export class NoteService {
 
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
+
+    // Get original title for change tracking
+    const original = await this.getNoteContainer(id);
 
     const { data, error } = await supabase
       .from('note_container')
@@ -218,6 +235,13 @@ export class NoteService {
     if (error) {
       console.error('Error updating note container title:', error);
       throw error;
+    }
+
+    // Log event if title actually changed
+    if (original && title.trim() !== original.title) {
+      EventLogService.logContainerUpdated(id, {
+        title: { from: original.title, to: title.trim() }
+      });
     }
 
     return data;

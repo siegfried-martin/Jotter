@@ -138,6 +138,9 @@ export class CollectionService {
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get original values for change tracking
+    const original = await this.getCollection(id);
+
     const { data, error } = await supabase
       .from('collections')
       .update({
@@ -152,6 +155,20 @@ export class CollectionService {
     if (error) {
       console.error('Error updating collection:', error);
       throw error;
+    }
+
+    // Log event if there were meaningful changes
+    if (original) {
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      if (updates.name !== undefined && updates.name !== original.name) {
+        changes.name = { from: original.name, to: updates.name };
+      }
+      if (updates.color !== undefined && updates.color !== original.color) {
+        changes.color = { from: original.color, to: updates.color };
+      }
+      if (Object.keys(changes).length > 0) {
+        EventLogService.logCollectionUpdated(id, changes);
+      }
     }
 
     return data;
