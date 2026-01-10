@@ -27,7 +27,7 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 
 **Next Priorities**:
 1. ~~**Demo Mode**~~ ✅ Complete - localStorage-based no-auth experience
-2. **Demo Data Migration** - Import local notes to cloud on sign-up
+2. ~~**Demo Data Migration**~~ ✅ Complete - Import local notes to cloud on sign-up
 3. **Event Log System** - Unified analytics + foundation for undo/sync
 4. **Ko-fi Integration & About Page** - Add support link before public release
 5. **Public Release** - Deploy and announce to dev communities
@@ -189,9 +189,9 @@ interface DemoData {
 
 ---
 
-### Demo Data Migration (Priority 2) - NEXT
+### Demo Data Migration (Priority 2) - COMPLETE
 
-**Status**: Not Started
+**Status**: Implementation Complete
 **Estimated Duration**: 1 session
 **Goal**: When a demo user signs in, offer to migrate their local data to the cloud
 
@@ -199,49 +199,36 @@ interface DemoData {
 
 Users who try demo mode and decide to sign up should have a seamless path to keep their work. This is a key conversion feature.
 
-#### User Flow
+#### Implementation
 
+**Files Created:**
+- `src/lib/services/migrationService.ts` - Handles demo → cloud data migration
+- `src/lib/components/ui/MigrationPrompt.svelte` - Migration UI modal
+
+**Files Modified:**
+- `src/routes/auth/callback/+page.svelte` - Detects demo data after OAuth and sets pending migration flag
+- `src/routes/app/+layout.svelte` - Shows migration prompt when pending migration detected
+
+**How It Works:**
 1. User is in demo mode with existing data
 2. User clicks "Sign In" from demo mode
-3. After successful OAuth, detect:
-   - User has demo data in localStorage
-   - User just authenticated
-4. Show migration prompt:
-   - "You have notes saved locally. Would you like to import them to your account?"
-   - Options: "Import Notes" / "Start Fresh"
-5. If import:
-   - Copy all collections, containers, sections to Supabase
-   - Update `user_id` fields to new authenticated user
-   - Clear localStorage demo data
-   - Show success message
-6. If start fresh:
-   - Clear localStorage demo data
-   - Continue to empty app
-
-#### Implementation Notes
-
-- Migration happens client-side (read localStorage → write to Supabase)
-- Handle ID conflicts (generate new UUIDs on import)
-- Preserve relationships (collection → container → section)
-- Preserve sequences for ordering
-- Consider: show migration progress for large datasets
-
-#### Files to Create/Modify
-
-| File | Purpose |
-|------|---------|
-| `src/lib/services/migrationService.ts` | Handle demo → cloud data migration |
-| `src/lib/components/ui/MigrationPrompt.svelte` | Migration UI modal |
-| `src/routes/app/+layout.svelte` | Detect migration opportunity on auth |
+3. After successful OAuth callback:
+   - Check if demo data exists in localStorage
+   - Set `pending_migration` flag in sessionStorage
+4. App layout detects pending migration flag and shows modal
+5. User chooses:
+   - **Import Notes**: All data copied to Supabase with new UUIDs, relationships preserved
+   - **Start Fresh**: Demo data cleared, user starts with empty account
+6. Cache cleared and app reloads with new data
 
 #### Success Criteria
 
-- [ ] Migration prompt appears after sign-in when demo data exists
-- [ ] "Import Notes" successfully copies all data to cloud
-- [ ] "Start Fresh" clears demo data without import
-- [ ] Relationships preserved (sections stay in correct containers)
-- [ ] Ordering preserved (sequences maintained)
-- [ ] Demo mode flag cleared after migration
+- [x] Migration prompt appears after sign-in when demo data exists
+- [x] "Import Notes" successfully copies all data to cloud
+- [x] "Start Fresh" clears demo data without import
+- [x] Relationships preserved (sections stay in correct containers)
+- [x] Ordering preserved (sequences maintained)
+- [x] Demo mode flag cleared after migration
 
 ---
 

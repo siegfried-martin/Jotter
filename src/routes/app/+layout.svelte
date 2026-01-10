@@ -7,15 +7,18 @@
   import { goto } from '$app/navigation';
   import AppHeader from '$lib/components/layout/AppHeader.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+  import MigrationPrompt from '$lib/components/ui/MigrationPrompt.svelte';
   import { AppDataManager } from '$lib/stores/appDataStore';
   import DragProvider from '$lib/dnd/components/DragProvider.svelte';
   import { isDemo } from '$lib/stores/demoStore';
+  import { hasPendingMigration, clearPendingMigration } from '$lib/services/migrationService';
 
   let user: any = null;
   let hasLoadedOnce = false;
   let layoutElement: HTMLElement;
   let cacheReady = false; // Track when cache is fully populated
   let cacheLoadError: string | null = null; // Debug: track cache load errors
+  let showMigrationPrompt = false; // Show migration prompt for demo users who sign in
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
@@ -81,6 +84,12 @@
 
         // Only start background loading if user is authenticated
         if (isAuthenticated(auth)) {
+          // Check if there's pending demo data migration
+          if (hasPendingMigration()) {
+            console.log('📦 Pending migration detected, showing prompt');
+            showMigrationPrompt = true;
+          }
+
           startBackgroundLoading();
         }
       }
@@ -88,6 +97,25 @@
 
     return unsubscribe;
   });
+
+  // Handle migration completion
+  async function handleMigrationComplete(event: CustomEvent<{ migrated: boolean }>) {
+    showMigrationPrompt = false;
+
+    if (event.detail.migrated) {
+      console.log('✅ Migration complete, refreshing data...');
+      // Clear cache and reload the migrated data from cloud
+      AppDataManager.clearCache();
+      cacheReady = false;
+      await startBackgroundLoading();
+    } else {
+      console.log('🗑️ User chose to start fresh');
+      // Data was cleared, reload fresh data
+      AppDataManager.clearCache();
+      cacheReady = false;
+      await startBackgroundLoading();
+    }
+  }
 
   // Load all collections + containers synchronously on app start
   async function startBackgroundLoading() {
@@ -170,4 +198,9 @@
       </main>
     </div>
   </DragProvider>
+
+  <!-- Migration prompt for demo users who sign in -->
+  {#if showMigrationPrompt}
+    <MigrationPrompt on:complete={handleMigrationComplete} />
+  {/if}
 {/if}
