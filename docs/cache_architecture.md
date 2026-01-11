@@ -1,7 +1,7 @@
 # Cache Architecture & Performance Technical Details
 
-**Last Updated**: November 20, 2025
-**Branch**: `fix/multiple-bugs-and-cache-optimization` (includes full section preloading)
+**Last Updated**: January 11, 2026
+**Branch**: `feat/demo-mode` (includes cache reload throttling)
 **Status**: Stable - cache architecture is complete and working well
 
 ---
@@ -192,6 +192,41 @@ For collections with more than 10 containers, a "Load More" button fetches and c
 - **Navigation**: Instant (data already in cache)
 - **Load More**: On-demand fetch for containers beyond first 10
 - **Re-renders**: Minimal - components only update when relevant data changes
+
+### Cache Reload Throttling
+
+**Location**: `src/routes/app/+layout.svelte`
+
+**Problem**: Supabase auto-refreshes auth tokens when the browser window regains focus. This triggers auth state changes which previously caused `startBackgroundLoading()` to refetch all collections on every tab switch or window focus.
+
+**Solution**: Added a cooldown timer to prevent excessive API calls.
+
+```typescript
+// Configuration
+const CACHE_RELOAD_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes minimum between full reloads
+let lastCacheLoadTime: number = 0;
+
+// In startBackgroundLoading()
+async function startBackgroundLoading(forceReload = false) {
+  const now = Date.now();
+  const timeSinceLastLoad = now - lastCacheLoadTime;
+
+  // Skip if we've loaded recently (unless forced or first load)
+  if (!forceReload && lastCacheLoadTime > 0 && timeSinceLastLoad < CACHE_RELOAD_COOLDOWN_MS) {
+    console.log(`⏳ Skipping cache reload - last load was ${Math.round(timeSinceLastLoad / 1000)}s ago`);
+    return;
+  }
+
+  lastCacheLoadTime = now;
+  // ... proceed with loading
+}
+```
+
+**Behavior**:
+- First load always proceeds
+- Subsequent loads within 5 minutes are skipped (logged for debugging)
+- Explicit actions (migration complete, cache clear) can force reload with `startBackgroundLoading(true)`
+- Configurable via `CACHE_RELOAD_COOLDOWN_MS` constant
 
 ### Preloading Strategy
 ```typescript

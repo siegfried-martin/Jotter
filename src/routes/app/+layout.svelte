@@ -7,15 +7,22 @@
   import { goto } from '$app/navigation';
   import AppHeader from '$lib/components/layout/AppHeader.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+  import MigrationPrompt from '$lib/components/ui/MigrationPrompt.svelte';
   import { AppDataManager } from '$lib/stores/appDataStore';
   import DragProvider from '$lib/dnd/components/DragProvider.svelte';
   import { isDemo } from '$lib/stores/demoStore';
+  import { hasPendingMigration, clearPendingMigration } from '$lib/services/migrationService';
+  import { EventLogService } from '$lib/services/eventLogService';
 
   let user: any = null;
   let hasLoadedOnce = false;
   let layoutElement: HTMLElement;
   let cacheReady = false; // Track when cache is fully populated
   let cacheLoadError: string | null = null; // Debug: track cache load errors
+  let showMigrationPrompt = false; // Show migration prompt for demo users who sign in
+  let sessionStartTime: number | null = null; // Track session duration for analytics
+  let lastCacheLoadTime: number = 0; // Throttle cache reloads
+  const CACHE_RELOAD_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes minimum between full reloads
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
@@ -61,12 +68,26 @@
   }
 
   onMount(async () => {
+    // Initialize event logging and track session start
+    sessionStartTime = Date.now();
+    await EventLogService.initialize();
+    EventLogService.logSessionStart($isDemo);
+
+    // Set up session end tracking on page unload
+    const handleUnload = () => {
+      if (sessionStartTime) {
+        const durationSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+        EventLogService.logSessionEnd(durationSeconds);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
     // In demo mode, skip auth check and load data immediately
     if ($isDemo) {
       console.log('🎮 Demo mode active, skipping auth check');
       hasLoadedOnce = true;
       startBackgroundLoading();
-      return;
+      return () => window.removeEventListener('beforeunload', handleUnload);
     }
 
     const unsubscribe = authStore.subscribe((auth) => {
@@ -79,20 +100,66 @@
       if (!auth.loading) {
         hasLoadedOnce = true;
 
+        // Update event log with user ID when authenticated
+        if (isAuthenticated(auth) && auth.user) {
+          EventLogService.setUserId(auth.user.id);
+        }
+
         // Only start background loading if user is authenticated
         if (isAuthenticated(auth)) {
+          // Check if there's pending demo data migration
+          if (hasPendingMigration()) {
+            console.log('📦 Pending migration detected, showing prompt');
+            showMigrationPrompt = true;
+          }
+
           startBackgroundLoading();
         }
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   });
 
+  // Handle migration completion
+  async function handleMigrationComplete(event: CustomEvent<{ migrated: boolean }>) {
+    showMigrationPrompt = false;
+
+    if (event.detail.migrated) {
+      console.log('✅ Migration complete, refreshing data...');
+      // Clear cache and reload the migrated data from cloud
+      AppDataManager.clearCache();
+      cacheReady = false;
+      await startBackgroundLoading(true); // Force reload after migration
+    } else {
+      console.log('🗑️ User chose to start fresh');
+      // Data was cleared, reload fresh data
+      AppDataManager.clearCache();
+      cacheReady = false;
+      await startBackgroundLoading(true); // Force reload after clearing
+    }
+  }
+
   // Load all collections + containers synchronously on app start
-  async function startBackgroundLoading() {
+  // Includes throttling to prevent excessive API calls on visibility/focus changes
+  async function startBackgroundLoading(forceReload = false) {
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastCacheLoadTime;
+
+    // Skip if we've loaded recently (unless forced or first load)
+    if (!forceReload && lastCacheLoadTime > 0 && timeSinceLastLoad < CACHE_RELOAD_COOLDOWN_MS) {
+      console.log(`⏳ Skipping cache reload - last load was ${Math.round(timeSinceLastLoad / 1000)}s ago (cooldown: ${CACHE_RELOAD_COOLDOWN_MS / 1000}s)`);
+      // Still mark cache as ready if it was previously loaded
+      if (!cacheReady) cacheReady = true;
+      return;
+    }
+
     try {
       console.log('🚀 Loading all collections and containers into cache...');
+      lastCacheLoadTime = now;
 
       // BLOCKING: Wait for all collections + first 10 containers per collection to load
       const collections = await AppDataManager.ensureAllCollections();
@@ -170,4 +237,9 @@
       </main>
     </div>
   </DragProvider>
+
+  <!-- Migration prompt for demo users who sign in -->
+  {#if showMigrationPrompt}
+    <MigrationPrompt on:complete={handleMigrationComplete} />
+  {/if}
 {/if}

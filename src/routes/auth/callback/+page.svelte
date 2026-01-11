@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabase';
+  import { hasDemoDataForMigration, setPendingMigration } from '$lib/services/migrationService';
 
   onMount(async () => {
     try {
@@ -42,8 +43,15 @@
       
       if (data.session) {
         console.log('✅ Session established successfully');
+
+        // Check if user has demo data to migrate
+        if (hasDemoDataForMigration()) {
+          console.log('📦 Demo data found, flagging for migration');
+          setPendingMigration();
+        }
+
         console.log('🔄 Redirecting to app...');
-        
+
         // Give a brief moment for the session to propagate
         setTimeout(() => {
           goto('/app');

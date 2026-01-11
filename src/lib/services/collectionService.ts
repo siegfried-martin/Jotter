@@ -5,6 +5,7 @@ import { getNextCollectionSequence, updateCollectionSequences } from './sequence
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 import { isDemoMode } from '$lib/stores/demoStore';
 import { DemoCollectionService } from './localStorage/demoStorageService';
+import { EventLogService } from './eventLogService';
 
 export class CollectionService {
   // Get all collections for current user - NOW WITH PROPER USER FILTERING
@@ -119,6 +120,9 @@ export class CollectionService {
       throw error;
     }
 
+    // Log event
+    EventLogService.logCollectionCreated(data.id, data.name, data.color);
+
     return data;
   }
 
@@ -133,6 +137,9 @@ export class CollectionService {
 
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
+
+    // Get original values for change tracking
+    const original = await this.getCollection(id);
 
     const { data, error } = await supabase
       .from('collections')
@@ -150,6 +157,20 @@ export class CollectionService {
       throw error;
     }
 
+    // Log event if there were meaningful changes
+    if (original) {
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      if (updates.name !== undefined && updates.name !== original.name) {
+        changes.name = { from: original.name, to: updates.name };
+      }
+      if (updates.color !== undefined && updates.color !== original.color) {
+        changes.color = { from: original.color, to: updates.color };
+      }
+      if (Object.keys(changes).length > 0) {
+        EventLogService.logCollectionUpdated(id, changes);
+      }
+    }
+
     return data;
   }
 
@@ -161,6 +182,10 @@ export class CollectionService {
 
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
+
+    // Get collection name for logging before deletion
+    const collection = await this.getCollection(id);
+    const collectionName = collection?.name ?? 'Unknown';
 
     // First, move any notes in this collection to the user's default collection
     const defaultCollection = await this.getDefaultCollection();
@@ -183,6 +208,9 @@ export class CollectionService {
       console.error('Error deleting collection:', error);
       throw error;
     }
+
+    // Log event
+    EventLogService.logCollectionDeleted(id, collectionName);
   }
 
   // NEW: Reorder collections via drag & drop

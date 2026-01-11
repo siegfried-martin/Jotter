@@ -1,15 +1,15 @@
 # AI Project Status
 
-**Last Updated**: January 10, 2026
-**Current Phase**: Demo Mode Implementation
+**Last Updated**: January 11, 2026
+**Current Phase**: Pre-Release Polish
 
 ---
 
 ## Current Status
 
-The app is in a **stable state** with comprehensive E2E testing complete. The regression testing initiative has been successfully completed with 75 passing tests covering all critical functionality.
+The app is in a **stable state** with comprehensive E2E testing complete. Demo mode, event logging, privacy policy, and performance optimizations are all complete.
 
-**Pivoting to Demo Mode** - User feedback indicates hesitancy to provide email for Google OAuth. Implementing a localStorage-based demo mode to reduce friction.
+**Ready for Production Deploy** after running event_log SQL migration in production Supabase.
 
 **Test Coverage** (Final):
 - ✅ Collection CRUD: 4/4 passing (100%)
@@ -26,11 +26,19 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 **Overall Coverage**: ~90% of critical user flows covered
 
 **Next Priorities**:
-1. **Demo Mode** (this session) - localStorage-based no-auth experience
-2. **Demo Data Migration** - Import local notes to cloud on sign-up
-3. **Ko-fi Integration & About Page** - Add support link before public release
-4. **Public Release** - Deploy and announce to dev communities
-5. See `docs/roadmap.md` for longer-term feature plans
+1. ~~**Demo Mode**~~ ✅ Complete - localStorage-based no-auth experience
+2. ~~**Demo Data Migration**~~ ✅ Complete - Import local notes to cloud on sign-up
+3. ~~**Event Log System**~~ ✅ Complete - Comprehensive CRUD logging for analytics
+4. ~~**Privacy Policy & Consent**~~ ✅ Complete - /privacy page + consent banner
+5. ~~**Cache Reload Throttling**~~ ✅ Complete - 5-min cooldown prevents excessive API calls
+6. **Ko-fi Integration & About Page** - Add support link before public release
+7. **Public Release** - Run SQL in prod, deploy, announce to dev communities
+8. See `docs/roadmap.md` for longer-term feature plans
+
+### Pre-Deploy Checklist
+- [ ] Run `event_log` table SQL in production Supabase (see `docs/architecture/event-log.md`)
+- [ ] Merge `feat/demo-mode` branch to main
+- [ ] Deploy to production
 
 ---
 
@@ -188,9 +196,9 @@ interface DemoData {
 
 ---
 
-### Demo Data Migration (Priority 2) - NEXT
+### Demo Data Migration (Priority 2) - COMPLETE
 
-**Status**: Not Started
+**Status**: Implementation Complete
 **Estimated Duration**: 1 session
 **Goal**: When a demo user signs in, offer to migrate their local data to the cloud
 
@@ -198,53 +206,117 @@ interface DemoData {
 
 Users who try demo mode and decide to sign up should have a seamless path to keep their work. This is a key conversion feature.
 
-#### User Flow
+#### Implementation
 
+**Files Created:**
+- `src/lib/services/migrationService.ts` - Handles demo → cloud data migration
+- `src/lib/components/ui/MigrationPrompt.svelte` - Migration UI modal
+
+**Files Modified:**
+- `src/routes/auth/callback/+page.svelte` - Detects demo data after OAuth and sets pending migration flag
+- `src/routes/app/+layout.svelte` - Shows migration prompt when pending migration detected
+
+**How It Works:**
 1. User is in demo mode with existing data
 2. User clicks "Sign In" from demo mode
-3. After successful OAuth, detect:
-   - User has demo data in localStorage
-   - User just authenticated
-4. Show migration prompt:
-   - "You have notes saved locally. Would you like to import them to your account?"
-   - Options: "Import Notes" / "Start Fresh"
-5. If import:
-   - Copy all collections, containers, sections to Supabase
-   - Update `user_id` fields to new authenticated user
-   - Clear localStorage demo data
-   - Show success message
-6. If start fresh:
-   - Clear localStorage demo data
-   - Continue to empty app
-
-#### Implementation Notes
-
-- Migration happens client-side (read localStorage → write to Supabase)
-- Handle ID conflicts (generate new UUIDs on import)
-- Preserve relationships (collection → container → section)
-- Preserve sequences for ordering
-- Consider: show migration progress for large datasets
-
-#### Files to Create/Modify
-
-| File | Purpose |
-|------|---------|
-| `src/lib/services/migrationService.ts` | Handle demo → cloud data migration |
-| `src/lib/components/ui/MigrationPrompt.svelte` | Migration UI modal |
-| `src/routes/app/+layout.svelte` | Detect migration opportunity on auth |
+3. After successful OAuth callback:
+   - Check if demo data exists in localStorage
+   - Set `pending_migration` flag in sessionStorage
+4. App layout detects pending migration flag and shows modal
+5. User chooses:
+   - **Import Notes**: All data copied to Supabase with new UUIDs, relationships preserved
+   - **Start Fresh**: Demo data cleared, user starts with empty account
+6. Cache cleared and app reloads with new data
 
 #### Success Criteria
 
-- [ ] Migration prompt appears after sign-in when demo data exists
-- [ ] "Import Notes" successfully copies all data to cloud
-- [ ] "Start Fresh" clears demo data without import
-- [ ] Relationships preserved (sections stay in correct containers)
-- [ ] Ordering preserved (sequences maintained)
-- [ ] Demo mode flag cleared after migration
+- [x] Migration prompt appears after sign-in when demo data exists
+- [x] "Import Notes" successfully copies all data to cloud
+- [x] "Start Fresh" clears demo data without import
+- [x] Relationships preserved (sections stay in correct containers)
+- [x] Ordering preserved (sequences maintained)
+- [x] Demo mode flag cleared after migration
 
 ---
 
-### Ko-fi Integration & About Page (Priority 3)
+### Event Log System (Priority 3) - COMPLETE (local)
+
+**Status**: Implementation Complete (local testing)
+**Estimated Duration**: 1 session
+**Goal**: Unified event logging for analytics and future features (undo, sync, audit)
+
+#### Background
+
+Need usage analytics for both demo and authenticated users. Rather than building a demo-only solution, we're creating a unified event log that serves as foundation for future features.
+
+#### Architecture
+
+See `docs/architecture/event-log.md` for full documentation.
+
+**Key Design Decisions:**
+- Unified log for demo (user_id = NULL) and authenticated users
+- Rich events with context (not just IDs)
+- Immutable, append-only
+- Fire-and-forget (non-blocking)
+
+#### Schema
+
+```sql
+CREATE TABLE event_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  session_id uuid NOT NULL,
+  event_type text NOT NULL,
+  entity_type text,
+  entity_id uuid,
+  parent_id uuid,
+  event_data jsonb DEFAULT '{}',
+  created_at timestamptz DEFAULT now()
+);
+```
+
+#### Implementation Plan
+
+**Phase 1: Database Setup (User)** - DONE (local only)
+- [x] Create event_log table in Supabase
+- [x] Create RLS policies
+- [x] Create indexes
+- **NOTE**: Must run SQL in production Supabase before deploying
+
+**Phase 2: Client Implementation (Claude)** - DONE
+- [x] Create `eventLogService.ts` with `log()` function
+- [x] Add session ID management (sessionStorage)
+- [x] Fire-and-forget logging (non-blocking)
+
+**Phase 3: Hook into App** - DONE
+- [x] Log session.start on app load
+- [x] Log CRUD events for collections, containers, sections
+- [ ] Log auth events (signin_clicked, converted) - future enhancement
+
+**Phase 4: Analytics (Optional)**
+- [ ] Create admin dashboard or SQL queries
+- [ ] Track demo conversion funnel
+- [ ] Track feature adoption
+
+#### Success Criteria
+
+- [ ] Events logged for demo users (user_id = NULL)
+- [ ] Events logged for authenticated users
+- [ ] No impact on UI performance (fire-and-forget)
+- [ ] Privacy maintained (no PII in event_data)
+- [ ] Analytics queries working
+
+#### Future Evolution
+
+This foundation enables:
+- Phase 2: Activity feed for users
+- Phase 3: Undo/redo via event replay
+- Phase 4: Real-time sync via event broadcast
+- Phase 5: Full event sourcing (if needed)
+
+---
+
+### Ko-fi Integration & About Page (Priority 4)
 
 **Status**: Not Started
 **Estimated Duration**: 1 session

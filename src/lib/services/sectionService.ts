@@ -5,6 +5,7 @@ import { getNextNoteSectionSequence, updateNoteSectionSequences } from './sequen
 import { calculateReorderSequences } from '$lib/utils/sequenceUtils';
 import { isDemoMode } from '$lib/stores/demoStore';
 import { DemoSectionService } from './localStorage/demoStorageService';
+import { EventLogService } from './eventLogService';
 
 export class SectionService {
   // Get all sections for a note container - ALREADY ORDERED BY SEQUENCE
@@ -56,6 +57,12 @@ export class SectionService {
       throw error;
     }
 
+    // Log event
+    const language = section.meta && typeof section.meta === 'object' && 'language' in section.meta
+      ? String(section.meta.language)
+      : undefined;
+    EventLogService.logSectionCreated(data.id, section.note_container_id, section.type, language);
+
     return data;
   }
 
@@ -67,6 +74,9 @@ export class SectionService {
     if (isDemoMode()) {
       return DemoSectionService.updateSection(id, updates);
     }
+
+    // Check if this is a content update (not just sequence reorder)
+    const isContentUpdate = updates.content !== undefined || updates.title !== undefined;
 
     console.log('Updating section:', id, updates);
     const { data, error } = await supabase
@@ -90,6 +100,12 @@ export class SectionService {
         .from('note_container')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', data.note_container_id);
+    }
+
+    // Log event if content was updated
+    if (isContentUpdate) {
+      const contentLength = data.content?.length ?? 0;
+      EventLogService.logSectionUpdated(id, data.type, contentLength);
     }
 
     return data;
@@ -130,6 +146,10 @@ export class SectionService {
       return DemoSectionService.deleteSection(id);
     }
 
+    // Get section type for logging before deletion
+    const section = await this.getSection(id);
+    const sectionType = section?.type ?? 'unknown';
+
     const { error } = await supabase
       .from('note_section')
       .delete()
@@ -139,6 +159,9 @@ export class SectionService {
       console.error('Error deleting section:', error);
       throw error;
     }
+
+    // Log event
+    EventLogService.logSectionDeleted(id, sectionType);
   }
 
   // Get single section (for edit page)
@@ -276,6 +299,10 @@ export class SectionService {
       return DemoSectionService.moveSectionToContainer(sectionId, newContainerId);
     }
 
+    // Get original container for logging
+    const section = await this.getSection(sectionId);
+    const fromContainerId = section?.note_container_id ?? 'unknown';
+
     const { data, error } = await supabase
       .from('note_section')
       .update({
@@ -300,8 +327,8 @@ export class SectionService {
       .update({ updated_at: now })
       .eq('id', newContainerId);
 
-    // Update the old container timestamp (if we can determine it)
-    // Note: We could track the old container if needed for more precise updates
+    // Log event
+    EventLogService.logSectionMoved(sectionId, fromContainerId, newContainerId);
 
     return data;
   }
