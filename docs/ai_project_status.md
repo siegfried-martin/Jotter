@@ -1,15 +1,15 @@
 # AI Project Status
 
-**Last Updated**: January 10, 2026
-**Current Phase**: Demo Mode Implementation
+**Last Updated**: January 11, 2026
+**Current Phase**: Pre-Release Polish
 
 ---
 
 ## Current Status
 
-The app is in a **stable state** with comprehensive E2E testing complete. The regression testing initiative has been successfully completed with 75 passing tests covering all critical functionality.
+The app is in a **stable state** with comprehensive E2E testing complete. Demo mode, event logging, privacy policy, and performance optimizations are all complete.
 
-**Pivoting to Demo Mode** - User feedback indicates hesitancy to provide email for Google OAuth. Implementing a localStorage-based demo mode to reduce friction.
+**Ready for Production Deploy** after running event_log SQL migration in production Supabase.
 
 **Test Coverage** (Final):
 - ✅ Collection CRUD: 4/4 passing (100%)
@@ -28,10 +28,17 @@ The app is in a **stable state** with comprehensive E2E testing complete. The re
 **Next Priorities**:
 1. ~~**Demo Mode**~~ ✅ Complete - localStorage-based no-auth experience
 2. ~~**Demo Data Migration**~~ ✅ Complete - Import local notes to cloud on sign-up
-3. ~~**Event Log System**~~ ✅ Complete (local) - Run SQL in prod before deploy
-4. **Ko-fi Integration & About Page** - Add support link before public release
-5. **Public Release** - Deploy and announce to dev communities
-6. See `docs/roadmap.md` for longer-term feature plans
+3. ~~**Event Log System**~~ ✅ Complete - Comprehensive CRUD logging for analytics
+4. ~~**Privacy Policy & Consent**~~ ✅ Complete - /privacy page + consent banner
+5. ~~**Cache Reload Throttling**~~ ✅ Complete - 5-min cooldown prevents excessive API calls
+6. **Ko-fi Integration & About Page** - Add support link before public release
+7. **Public Release** - Run SQL in prod, deploy, announce to dev communities
+8. See `docs/roadmap.md` for longer-term feature plans
+
+### Pre-Deploy Checklist
+- [ ] Run `event_log` table SQL in production Supabase (see `docs/architecture/event-log.md`)
+- [ ] Merge `feat/demo-mode` branch to main
+- [ ] Deploy to production
 
 ---
 
