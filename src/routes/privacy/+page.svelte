@@ -6,8 +6,8 @@
   <title>Privacy Policy - Jotter</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+<div class="h-screen overflow-y-auto bg-gray-50">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-24">
     <div class="text-center mb-12">
       <h1 class="text-4xl font-bold text-gray-900 mb-4">Privacy Policy</h1>
       <p class="text-gray-600">Last updated: January 2026</p>
