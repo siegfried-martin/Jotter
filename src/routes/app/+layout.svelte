@@ -21,6 +21,8 @@
   let cacheLoadError: string | null = null; // Debug: track cache load errors
   let showMigrationPrompt = false; // Show migration prompt for demo users who sign in
   let sessionStartTime: number | null = null; // Track session duration for analytics
+  let lastCacheLoadTime: number = 0; // Throttle cache reloads
+  const CACHE_RELOAD_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes minimum between full reloads
 
   // Reactive values
   $: currentCollectionId = $page.params.collection_id;
@@ -131,20 +133,33 @@
       // Clear cache and reload the migrated data from cloud
       AppDataManager.clearCache();
       cacheReady = false;
-      await startBackgroundLoading();
+      await startBackgroundLoading(true); // Force reload after migration
     } else {
       console.log('🗑️ User chose to start fresh');
       // Data was cleared, reload fresh data
       AppDataManager.clearCache();
       cacheReady = false;
-      await startBackgroundLoading();
+      await startBackgroundLoading(true); // Force reload after clearing
     }
   }
 
   // Load all collections + containers synchronously on app start
-  async function startBackgroundLoading() {
+  // Includes throttling to prevent excessive API calls on visibility/focus changes
+  async function startBackgroundLoading(forceReload = false) {
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastCacheLoadTime;
+
+    // Skip if we've loaded recently (unless forced or first load)
+    if (!forceReload && lastCacheLoadTime > 0 && timeSinceLastLoad < CACHE_RELOAD_COOLDOWN_MS) {
+      console.log(`⏳ Skipping cache reload - last load was ${Math.round(timeSinceLastLoad / 1000)}s ago (cooldown: ${CACHE_RELOAD_COOLDOWN_MS / 1000}s)`);
+      // Still mark cache as ready if it was previously loaded
+      if (!cacheReady) cacheReady = true;
+      return;
+    }
+
     try {
       console.log('🚀 Loading all collections and containers into cache...');
+      lastCacheLoadTime = now;
 
       // BLOCKING: Wait for all collections + first 10 containers per collection to load
       const collections = await AppDataManager.ensureAllCollections();
