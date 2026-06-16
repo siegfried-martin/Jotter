@@ -1,6 +1,6 @@
 # Initiative: Mobile Deep Dive (Audit-Driven)
 
-**Status**: Planned / Not Started
+**Status**: Planned / Not Started — **blocked on React cutover** (see Sequencing)
 **Priority**: Medium
 **Owner request date**: 2026-06-16
 **Goal**: Systematically audit Jotter's mobile experience using screenshots captured from
@@ -131,21 +131,21 @@ new patterns.
 
 ---
 
-## Sequencing Note (IMPORTANT — interacts with the React migration)
+## Sequencing (DECIDED — runs after the React cutover)
 
 This is UI work, and a **React migration is planned** (`docs/initiatives/react-migration.md`),
-which is **parity-only** (no UI changes during the rewrite). That creates a fork:
+which is **parity-only** (no UI changes during the rewrite).
 
-- **Option A (recommended): Audit now, execute in React.** Run Phases 1–2 against the
-  current Svelte app to produce a **framework-neutral findings/punch-list**, then *apply
-  the fixes while building the React components* (migration Phases 3–4) so they're born
-  mobile-correct. Avoids doing mobile work twice.
-- **Option B: Full audit + execute now in Svelte.** Justified only if mobile pain is acute
-  in daily use and waiting for the migration is unacceptable. Downside: the styling work is
-  largely thrown away at cutover.
-- **Option C: Defer entirely until after cutover**, then run all four phases in React.
+**Owner decision (2026-06-16): defer this entire initiative until after the React
+cutover**, then run all four phases against the React app. Rationale: doing mobile styling
+in Svelte now would be thrown away at cutover; doing it during the migration would break
+parity. Running it post-cutover keeps the work single-pass and on the final platform.
 
-**Pending owner confirmation of which option.** Default assumption: **Option A**.
+**Prerequisite**: React migration complete and cut over (migration Phase 7 done).
+
+For reference, the alternatives considered and rejected: (A) audit now in Svelte to
+produce a framework-neutral punch list and apply fixes during the React rebuild; (B) full
+audit + execute now in Svelte (throwaway at cutover).
 
 ---
 
