@@ -1,15 +1,37 @@
 # AI Project Status
 
-**Last Updated**: January 11, 2026
-**Current Phase**: Pre-Release Polish
+**Last Updated**: June 16, 2026
+**Current Phase**: React Re-Platform (foundation first)
+
+---
+
+## Project Direction (2026-06-16)
+
+**The monetization-oriented roadmap (formerly `docs/roadmap.md`, now removed) is scrapped.** The strategy is now
+adoption through open sharing, and the owner uses Jotter daily as a critical work tool.
+
+**Hard sequencing rule — the React migration is the absolute first thing.** We build the
+correct base, then layer features and styling on top of it. Nothing else starts until the
+React app has cut over.
+
+1. **React migration** — `docs/initiatives/react-migration.md`. **BASE / prerequisite for
+   everything below.** Parity-only re-platform of the existing app; no new features or
+   styling during it. Svelte stays in prod until the React app passes the full Playwright
+   suite + a week of daily use, then cut over.
+2. **Features, layered on the React base** — `docs/features/requested-features.md`, in this
+   order: unparented sections (data-model foundation) → sharing → seamless offline/sync →
+   new section types (table, markdown, calendar, richer WYSIWYG).
+3. **Mobile deep dive** — `docs/initiatives/mobile-deep-dive.md`. Runs **after cutover**, on
+   the React app, single-pass.
+
+Everything in the sections below this point predates this direction and is historical
+context unless explicitly part of the sequence above.
 
 ---
 
 ## Current Status
 
-The app is in a **stable state** with comprehensive E2E testing complete. Demo mode, event logging, privacy policy, and performance optimizations are all complete.
-
-**Ready for Production Deploy** after running event_log SQL migration in production Supabase.
+The app is in a **stable state** with comprehensive E2E testing complete. Demo mode, event logging, privacy policy, and performance optimizations are all complete — this stable Svelte app is the **spec and the production app** during the React migration.
 
 **Test Coverage** (Final):
 - ✅ Collection CRUD: 4/4 passing (100%)
@@ -25,20 +47,16 @@ The app is in a **stable state** with comprehensive E2E testing complete. Demo m
 
 **Overall Coverage**: ~90% of critical user flows covered
 
-**Next Priorities**:
-1. ~~**Demo Mode**~~ ✅ Complete - localStorage-based no-auth experience
-2. ~~**Demo Data Migration**~~ ✅ Complete - Import local notes to cloud on sign-up
-3. ~~**Event Log System**~~ ✅ Complete - Comprehensive CRUD logging for analytics
-4. ~~**Privacy Policy & Consent**~~ ✅ Complete - /privacy page + consent banner
-5. ~~**Cache Reload Throttling**~~ ✅ Complete - 5-min cooldown prevents excessive API calls
-6. **Ko-fi Integration & About Page** - Add support link before public release
-7. **Public Release** - Run SQL in prod, deploy, announce to dev communities
-8. See `docs/roadmap.md` for longer-term feature plans
+**Next Priorities** (see "Project Direction" above for the binding sequence):
+1. **React migration** — start here; nothing else begins until cutover. Confirm stack
+   open questions (router, state lib, parallel-vs-in-place), then Phase 0.
+2. Features on the React base (unparented sections → sharing → offline/sync → new section
+   types).
+3. Mobile deep dive (post-cutover).
 
-### Pre-Deploy Checklist
-- [ ] Run `event_log` table SQL in production Supabase (see `docs/architecture/event-log.md`)
-- [ ] Merge `feat/demo-mode` branch to main
-- [ ] Deploy to production
+> The earlier pre-release/Ko-fi/test-parallelization priorities are superseded by the
+> React-first direction. The completed pre-release work (demo mode, migration, event log,
+> privacy, throttling) remains valid and carries into the React app.
 
 ---
 

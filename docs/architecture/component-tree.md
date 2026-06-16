@@ -1,5 +1,11 @@
 # Component Architecture
 
+> **⚠️ Svelte-era document.** This describes the **current Svelte** component structure,
+> which is being replaced by React. For migration planning use
+> **`docs/initiatives/react-migration.md`** (its reuse-vs-rewrite inventory supersedes the
+> structure here). Some details below may also lag the current code. This file will be
+> rewritten for React at cutover.
+
 ## Application Structure
 
 ```

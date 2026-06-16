@@ -1,5 +1,16 @@
 # Jotter - Development Summary & Roadmap
 
+> ## ⚠️ Direction note (2026-06-16)
+>
+> The current, binding direction lives in **`docs/ai_project_status.md`**: Jotter is being
+> **re-platformed from Svelte to React** (first priority), then features layer on top (see
+> **`docs/features/requested-features.md`**). The old monetization roadmap is scrapped.
+>
+> **What's still authoritative in this file:** the **Project Goals**, **Architecture**, and
+> **Database Schema** sections below (the schema is the source of truth). **What's
+> historical:** the dated "Current Status", "Current Issues / Next Session Priorities", and
+> "Next Steps" sections describe Sept 2025 state and are kept only as a record.
+
 ## Project Goals
 
 **Vision**: A lightning-fast, developer-focused note-taking web app that replaces Notepad++ for daily work management and serves as a "better whiteboard for devs."
@@ -184,7 +195,11 @@ get_next_note_section_sequence(note_container_id)
 
 - **App name change**: Updated displayed name from "Jotter" to "Jotter" in application interface
 
-## Current Issues & Next Session Priorities
+## Historical: Issues & Priorities (Sept 2025 — superseded)
+
+> _The items below are a Sept 2025 snapshot, kept for history. Much is now moot under the
+> React migration (e.g. the mixed drag systems are replaced by `@dnd-kit`; the large
+> container page is rewritten). Current priorities: `docs/ai_project_status.md`._
 
 ### UI/UX Polish Tasks
 
@@ -250,7 +265,9 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 - `ExcalidrawEditor.svelte` - Default font settings updated
 - Container page `+page.svelte` - DragProvider restoration and behavior registration
 
-## Next Steps
+## Historical: Next Steps (Sept 2025 — superseded)
+
+> _Superseded by `docs/ai_project_status.md` (React migration first). Kept for history._
 
 **Testing Phase**:
 
@@ -272,4 +289,6 @@ cd ~/Jotter && git pull && npm run build && sudo systemctl restart jotter
 
 ---
 
-**Next Session Focus**: Mobile responsiveness and final UI polish for beta release
+_(Historical note from Sept 2025: "Next Session Focus: Mobile responsiveness and final UI
+polish for beta release." Current focus is the React migration — see
+`docs/ai_project_status.md`.)_

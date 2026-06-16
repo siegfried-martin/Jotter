@@ -4,6 +4,21 @@
 
 ---
 
+> ## ⚠️ Current Direction (2026-06-16): React Re-Platform
+>
+> Jotter is being **migrated from Svelte to React**, and that migration is the **first
+> priority** — the correct base is built before any new features or styling. See
+> **`docs/initiatives/react-migration.md`** for the plan and **`docs/ai_project_status.md`**
+> for the binding sequence.
+>
+> **This document still describes the current Svelte codebase** (the live app and the
+> migration's parity spec). The tech stack and code-convention sections below remain
+> accurate for the Svelte app and will be rewritten for React conventions at cutover.
+> The old monetization roadmap has been scrapped; the canonical feature backlog is
+> **`docs/features/requested-features.md`**.
+
+---
+
 ## Getting Started
 
 ### Step 1: Read These Documents (In Order)
@@ -19,11 +34,14 @@ Based on your task, read:
 - **`docs/functionality/`** - Feature documentation (authentication, collections, containers, sections, editors)
 - **`docs/cache_architecture.md`** - Deep dive into cache system (if working on data/state)
 
-### Step 3: Understand the Roadmap (Optional Context)
+### Step 3: Understand the Direction (Optional Context)
 
-For broader context on where the project is heading, see **`docs/roadmap.md`**. This document outlines the high-level project phases, planned features, and overall direction.
+For broader context on where the project is heading, see
+**`docs/features/requested-features.md`** (the canonical feature backlog) and
+**`docs/initiatives/react-migration.md`** (the active re-platform initiative). The old
+`docs/roadmap.md` has been removed — its monetization phases are no longer the plan.
 
-**Important**: The roadmap is for general context only. It is NOT your source of tasks. Always take your immediate work instructions from `docs/ai_project_status.md`.
+**Important**: These are for context only. Always take your immediate work instructions from `docs/ai_project_status.md`.
 
 ### Step 4: Start Working
 
@@ -60,10 +78,13 @@ Follow the instructions in `docs/ai_project_status.md` for current priorities an
 
 ### Tech Stack
 
-- **Frontend**: SvelteKit + TypeScript + Tailwind CSS
-- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+> **In transition**: currently SvelteKit; migrating to React (Vite + React, proposed
+> TanStack Router + Zustand + @dnd-kit). See `docs/initiatives/react-migration.md`.
+
+- **Frontend**: SvelteKit + TypeScript + Tailwind CSS _(→ React at cutover)_
+- **Backend**: Supabase (PostgreSQL + Auth + Storage) _(unchanged)_
 - **Deployment**: Vercel
-- **Testing**: Playwright (E2E), Vitest (unit/integration)
+- **Testing**: Playwright (E2E), Vitest (unit/integration) _(Playwright is the migration's acceptance gate)_
 
 ### Key Architectural Patterns
 
@@ -586,8 +607,8 @@ $: if (containerId) {
 
 - **Read ai_project_status.md** to know what to work on next
 - **Update ai_project_status.md** when you complete work
-- **Functionality docs drive everything** - they're the source of truth
-- **Code Quality Foundation** must complete before **Regression Testing**
+- **Functionality docs drive everything** - they're the source of truth (and the parity spec for the React migration)
+- **React migration is the current first priority** - see `docs/ai_project_status.md`
 - **Keep existing functionality exactly the same** unless explicitly changing it
 - **Commit frequently** with clear descriptions
 - **Test thoroughly** after every change

@@ -1,9 +1,13 @@
 # Code Quality Foundation Initiative
 
+> **Partially complete / on hold (historical).** Phase 1 TypeScript cleanup was done
+> (57 errors fixed); remaining cleanup was deprioritized. Largely **moot under the React
+> re-platform**, which replaces the component layer entirely. Kept for history.
+
 ## Overview
 
-**Status**: Not Started
-**Priority**: High
+**Status**: Partially Complete / On Hold
+**Priority**: Low (superseded by React migration)
 **Estimated Duration**: 1-2 sessions
 **Goal**: Clean up codebase to establish a solid foundation for testing and future development
 

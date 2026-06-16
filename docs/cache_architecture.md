@@ -4,6 +4,11 @@
 **Branch**: `feat/demo-mode` (includes cache reload throttling)
 **Status**: Stable - cache architecture is complete and working well
 
+> **Carries forward to React.** This cache-as-database design is being **re-hosted** in the
+> React migration (logic ports; Svelte-store wiring → e.g. Zustand). The "Excessive
+> Re-renders" issue below is a Svelte-store-subscription concern that the React store
+> design should address from the start. See `docs/initiatives/react-migration.md`.
+
 ---
 
 ## Current Cache Architecture

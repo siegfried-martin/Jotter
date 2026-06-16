@@ -1,8 +1,12 @@
 # Regression Testing Initiative
 
+> **✅ COMPLETE (Nov 27, 2025).** ~75 passing Playwright E2E tests; ~90% of critical flows
+> covered. This document is historical. The suite now serves as the **acceptance gate for
+> the React migration** (`docs/initiatives/react-migration.md`).
+
 ## Overview
 
-**Status**: Not Started
+**Status**: Complete (Nov 27, 2025)
 **Priority**: High
 **Estimated Duration**: 2-3 sessions
 **Prerequisites**: Code Quality Foundation (clean codebase makes testing easier)
