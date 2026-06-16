@@ -7,7 +7,7 @@
 
 ## Project Direction (2026-06-16)
 
-**The monetization-oriented roadmap (`docs/roadmap.md`) is scrapped.** The strategy is now
+**The monetization-oriented roadmap (formerly `docs/roadmap.md`, now removed) is scrapped.** The strategy is now
 adoption through open sharing, and the owner uses Jotter daily as a critical work tool.
 
 **Hard sequencing rule — the React migration is the absolute first thing.** We build the

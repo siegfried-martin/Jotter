@@ -1,5 +1,11 @@
 # Data Flow Architecture
 
+> **Concepts carry forward; reactivity layer changes.** The cache-as-database pattern,
+> optimistic updates, request dedup, and rollback described here remain the model for the
+> React app — re-hosted on a store (proposed: Zustand) instead of Svelte stores. Treat
+> Svelte-store specifics below as current-state, not target-state. See
+> `docs/initiatives/react-migration.md`.
+
 ## Overview
 Jotter uses a cache-as-database pattern with the AppDataManager as the single source of truth.
 

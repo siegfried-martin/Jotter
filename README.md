@@ -27,7 +27,10 @@ This scratches that itch.
 
 ## Tech Stack
 
-- **Frontend**: SvelteKit + TypeScript + Tailwind CSS
+> **Note:** Jotter is being re-platformed from SvelteKit to **React** (Vite + React). The
+> backend, editors, and architecture pattern below are unchanged by that move.
+
+- **Frontend**: SvelteKit + TypeScript + Tailwind CSS _(migrating to React)_
 - **Backend**: Supabase (PostgreSQL + Auth)
 - **Editors**: CodeMirror 6, Quill, Excalidraw
 - **Auth**: Google OAuth
@@ -79,7 +82,7 @@ The schema is in the project overview doc. You'll need to run the SQL migrations
 
 This project is in active development and welcomes contributors. We use GitHub Issues to track bugs and features.
 
-**Good first issues** are labeled for newcomers who want to get their feet wet. The codebase is relatively straightforward—if you can read Svelte and TypeScript, you can contribute.
+**Good first issues** are labeled for newcomers who want to get their feet wet. The codebase is relatively straightforward—if you can read TypeScript (Svelte today, React after the in-progress migration), you can contribute.
 
 **Workflow:**
 
@@ -90,18 +93,17 @@ This project is in active development and welcomes contributors. We use GitHub I
 
 ## Roadmap
 
-**Current focus:**
+**Current focus:** re-platforming the app from Svelte to React as a clean foundation
+before layering on new features.
 
-- Mobile responsiveness improvements
-- User testing and feedback collection
-- Bug fixes based on real-world usage
+**Planned features (after the React base):**
 
-**Future ideas:**
-
-- Offline mode
-- Markdown export
-- More keyboard shortcuts
-- Collaborative editing (maybe)
+- Open sharing of collections and sections (links you can just open + import)
+- Unparented "quick jot" notes from the home page
+- Seamless offline/online sync (true local-first, not a separate dataset)
+- New section types: table (with templates + Excel/CSV/Markdown export), markdown,
+  calendar (scrapbook planning), richer WYSIWYG (colors/highlighting), images
+- A mobile UX deep-dive
 
 This is very much a "use it to build it" project—features get added when they solve real problems.
 

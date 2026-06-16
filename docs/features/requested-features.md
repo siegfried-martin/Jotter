@@ -104,8 +104,8 @@ Three related pieces:
 - WYSIWYG upgrade: **TipTap** (ProseMirror-based; color/highlight/table extensions are
   first-class) or **Lexical**. In React these are first-class; this is one of the
   features that motivated the React move.
-- Overlaps with the old `docs/features/free-enhancements.md` (copy-as-markdown, markdown
-  section) — supersede that doc's versions here.
+- Copy-as-markdown and a markdown section were also listed in the now-retired
+  `free-enhancements.md`; consolidated here as the canonical source.
 
 ---
 
@@ -155,6 +155,10 @@ library.
   must support per-row bar/range cells, not just a uniform grid.
 - **Export**: SheetJS (`xlsx`) covers both .xlsx and CSV; Markdown export reuses the same
   copy-as-markdown path as #3b, exposed on the card view.
+- Storage format reference (salvaged from the retired `paid-features.md`): a simple
+  JSON shape like `{ columns: string[], rows: string[][], headerRow: boolean }` is a
+  reasonable starting point, but the Gantt template implies the cell model must also
+  support per-row bar/range data.
 
 ---
 
@@ -193,6 +197,10 @@ feedback from teammates.
 - The owner's observation that concurrent-edit == offline reconciliation is the key
   architectural insight linking #5 and #6 — both are "divergent replicas," i.e. CRDT
   territory (see #6).
+- Schema reference (salvaged from the retired `paid-features.md`, which had framed
+  sharing as paid): an earlier sketch used `collection_shares(collection_id, owner_id,
+  shared_with_id, permission)`. Under the new open-by-default model this becomes the
+  default rather than an upgrade, but the join-table shape is a useful starting point.
 
 ---
 
@@ -229,7 +237,36 @@ cautiously. **You should not have to be careful using the app.**
 
 ---
 
-## 7. Minor UI Issues (not major features)
+## 7. Image Section (clipboard paste)
+
+**What it is**: A new section type that displays images, with the ability to **paste
+directly from the clipboard** (e.g. Windows+Shift+S screenshots). _(Salvaged from the
+retired `free-enhancements.md`; not raised in the 2026-06-16 session but kept as a valid
+backlog item.)_
+
+**Requirements / notes (annotation)**:
+- New section type: `image`. Store images in a Supabase Storage bucket.
+- Card shows a thumbnail/preview; the editor shows full size (view-only initially).
+- Client-side compression before upload; lazy-load for performance.
+- Pairs well with the diagram/screenshot-heavy dev workflow.
+
+---
+
+## 8. Advanced Section Picker UI
+
+**What it is**: A categorized picker for adding section types, replacing/augmenting the
+current add-section buttons so it scales as more types are added (calendar, table,
+markdown, image, …). _(Salvaged from the retired `free-enhancements.md`.)_
+
+**Requirements / notes (annotation)**:
+- Suggested categories: Basic (text, code, checklist), Visual (diagram, image),
+  Structured (markdown, table, calendar).
+- Keep existing keyboard shortcuts working (Alt+T, Alt+K, etc.).
+- Low complexity; becomes more valuable as the section-type count grows.
+
+---
+
+## 9. Minor UI Issues (not major features)
 
 There are a handful of small UI issues that crop up but none rise to the level of a major
 feature. Capture them here as they're identified; more will surface with daily use.
@@ -248,11 +285,13 @@ feature. Capture them here as they're identified; more will surface with daily u
 | 1 | Calendar section | Medium | Mild React | Scrapbook month/week planning |
 | 3 | Markdown + rich text | Medium | Mild React | TipTap/Lexical; copy-as-md |
 | 4 | Table section | Medium | **Strong React** | Excel-like headroom; user-saved templates; xlsx/csv/markdown export |
+| 7 | Image section | Medium | Mild | Clipboard paste; Supabase Storage (salvaged) |
+| 8 | Section picker | Low | Neutral | Scales add-section UI (salvaged) |
 
 **Suggested build order after the React migration**: unparented sections (data-model
 foundation) → sharing → offline/sync → new section types (table, markdown, calendar,
-richer WYSIWYG). Foundation/data-model parts of #2, #5, and #6 are framework-neutral and
-may be designed earlier if desired.
+richer WYSIWYG, image) → section-picker polish. Foundation/data-model parts of #2, #5, and
+#6 are framework-neutral and may be designed earlier if desired.
 
 ---
 
