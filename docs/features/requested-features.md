@@ -116,12 +116,45 @@ eventually they or another user will want **Excel-like features** (e.g. autocomp
 fill-down completion) and will be annoyed when those are missing — so pick a library
 with headroom.
 
+### 4a. Table templates (user-saved, not pre-configured)
+
+The owner has a few table layouts they use constantly and wants to start from those
+instead of a blank table. The **preferred approach is user-saved templates**: let a user
+**save any table they've built as a reusable template**, then start a new table from it.
+This is smarter than shipping fixed/configurable templates — the user grows their own
+library.
+
+- **Not** a configurable template system. A template is just a **static saved table** the
+  user starts from instead of a blank one.
+- Mechanism: "Save as template" on an existing table → it appears as a starting option
+  when creating a new table section.
+
+**Templates the owner uses today (examples / validation cases):**
+- **Gantt chart** — the feature/task shows **only in its horizontal bar**; there is **no
+  separate duplicate column of feature names down the left**. (i.e. the row label *is* the
+  bar, not a label column + bar.)
+- **Months split into 2 or 4 columns** — for drawing up roadmaps and/or budgets.
+- More to come — the owner will dream up additional ones over time.
+
+### 4b. Export & copy
+
+- **Export to Excel (.xlsx)** and **CSV.**
+- **Copy to clipboard as Markdown from the small (card/preview) view** — i.e. the
+  copy-as-markdown affordance should be available directly on the section card, not only
+  inside the full editor.
+
 **Planning notes (annotation)**:
 - This is the feature with the **strongest pull toward React**: spreadsheet-grade grids
   (AG Grid, Handsontable, react-data-grid) are React-first. TanStack Table (headless,
   agnostic) covers logic but not the Excel UX.
 - Decide at implementation time how far toward "real spreadsheet" to go vs. a simpler
   editable grid.
+- **Templates** = persist a table's structure/content as a reusable starting payload.
+  Likely a small `table_templates` store keyed by `user_id` (ties into the broader
+  per-user, user-owned data direction in #2/#5). The Gantt example implies the table model
+  must support per-row bar/range cells, not just a uniform grid.
+- **Export**: SheetJS (`xlsx`) covers both .xlsx and CSV; Markdown export reuses the same
+  copy-as-markdown path as #3b, exposed on the card view.
 
 ---
 
@@ -214,7 +247,7 @@ feature. Capture them here as they're identified; more will surface with daily u
 | 6 | Seamless offline/sync | High (data loss) | Neutral | Own project; CRDT/sync engine |
 | 1 | Calendar section | Medium | Mild React | Scrapbook month/week planning |
 | 3 | Markdown + rich text | Medium | Mild React | TipTap/Lexical; copy-as-md |
-| 4 | Table section | Medium | **Strong React** | Excel-like headroom |
+| 4 | Table section | Medium | **Strong React** | Excel-like headroom; user-saved templates; xlsx/csv/markdown export |
 
 **Suggested build order after the React migration**: unparented sections (data-model
 foundation) → sharing → offline/sync → new section types (table, markdown, calendar,
