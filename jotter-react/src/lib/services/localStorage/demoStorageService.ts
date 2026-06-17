@@ -17,7 +17,8 @@ import type {
   NoteSection,
   CreateCollection,
   CreateNoteContainer,
-  CreateNoteSection
+  CreateNoteSection,
+  ChecklistItem
 } from '@/lib/types';
 import { EventLogService } from '@/lib/services/eventLogService';
 
@@ -545,7 +546,7 @@ export class DemoSectionService {
     sectionId: string,
     lineIndex: number,
     checked: boolean,
-    checklistData: Array<{ text: string; checked: boolean; priority?: string; dueDate?: string }>
+    checklistData: ChecklistItem[]
   ): Promise<void> {
     const data = ensureDemoData();
     const index = data.sections.findIndex((s) => s.id === sectionId);

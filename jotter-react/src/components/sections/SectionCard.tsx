@@ -1,6 +1,30 @@
-import type { NoteSection } from '@/lib/types';
+import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
+
+function priorityPreviewStyle(priority: ChecklistItem['priority']): React.CSSProperties {
+  switch (priority) {
+    case 'high':
+      return { backgroundColor: '#fee2e2', borderLeft: '3px solid #dc2626' };
+    case 'medium':
+      return { backgroundColor: '#fef3c7', borderLeft: '3px solid #d97706' };
+    case 'low':
+      return { backgroundColor: '#dbeafe', borderLeft: '3px solid #2563eb' };
+    default:
+      return {};
+  }
+}
+
+function formatChecklistDate(date?: string): { label: string | null; overdue: boolean } {
+  if (!date) return { label: null, overdue: false };
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) return { label: date, overdue: false };
+  const dt = new Date(y, m - 1, d);
+  dt.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return { label: dt.toLocaleDateString(), overdue: dt.getTime() < today.getTime() };
+}
 
 const TYPE_LABEL: Record<string, string> = {
   code: 'Code',
@@ -34,16 +58,38 @@ function SectionPreview({ section }: { section: NoteSection }) {
       );
     case 'checklist': {
       const items = section.checklist_data ?? [];
+      if (items.length === 0) return <p className="text-sm text-slate-400">(no items)</p>;
       return (
         <ul className="max-h-48 space-y-1 overflow-hidden">
-          {items.length === 0 && <li className="text-sm text-slate-400">(no items)</li>}
-          {items.map((item, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" checked={item.checked} readOnly className="h-4 w-4 rounded" />
-              <span className={item.checked ? 'text-slate-400 line-through' : ''}>{item.text}</span>
-              {item.date && <span className="ml-auto text-xs text-slate-400">{item.date}</span>}
-            </li>
-          ))}
+          {items.map((item, i) => {
+            const { label, overdue } = formatChecklistDate(item.date);
+            return (
+              <li
+                key={i}
+                className="flex items-center gap-2 rounded px-2 py-1 text-sm text-slate-700"
+                style={priorityPreviewStyle(item.priority)}
+              >
+                <input
+                  type="checkbox"
+                  checked={item.checked}
+                  readOnly
+                  className="h-4 w-4 flex-shrink-0 rounded"
+                />
+                <span
+                  className={`flex-1 break-words ${item.checked ? 'text-slate-400 line-through' : ''}`}
+                >
+                  {item.text}
+                </span>
+                {label && (
+                  <span
+                    className={`flex-shrink-0 text-xs ${overdue ? 'text-red-500' : 'text-slate-400'}`}
+                  >
+                    {label}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       );
     }

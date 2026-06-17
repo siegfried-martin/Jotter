@@ -6,7 +6,8 @@
 export interface ChecklistItem {
   text: string;
   checked: boolean;
-  date?: string; // ISO date string, optional
+  date?: string; // ISO date string (YYYY-MM-DD), optional
+  priority?: 'low' | 'medium' | 'high' | null;
 }
 
 // Collection interfaces

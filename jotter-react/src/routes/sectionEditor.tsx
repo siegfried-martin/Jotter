@@ -3,6 +3,7 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { CodeEditor } from '@/components/editors/CodeEditor';
 import { QuillEditor } from '@/components/editors/QuillEditor';
+import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
@@ -222,55 +223,6 @@ function SectionEditorModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ChecklistEditor({
-  value,
-  onChange
-}: {
-  value: ChecklistItem[];
-  onChange: (items: ChecklistItem[]) => void;
-}) {
-  return (
-    <div className="h-full overflow-auto rounded-lg border border-slate-200 bg-white p-4">
-      <ul className="space-y-2">
-        {value.map((item, i) => (
-          <li key={i} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={item.checked}
-              onChange={(e) =>
-                onChange(
-                  value.map((it, j) => (j === i ? { ...it, checked: e.target.checked } : it))
-                )
-              }
-              className="h-4 w-4 rounded"
-            />
-            <input
-              value={item.text}
-              onChange={(e) =>
-                onChange(value.map((it, j) => (j === i ? { ...it, text: e.target.value } : it)))
-              }
-              className="flex-1 border-b border-transparent text-sm focus:border-slate-300 focus:outline-none"
-            />
-            <button
-              onClick={() => onChange(value.filter((_, j) => j !== i))}
-              className="rounded p-1 text-slate-300 hover:text-red-500"
-              aria-label="Remove item"
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button
-        onClick={() => onChange([...value, { text: '', checked: false }])}
-        className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
-      >
-        + Add item
-      </button>
     </div>
   );
 }
