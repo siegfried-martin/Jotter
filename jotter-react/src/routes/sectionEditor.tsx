@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { CodeEditor } from '@/components/editors/CodeEditor';
+import { QuillEditor } from '@/components/editors/QuillEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
-import { isSectionEmpty, isWysiwygEmpty } from '@/lib/util/sectionContent';
+import { isSectionEmpty } from '@/lib/util/sectionContent';
 
 export function SectionEditorRoute() {
   return (
@@ -192,7 +193,7 @@ function SectionEditorModal({
             />
           )}
           {section.type === 'wysiwyg' && (
-            <WysiwygEditor initial={content} onChange={handleContentChange} />
+            <QuillEditor initial={content} onChange={handleContentChange} />
           )}
           {section.type === 'checklist' && (
             <ChecklistEditor value={checklistData} onChange={setChecklistData} />
@@ -222,43 +223,6 @@ function SectionEditorModal({
         </div>
       </div>
     </div>
-  );
-}
-
-/** Uncontrolled contentEditable so the cursor doesn't jump; reports innerHTML on input. */
-function WysiwygEditor({
-  initial,
-  onChange
-}: {
-  initial: string;
-  onChange: (html: string) => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const changeRef = useCallbackRef(onChange);
-
-  useEffect(() => {
-    if (ref.current) ref.current.innerHTML = initial;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onInput = () => {
-      const html = el.innerHTML;
-      changeRef(isWysiwygEmpty(html) ? '' : html);
-    };
-    el.addEventListener('input', onInput);
-    return () => el.removeEventListener('input', onInput);
-  }, [changeRef]);
-
-  return (
-    <div
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      className="h-full w-full overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed focus:border-blue-400 focus:outline-none"
-    />
   );
 }
 

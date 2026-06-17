@@ -14,6 +14,7 @@ import {
   indentOnInput,
   bracketMatching
 } from '@codemirror/language';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
@@ -87,8 +88,9 @@ export function CodeMirrorEditor({
         history(),
         indentOnInput(),
         bracketMatching(),
+        closeBrackets(), // auto-insert the matching close char (not the autocomplete dropdown)
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
         EditorView.lineWrapping,
         theme,
         langExt,
