@@ -43,6 +43,7 @@ export interface UpdateCollection {
 export interface NoteContainer {
   id: string;
   title: string;
+  collection_id: string; // NOT NULL in the DB; the Svelte type omitted it (its build skipped typecheck)
   sequence: number; // Add sequence support
   created_at: string;
   updated_at: string;
