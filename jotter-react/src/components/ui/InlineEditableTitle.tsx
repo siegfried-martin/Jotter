@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Double-click to edit; Enter/blur saves, Escape cancels. Empty/whitespace-only
- * input is rejected (parity with the Svelte InlineEditableTitle + its E2E specs).
+ * Click (or double-click) to edit; Enter/blur saves, Escape cancels. Empty/
+ * whitespace-only input is rejected (parity with the Svelte InlineEditableTitle
+ * + its E2E specs, which use single-click → type → Enter).
+ *
+ * `trigger='dblclick'` is used where a single click already means something else
+ * (e.g. selecting a note in the sidebar).
  */
 export function InlineEditableTitle({
   value,
   onSave,
   className,
-  inputClassName
+  inputClassName,
+  trigger = 'click'
 }: {
   value: string;
   onSave: (next: string) => void;
   className?: string;
   inputClassName?: string;
+  trigger?: 'click' | 'dblclick';
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -32,6 +38,11 @@ export function InlineEditableTitle({
   function cancel() {
     setDraft(value);
     setEditing(false);
+  }
+
+  function startEdit(e: React.SyntheticEvent) {
+    e.stopPropagation();
+    setEditing(true);
   }
 
   if (editing) {
@@ -55,11 +66,9 @@ export function InlineEditableTitle({
 
   return (
     <span
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        setEditing(true);
-      }}
-      title="Double-click to rename"
+      onClick={trigger === 'click' ? startEdit : undefined}
+      onDoubleClick={trigger === 'dblclick' ? startEdit : undefined}
+      title={trigger === 'dblclick' ? 'Double-click to rename' : 'Click to rename'}
       className={className}
     >
       {value}

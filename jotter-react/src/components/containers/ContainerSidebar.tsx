@@ -69,6 +69,7 @@ export function ContainerSidebar({
             >
               <InlineEditableTitle
                 value={c.title}
+                trigger="dblclick"
                 onSave={(title) =>
                   updateContainer.mutate({ id: c.id, collectionId, updates: { title } })
                 }

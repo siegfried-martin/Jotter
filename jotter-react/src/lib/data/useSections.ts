@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SectionService } from '@/lib/services/sectionService';
 import type { CreateNoteSection, NoteSection } from '@/lib/types';
+import { sortBySequence } from '@/lib/utils/sequenceUtils';
 import { queryKeys } from './queryKeys';
 
 type SectionUpdates = Partial<CreateNoteSection> & { sequence?: number };
@@ -20,7 +21,7 @@ export function useCreateSection() {
     mutationFn: (input: CreateNoteSection) => SectionService.createSection(input),
     onSuccess: (created) => {
       qc.setQueryData<NoteSection[]>(queryKeys.sections(created.note_container_id ?? ''), (old) =>
-        old ? [...old, created] : [created]
+        sortBySequence(old ? [...old, created] : [created])
       );
     }
   });

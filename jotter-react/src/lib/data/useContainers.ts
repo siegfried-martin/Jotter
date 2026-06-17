@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NoteService } from '@/lib/services/noteService';
 import type { CreateNoteContainer, NoteContainer } from '@/lib/types';
+import { sortBySequence } from '@/lib/utils/sequenceUtils';
 import { queryKeys } from './queryKeys';
 
 type ContainerUpdates = Partial<CreateNoteContainer> & { sequence?: number };
@@ -21,7 +22,7 @@ export function useCreateContainer() {
       NoteService.createSimpleNoteContainer(collectionId, title ?? 'Untitled Note'),
     onSuccess: (created, { collectionId }) => {
       qc.setQueryData<NoteContainer[]>(queryKeys.containers(collectionId), (old) =>
-        old ? [...old, created] : [created]
+        sortBySequence(old ? [...old, created] : [created])
       );
     }
   });

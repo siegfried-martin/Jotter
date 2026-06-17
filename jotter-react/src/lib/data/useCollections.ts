@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CollectionService } from '@/lib/services/collectionService';
 import type { Collection, CreateCollection } from '@/lib/types';
+import { sortBySequence } from '@/lib/utils/sequenceUtils';
 import { queryKeys } from './queryKeys';
 
 type CollectionUpdates = Partial<CreateCollection> & { sequence?: number };
@@ -28,7 +29,7 @@ export function useCreateCollection() {
     mutationFn: (input: CreateCollection) => CollectionService.createCollection(input),
     onSuccess: (created) => {
       qc.setQueryData<Collection[]>(queryKeys.collections(), (old) =>
-        old ? [...old, created] : [created]
+        sortBySequence(old ? [...old, created] : [created])
       );
       qc.setQueryData(queryKeys.collection(created.id), created);
     }
