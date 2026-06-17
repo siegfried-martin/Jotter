@@ -64,13 +64,11 @@ export function ExcalidrawEditor({
         UIOptions={UI_OPTIONS}
         excalidrawAPI={(api) => {
           // Default the tool-lock ON ("sticky" tools, Visio-style) — the user can
-          // still toggle it off via the toolbar padlock. Apply once on ready.
+          // still toggle it off via the toolbar padlock. setActiveTool with locked
+          // is the dedicated lever (updateScene doesn't apply activeTool changes).
           if (lockedDefaultApplied.current) return;
           lockedDefaultApplied.current = true;
-          setTimeout(() => {
-            const tool = api.getAppState().activeTool;
-            api.updateScene({ appState: { activeTool: { ...tool, locked: true } } });
-          }, 0);
+          api.setActiveTool({ type: 'selection', locked: true });
         }}
         onChange={(elements, appState, files) => {
           changeRef(
