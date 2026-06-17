@@ -135,7 +135,9 @@ function SectionEditorModal({
     setSaving(true);
     const updates: Partial<CreateNoteSection> = { content, title: title.trim() || null };
     if (section.type === 'code') updates.meta = { ...section.meta, language };
-    else if (section.type === 'checklist') updates.checklist_data = checklistData;
+    else if (section.type === 'checklist')
+      // Drop blank items on save (e.g. the trailing empty row left after Enter → Escape).
+      updates.checklist_data = checklistData.filter((it) => it.text.trim() !== '');
     try {
       await update.mutateAsync({ id: section.id, containerId, updates });
       clearDraft(section.id);
