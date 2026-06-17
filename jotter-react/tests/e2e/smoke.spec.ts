@@ -10,8 +10,10 @@ test('authenticated app loads the collections grid', async ({ page }) => {
 
 test('create then delete a collection (real Supabase insert + delete)', async ({ page }) => {
   await page.goto('/app');
+  // Wait for the grid to finish loading before counting (the count text shows a
+  // number once useCollections resolves; reading too early races the data load).
+  await expect(page.getByText(/\d+ collection\(s\)/)).toBeVisible();
   const cards = page.getByTestId('collection-card');
-  await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
 
   const before = await cards.count();
 
