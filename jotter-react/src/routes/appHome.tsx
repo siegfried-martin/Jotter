@@ -3,7 +3,11 @@ import { Link } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { AppHeader } from '@/components/AppHeader';
-import { useCollections, useCreateCollection } from '@/lib/data/useCollections';
+import {
+  useCollections,
+  useCreateCollection,
+  useDeleteCollection
+} from '@/lib/data/useCollections';
 import { preloadAppData } from '@/lib/data/preload';
 
 const PALETTE = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444'];
@@ -20,6 +24,7 @@ function CollectionsHome() {
   const qc = useQueryClient();
   const { data: collections, isPending, isError, error } = useCollections();
   const createCollection = useCreateCollection();
+  const deleteCollection = useDeleteCollection();
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -71,8 +76,23 @@ function CollectionsHome() {
               key={c.id}
               to="/app/collections/$collectionId"
               params={{ collectionId: c.id }}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+              className="group relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
             >
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (
+                    window.confirm(`Delete "${c.name}"? Its notes move to your default collection.`)
+                  ) {
+                    deleteCollection.mutate(c.id);
+                  }
+                }}
+                className="absolute top-2 right-2 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+                aria-label="Delete collection"
+              >
+                ✕
+              </button>
               <span
                 className="mb-3 block h-2 w-10 rounded-full"
                 style={{ backgroundColor: c.color }}

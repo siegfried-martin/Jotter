@@ -1,6 +1,11 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { NoteContainer } from '@/lib/types';
-import { useCreateContainer, useDeleteContainer } from '@/lib/data/useContainers';
+import {
+  useCreateContainer,
+  useDeleteContainer,
+  useUpdateContainer
+} from '@/lib/data/useContainers';
+import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 
 export function ContainerSidebar({
   collectionId,
@@ -14,6 +19,7 @@ export function ContainerSidebar({
   const navigate = useNavigate();
   const createContainer = useCreateContainer();
   const deleteContainer = useDeleteContainer();
+  const updateContainer = useUpdateContainer();
 
   function select(containerId: string) {
     navigate({
@@ -61,7 +67,13 @@ export function ContainerSidebar({
                 active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <span className="truncate">{c.title}</span>
+              <InlineEditableTitle
+                value={c.title}
+                onSave={(title) =>
+                  updateContainer.mutate({ id: c.id, collectionId, updates: { title } })
+                }
+                className="truncate"
+              />
               <button
                 onClick={(e) => {
                   e.stopPropagation();

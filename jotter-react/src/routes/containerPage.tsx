@@ -5,7 +5,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { ContainerSidebar } from '@/components/containers/ContainerSidebar';
 import { SectionGrid } from '@/components/sections/SectionGrid';
 import { useCollection } from '@/lib/data/useCollections';
-import { useContainers } from '@/lib/data/useContainers';
+import { useContainers, useUpdateContainer } from '@/lib/data/useContainers';
+import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 
 export function ContainerPageRoute() {
   return (
@@ -23,6 +24,7 @@ function ContainerPage() {
   const navigate = useNavigate();
   const { data: collection } = useCollection(collectionId);
   const { data: containers, isPending } = useContainers(collectionId);
+  const updateContainer = useUpdateContainer();
 
   // No container selected → jump to the first one once containers are known.
   useEffect(() => {
@@ -60,7 +62,14 @@ function ContainerPage() {
             </div>
           ) : selected ? (
             <>
-              <h1 className="mb-4 text-xl font-semibold">{selected.title}</h1>
+              <InlineEditableTitle
+                value={selected.title}
+                onSave={(title) =>
+                  updateContainer.mutate({ id: selected.id, collectionId, updates: { title } })
+                }
+                className="mb-4 block text-xl font-semibold"
+                inputClassName="mb-4 w-full max-w-lg rounded border border-blue-300 px-1 text-xl font-semibold focus:outline-none"
+              />
               <SectionGrid collectionId={collectionId} containerId={selected.id} />
             </>
           ) : (
