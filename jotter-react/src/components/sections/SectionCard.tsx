@@ -57,6 +57,26 @@ function sectionToText(section: NoteSection): string {
   }
 }
 
+/** Copy a section to the clipboard: diagrams as a PNG image, everything else as text.
+ *  Returns the toast message to show. */
+async function copySectionToClipboard(section: NoteSection): Promise<string> {
+  if (section.type === 'diagram') {
+    if (getDiagramElementCount(section.content) === 0) return 'Nothing to copy';
+    const data = JSON.parse(section.content);
+    const { exportToBlob } = await import('@excalidraw/excalidraw');
+    const blob = await exportToBlob({
+      elements: data.elements,
+      appState: { ...data.appState, exportBackground: true, exportWithDarkMode: false },
+      files: data.files || {},
+      mimeType: 'image/png'
+    });
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    return 'Copied image to clipboard';
+  }
+  await navigator.clipboard.writeText(sectionToText(section));
+  return 'Copied to clipboard';
+}
+
 type MenuItem = { label: string; danger?: boolean; onClick: () => void };
 
 /** Shared menu, rendered in a portal at fixed coords (3-dot button or right-click position). */
@@ -220,9 +240,8 @@ export function SectionCard({
     {
       label: 'Copy to clipboard',
       onClick: () =>
-        navigator.clipboard
-          ?.writeText(sectionToText(section))
-          .then(() => showToast('Copied to clipboard'))
+        copySectionToClipboard(section)
+          .then(showToast)
           .catch(() => showToast('Copy failed'))
     },
     { label: 'Delete', danger: true, onClick: onDelete }
