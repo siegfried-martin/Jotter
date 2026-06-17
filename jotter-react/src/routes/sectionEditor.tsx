@@ -4,6 +4,7 @@ import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { CodeEditor } from '@/components/editors/CodeEditor';
 import { QuillEditor } from '@/components/editors/QuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
+import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
@@ -210,9 +211,7 @@ function SectionEditorModal({
               <ChecklistEditor value={checklistData} onChange={setChecklistData} />
             )}
             {section.type === 'diagram' && (
-              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-400">
-                Diagram editor (Excalidraw) lands in the editor phase. Content preserved.
-              </div>
+              <ExcalidrawEditor initial={content} onChange={handleContentChange} />
             )}
           </div>
         </div>

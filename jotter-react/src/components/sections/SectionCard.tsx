@@ -1,6 +1,8 @@
 import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
+import { getDiagramElementCount } from '@/lib/util/diagram';
+import { DiagramThumbnail } from './DiagramThumbnail';
 
 function priorityPreviewStyle(priority: ChecklistItem['priority']): React.CSSProperties {
   switch (priority) {
@@ -93,12 +95,17 @@ function SectionPreview({ section }: { section: NoteSection }) {
         </ul>
       );
     }
-    case 'diagram':
-      return (
-        <div className="flex h-32 items-center justify-center rounded bg-slate-50 text-sm text-slate-400">
-          Diagram
-        </div>
-      );
+    case 'diagram': {
+      const count = getDiagramElementCount(section.content);
+      if (count === 0) {
+        return (
+          <div className="flex h-32 items-center justify-center rounded bg-slate-50 text-sm text-slate-400">
+            {section.content?.trim() ? 'Empty diagram' : 'New diagram'}
+          </div>
+        );
+      }
+      return <DiagramThumbnail content={section.content} elementCount={count} />;
+    }
     default:
       return null;
   }
