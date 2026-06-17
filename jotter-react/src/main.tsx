@@ -5,6 +5,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { queryClient } from '@/lib/queryClient';
 import { router } from '@/router';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ToastHost } from '@/components/ToastHost';
 import './index.css';
 
 const rootEl = document.getElementById('root');
@@ -15,6 +16,7 @@ createRoot(rootEl).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <RouterProvider router={router} />
+        <ToastHost />
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>

@@ -4,6 +4,7 @@ import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 import { getDiagramElementCount } from '@/lib/util/diagram';
+import { showToast } from '@/lib/ui/toast';
 import { DiagramThumbnail } from './DiagramThumbnail';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -214,7 +215,11 @@ export function SectionCard({
   const menuItems: MenuItem[] = [
     {
       label: 'Copy to clipboard',
-      onClick: () => navigator.clipboard?.writeText(sectionToText(section)).catch(() => {})
+      onClick: () =>
+        navigator.clipboard
+          ?.writeText(sectionToText(section))
+          .then(() => showToast('Copied to clipboard'))
+          .catch(() => showToast('Copy failed'))
     },
     { label: 'Delete', danger: true, onClick: onDelete }
   ];
