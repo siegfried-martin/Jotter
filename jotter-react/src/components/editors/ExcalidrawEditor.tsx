@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Excalidraw } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
@@ -52,6 +52,7 @@ export function ExcalidrawEditor({
 }) {
   const changeRef = useCallbackRef(onChange);
   const [initialData] = useState<InitialData>(() => parseScene(initial) as InitialData);
+  const lockedDefaultApplied = useRef(false);
 
   return (
     <div className="h-full w-full overflow-hidden rounded-lg border border-slate-200 [&_.excalidraw]:h-full">
@@ -61,6 +62,16 @@ export function ExcalidrawEditor({
         zenModeEnabled={false}
         viewModeEnabled={false}
         UIOptions={UI_OPTIONS}
+        excalidrawAPI={(api) => {
+          // Default the tool-lock ON ("sticky" tools, Visio-style) — the user can
+          // still toggle it off via the toolbar padlock. Apply once on ready.
+          if (lockedDefaultApplied.current) return;
+          lockedDefaultApplied.current = true;
+          setTimeout(() => {
+            const tool = api.getAppState().activeTool;
+            api.updateScene({ appState: { activeTool: { ...tool, locked: true } } });
+          }, 0);
+        }}
         onChange={(elements, appState, files) => {
           changeRef(
             JSON.stringify({
