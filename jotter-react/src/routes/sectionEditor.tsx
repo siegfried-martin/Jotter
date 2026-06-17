@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { AppHeader } from '@/components/AppHeader';
+import { CodeMirrorEditor } from '@/components/editors/CodeMirrorEditor';
 import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { useSections, useUpdateSection } from '@/lib/data/useSections';
 
@@ -60,7 +61,7 @@ function SectionEditorBody({
 }) {
   const update = useUpdateSection();
   const save = useCallbackRef(
-    (updates: Partial<Pick<NoteSection, 'title' | 'content' | 'checklist_data'>>) => {
+    (updates: Partial<Pick<NoteSection, 'title' | 'content' | 'checklist_data' | 'meta'>>) => {
       update.mutate({ id: section.id, containerId, updates });
     }
   );
@@ -73,7 +74,14 @@ function SectionEditorBody({
       />
       <div className="mt-4">
         {section.type === 'code' && (
-          <TextAreaEditor initial={section.content} mono onSave={(content) => save({ content })} />
+          <CodeMirrorEditor
+            initial={section.content}
+            language={
+              typeof section.meta?.language === 'string' ? section.meta.language : 'plaintext'
+            }
+            onSave={(content) => save({ content })}
+            onLanguageChange={(language) => save({ meta: { ...section.meta, language } })}
+          />
         )}
         {section.type === 'wysiwyg' && (
           <HtmlEditor initial={section.content} onSave={(content) => save({ content })} />
@@ -121,34 +129,6 @@ function TitleField({ initial, onSave }: { initial: string; onSave: (v: string) 
       }}
       onBlur={() => dirty && onSave(value)}
       className="w-full border-b border-transparent bg-transparent text-xl font-semibold focus:border-slate-300 focus:outline-none"
-    />
-  );
-}
-
-function TextAreaEditor({
-  initial,
-  mono,
-  onSave
-}: {
-  initial: string;
-  mono?: boolean;
-  onSave: (v: string) => void;
-}) {
-  const [value, setValue] = useState(initial);
-  const [dirty, setDirty] = useState(false);
-  useDebouncedSave(value, onSave, dirty);
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-        setDirty(true);
-      }}
-      onBlur={() => dirty && onSave(value)}
-      rows={18}
-      className={`w-full rounded-lg border border-slate-200 bg-white p-4 text-sm focus:border-blue-400 focus:outline-none ${
-        mono ? 'font-mono' : ''
-      }`}
     />
   );
 }
