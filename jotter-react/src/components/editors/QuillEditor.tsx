@@ -13,14 +13,20 @@ export function QuillEditor({
   initial: string;
   onChange: (html: string) => void;
 }) {
-  const hostRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const changeRef = useCallbackRef(onChange);
 
   useEffect(() => {
-    const el = hostRef.current;
-    if (!el) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
 
-    const quill = setupQuillEditor(el);
+    // Quill injects its toolbar as a sibling of the editor element, so we give it a
+    // fresh child to mount on and clear the whole wrapper on teardown. This keeps
+    // React's StrictMode double-mount (and any remount) from stacking toolbars.
+    const editorEl = document.createElement('div');
+    wrapper.appendChild(editorEl);
+
+    const quill = setupQuillEditor(editorEl);
     if (initial && initial.trim()) {
       quill.clipboard.dangerouslyPasteHTML(initial);
     }
@@ -33,15 +39,13 @@ export function QuillEditor({
 
     return () => {
       quill.off('text-change', handler);
-      el.innerHTML = ''; // remove Quill's injected toolbar + editor DOM
+      wrapper.innerHTML = ''; // remove toolbar + container Quill injected
     };
-    // `initial` is intentionally read once on mount (uncontrolled editor).
+    // `initial` is read once on mount (uncontrolled editor).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changeRef]);
 
-  return (
-    <div className="quill-editor h-full">
-      <div ref={hostRef} className="h-full" />
-    </div>
-  );
+  // React owns this wrapper but never renders children into it (the effect does),
+  // so clearing it imperatively is safe.
+  return <div ref={wrapperRef} className="quill-editor h-full" />;
 }
