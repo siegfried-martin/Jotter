@@ -1,7 +1,32 @@
 # Initiative: Migrate Jotter from Svelte to React
 
-**Status**: In Progress — Phase 0 (stack decisions locked 2026-06-16)
+**Status**: In Progress — Phases 0–4 substantially built (basic editors); next: real editors + DnD
 **Priority**: High (blocks the new feature roadmap)
+
+> ### Progress log — 2026-06-17
+> The React app (`jotter-react/`) is a **runnable, navigable, CRUD-capable slice**, tested
+> against **jotter-dev** with real Google OAuth (owner signed in; a real collection + an
+> `event_log` row were created and verified via direct psql). Built so far:
+> - **Scaffold** (Vite + React + TS strict + Tailwind v4 + TanStack Router/Query) — Phase 0.
+> - **Service layer** ported framework-neutral (collection/note/section/user/sequence/
+>   eventLog + the localStorage demo backend); `isDemoMode()` abstracted — Phase 1.
+> - **Data layer** on TanStack Query (cache-as-database): read hooks, optimistic CRUD
+>   mutations + rollback, `preloadAppData()` — Phase 1.
+> - **DB**: `0000_prod_baseline.sql` (prod public schema) applied to dev; `0001` made
+>   `note_container_id` nullable. Tooling: pg_dump17/psql17 + `~/.pgpass` (see `supabase/README.md`).
+> - **Auth shell**: login (Google + demo), `/auth/callback`, `RequireAuth` guard — Phase 2.
+> - **Collections grid** (create/delete/navigate) + **container page** (sidebar:
+>   create/rename/delete/select; section grid) + **section editor** with per-type editors
+>   (autosave) + inline rename — Phases 3–4.
+>
+> **Editors are functional placeholders** (mono textarea / contentEditable / custom
+> checklist / diagram stub) — **real CodeMirror, Quill, Excalidraw are NOT yet wired**.
+> **Not started:** DnD (Phase 5), Load More, demo→cloud migration prompt, Playwright
+> against the React app, performance/parity hardening (Phases 5–7). UI is approximate, not
+> a faithful visual port of the Svelte styling yet.
+>
+> **Run it:** `cd jotter-react && npm run dev` → http://localhost:5174 (demo needs no setup;
+> Google login uses jotter-dev). Branch: `feat/react-scaffold`.
 **Owner decision date**: 2026-06-16
 **Goal**: Re-platform the existing, working Jotter app from SvelteKit (Svelte 5) to React,
 preserving 100% of current behavior, using the Playwright E2E suite as the acceptance
