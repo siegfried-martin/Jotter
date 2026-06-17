@@ -1,7 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { EditorView, basicSetup } from 'codemirror';
+import {
+  EditorView,
+  lineNumbers,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  drawSelection,
+  keymap
+} from '@codemirror/view';
+import { history, defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  syntaxHighlighting,
+  defaultHighlightStyle,
+  indentOnInput,
+  bracketMatching
+} from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import { json } from '@codemirror/lang-json';
@@ -34,6 +47,15 @@ const LANGUAGES: Record<string, () => Extension | Extension[]> = {
   xml: () => xml()
 };
 
+// Light theme — syntax highlighting only, no IDE chrome.
+const lightTheme = EditorView.theme({
+  '&': { backgroundColor: '#ffffff', fontSize: '13px' },
+  '&.cm-focused': { outline: 'none' },
+  '.cm-gutters': { backgroundColor: '#f8fafc', color: '#94a3b8', border: 'none' },
+  '.cm-content': { padding: '0.75rem 0' },
+  '.cm-editor': { minHeight: '60vh' }
+});
+
 export function CodeMirrorEditor({
   initial,
   language,
@@ -49,8 +71,7 @@ export function CodeMirrorEditor({
   const contentRef = useRef(initial);
   const saveRef = useCallbackRef(onSave);
 
-  // Recreate the editor when the language changes (preserving current content),
-  // mirroring the Svelte app's "recreate, don't reconfigure" approach.
+  // Recreate the editor on language change (content preserved via contentRef).
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -62,10 +83,21 @@ export function CodeMirrorEditor({
       doc: contentRef.current,
       parent: host,
       extensions: [
-        basicSetup,
-        oneDark,
-        langExt,
+        // Minimal set: highlighting + basic editing only. No autocomplete,
+        // bracket-closing, or search panel (this isn't a code IDE — it's for
+        // sharing snippets / discussing technical requirements).
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        highlightActiveLine(),
+        drawSelection(),
+        history(),
+        indentOnInput(),
+        bracketMatching(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         EditorView.lineWrapping,
+        lightTheme,
+        langExt,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           contentRef.current = update.state.doc.toString();
@@ -98,10 +130,7 @@ export function CodeMirrorEditor({
           ))}
         </select>
       </div>
-      <div
-        ref={hostRef}
-        className="overflow-hidden rounded-lg border border-slate-700 text-sm [&_.cm-editor]:max-h-[28rem]"
-      />
+      <div ref={hostRef} className="overflow-hidden rounded-lg border border-slate-200 text-sm" />
     </div>
   );
 }

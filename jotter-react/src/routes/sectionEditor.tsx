@@ -39,7 +39,7 @@ function SectionEditor() {
           ← Back to notes
         </button>
       </AppHeader>
-      <main className="mx-auto w-full max-w-3xl flex-1 p-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
         {isPending && !section ? (
           <p className="text-sm text-slate-400">Loading…</p>
         ) : !section ? (
@@ -163,7 +163,7 @@ function HtmlEditor({ initial, onSave }: { initial: string; onSave: (v: string) 
       ref={ref}
       contentEditable
       suppressContentEditableWarning
-      className="min-h-[20rem] w-full rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed focus:border-blue-400 focus:outline-none"
+      className="min-h-[60vh] w-full rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed focus:border-blue-400 focus:outline-none"
     />
   );
 }
