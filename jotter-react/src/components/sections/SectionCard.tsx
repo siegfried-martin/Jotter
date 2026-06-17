@@ -1,5 +1,6 @@
 import type { NoteSection } from '@/lib/types';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
+import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 
 const TYPE_LABEL: Record<string, string> = {
   code: 'Code',
@@ -22,13 +23,13 @@ function SectionPreview({ section }: { section: NoteSection }) {
         </div>
       );
     case 'wysiwyg':
-      return (
+      return isWysiwygEmpty(section.content) ? (
+        <p className="text-sm text-slate-400">(empty)</p>
+      ) : (
         <div
           className="max-h-48 overflow-hidden text-sm leading-relaxed break-words text-slate-700"
           // Content is sanitized HTML produced by the editor (parity with the Svelte preview).
-          dangerouslySetInnerHTML={{
-            __html: section.content || '<p class="text-slate-400">(empty)</p>'
-          }}
+          dangerouslySetInnerHTML={{ __html: section.content }}
         />
       );
     case 'checklist': {

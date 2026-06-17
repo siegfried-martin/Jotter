@@ -5,6 +5,7 @@ import { CodeEditor } from '@/components/editors/CodeEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
+import { isSectionEmpty, isWysiwygEmpty } from '@/lib/util/sectionContent';
 
 export function SectionEditorRoute() {
   return (
@@ -145,11 +146,7 @@ function SectionEditorModal({
   // Cancel: a section that was never given content gets deleted; otherwise revert
   // (we never persisted the draft, so just discarding it restores the saved state).
   const cancel = useCallbackRef(async () => {
-    const wasEmpty =
-      !section.content ||
-      section.content.trim() === '' ||
-      (section.type === 'checklist' && (section.checklist_data?.length ?? 0) === 0);
-    if (wasEmpty) {
+    if (isSectionEmpty(section)) {
       try {
         await del.mutateAsync({ id: section.id, containerId });
       } catch (e) {
@@ -247,7 +244,10 @@ function WysiwygEditor({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const onInput = () => changeRef(el.innerHTML);
+    const onInput = () => {
+      const html = el.innerHTML;
+      changeRef(isWysiwygEmpty(html) ? '' : html);
+    };
     el.addEventListener('input', onInput);
     return () => el.removeEventListener('input', onInput);
   }, [changeRef]);
