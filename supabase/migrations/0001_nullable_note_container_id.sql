@@ -1,0 +1,16 @@
+--
+-- 0001: Make note_section.note_container_id nullable.
+--
+-- Foundation for unparented "quick jot" sections (docs/features/requested-features.md #2):
+-- a note section's only required FK becomes user_id; container (and, via it, collection)
+-- become optional. This is the framework-neutral data-model change folded into the React
+-- migration's step 1 (docs/initiatives/react-migration.md).
+--
+-- Schema-only. No UI yet, and nothing creates NULL-container sections today, so existing
+-- behaviour is unchanged. The FK note_sections_container_id_fkey (ON DELETE CASCADE) is
+-- unaffected — a NULL FK column is simply not enforced. Trigger/function handling for the
+-- NULL-container case (sequence assignment, limit/validation checks) is deferred to the
+-- unparented-sections feature, since those run only on INSERT and current inserts always
+-- supply a container.
+--
+ALTER TABLE public.note_section ALTER COLUMN note_container_id DROP NOT NULL;

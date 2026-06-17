@@ -9,9 +9,18 @@ applied with the Supabase CLI. This is the discipline agreed for the React migra
 | Env | Project ref | Notes |
 |-----|-------------|-------|
 | **dev** (`jotter-dev`) | `poehrpfamclemjyagnqa` | Mirror of prod schema. Migration rehearsal ground. Safe to wipe. |
-| **prod** | `__FILL_IN__` | Live app (jotter.marstol.com). **Real data — never push an untested migration here.** |
+| **prod** (`jotter-prod`) | `wccmdhtjckzwywffvnsp` | Live app (jotter.marstol.com). **Real data — never apply an untested migration here.** |
 
-> Get the prod ref from its Supabase dashboard URL: `…/project/<REF>` (or Settings → General).
+> The older `cfryekoikwicltltflrc` ("Jotter") project is INACTIVE/lapsed and unused.
+
+## Tooling (this machine)
+
+No Docker here, so the Supabase CLI's `db pull`/`db push` (which run pg_dump in a
+container) aren't usable. We use the PostgreSQL 17 client directly instead:
+
+- **pg_dump 17**: `/usr/lib/postgresql/17/bin/pg_dump` (the `/usr/bin` wrapper defaults to v16 — use the full path)
+- **psql 17**: `/usr/lib/postgresql/17/bin/psql`
+- **Dev auth**: a `~/.pgpass` entry (chmod 600) for `db.poehrpfamclemjyagnqa.supabase.co` lets psql connect to dev without a prompt. **Prod is deliberately NOT in `~/.pgpass`** — prod always requires a manual password.
 
 ## Golden rules
 
@@ -20,43 +29,54 @@ applied with the Supabase CLI. This is the discipline agreed for the React migra
 2. Every schema change rehearses on **dev** first, then — only once verified — on **prod**.
 3. Migrations are committed to git. `.env.local` and secrets are not.
 
-## One-time: replicate prod schema onto dev
+## One-time: how the baseline was captured (done 2026-06-16)
 
-The goal is `dev schema == prod schema` as the baseline, so later migrations can be tested
-on dev before touching prod data.
+`0000_prod_baseline.sql` is prod's `public` schema. It was produced by:
 
 ```bash
-# From repo root. `login` is interactive — run it yourself (e.g. `! npx supabase login`).
-npx supabase login
+# 1. Dump prod (READ-ONLY), schema only. -W prompts for the prod DB password (hidden).
+/usr/lib/postgresql/17/bin/pg_dump --schema-only --no-owner --no-privileges \
+  -h db.wccmdhtjckzwywffvnsp.supabase.co -p 5432 -U postgres -d postgres -W \
+  -f /tmp/prod_full.sql
 
-# 1. Capture prod's exact schema as the baseline migration (READ-ONLY on prod).
-npx supabase link --project-ref <PROD_REF>
-npx supabase db pull                 # → supabase/migrations/<ts>_remote_schema.sql
-
-# 2. Replicate that baseline onto the empty dev project.
-npx supabase link --project-ref poehrpfamclemjyagnqa
-npx supabase db push                 # applies the baseline to jotter-dev
+# 2. Filter to the public schema + the two auth.users onboarding triggers
+#    (auth/storage/realtime/etc. are Supabase-managed — present on every project).
+#    -> supabase/migrations/0000_prod_baseline.sql
 ```
 
-After this, dev is a structural clone of prod (no data).
+It was then applied to the empty dev project:
+
+```bash
+/usr/lib/postgresql/17/bin/psql -w -h db.poehrpfamclemjyagnqa.supabase.co -p 5432 \
+  -U postgres -d postgres -v ON_ERROR_STOP=1 --single-transaction \
+  -f supabase/migrations/0000_prod_baseline.sql
+```
+
+dev is now a structural clone of prod (no data).
 
 ## Per-change workflow (going forward)
 
 ```bash
-npx supabase migration new <name>    # creates an empty timestamped SQL file
-# ...author the SQL (Claude does this; e.g. make note_section.note_container_id nullable)...
+PSQL=/usr/lib/postgresql/17/bin/psql
 
-npx supabase link --project-ref poehrpfamclemjyagnqa   # dev
-npx supabase db push                 # test on dev, exercise the app
+# 1. Author supabase/migrations/NNNN_<name>.sql
 
-# Only after it's verified on dev:
-npx supabase link --project-ref <PROD_REF>             # prod
-npx supabase db push                 # apply to prod
+# 2. Test on DEV (auth via ~/.pgpass — no password needed):
+$PSQL -w -h db.poehrpfamclemjyagnqa.supabase.co -p 5432 -U postgres -d postgres \
+  -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/NNNN_<name>.sql
+# ...exercise the app against dev...
+
+# 3. ONLY after it's verified on dev, apply to PROD (manual password, -W):
+$PSQL -h db.wccmdhtjckzwywffvnsp.supabase.co -p 5432 -U postgres -d postgres -W \
+  -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/NNNN_<name>.sql
 ```
+
+> Migrations are plain idempotent-where-possible SQL, numbered in order, committed to git.
+> Always `--single-transaction` + `ON_ERROR_STOP=1` so a bad migration rolls back cleanly.
 
 ## Status
 
-- [ ] Capture prod baseline (`db pull`) — **needs prod ref + your `supabase login`**.
-- [ ] Replicate baseline onto dev.
-- [ ] Migration: make `note_section.note_container_id` nullable (unparented-sections
-      foundation, #2) — authored after baseline exists, tested on dev.
+- [x] Capture prod baseline → `0000_prod_baseline.sql` (public: 11 tables, 15 functions, 17 policies, 14 triggers).
+- [x] Replicate baseline onto dev (applied clean, verified).
+- [x] `0001_nullable_note_container_id.sql` — `note_section.note_container_id` now nullable; tested on dev, FKs intact.
+- [ ] Apply accumulated migrations to **prod** — only at the step-3 cutover, after dev/UAT sign-off.

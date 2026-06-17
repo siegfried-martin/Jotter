@@ -1,7 +1,7 @@
 // Ported from the Svelte app (src/lib/types.ts), framework-neutral.
-// NOTE: `note_container_id` stays non-nullable here for parity. The nullable
-// migration (unparented sections, #2) lands in Phase 1 alongside the dev SQL
-// migration — see docs/initiatives/react-migration.md.
+// `note_container_id` is nullable (migration 0001) — the foundation for unparented
+// "quick jot" sections (#2). No UI creates them yet, so creation still requires a
+// container; only the read model reflects that the column can be NULL.
 
 export interface ChecklistItem {
   text: string;
@@ -50,7 +50,7 @@ export interface NoteContainer {
 
 export interface NoteSection {
   id: string;
-  note_container_id: string;
+  note_container_id: string | null; // nullable since migration 0001 (unparented sections, #2)
   type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
   title?: string | null; // NEW: Optional title field
   content: string;
