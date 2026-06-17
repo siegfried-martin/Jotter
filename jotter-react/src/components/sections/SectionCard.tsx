@@ -94,6 +94,10 @@ function CardMenu({
     <div
       ref={ref}
       style={{ position: 'fixed', top, left }}
+      // Portaled to <body>, but React events bubble through the component tree —
+      // stop them so a menu click/right-click doesn't reach the card (which opens it).
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
       className="z-[60] min-w-[184px] overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
     >
       {items.map((it, i) => (
