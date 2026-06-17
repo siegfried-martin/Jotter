@@ -121,6 +121,7 @@ function SectionEditorModal({
     typeof section.meta?.language === 'string' ? section.meta.language : 'plaintext'
   );
   const [checklistData, setChecklistData] = useState<ChecklistItem[]>(section.checklist_data ?? []);
+  const [title, setTitle] = useState(section.title ?? '');
   const [saving, setSaving] = useState(false);
 
   function handleContentChange(next: string) {
@@ -132,7 +133,7 @@ function SectionEditorModal({
   const saveAndClose = useCallbackRef(async () => {
     if (saving) return;
     setSaving(true);
-    const updates: Partial<CreateNoteSection> = { content };
+    const updates: Partial<CreateNoteSection> = { content, title: title.trim() || null };
     if (section.type === 'code') updates.meta = { ...section.meta, language };
     else if (section.type === 'checklist') updates.checklist_data = checklistData;
     try {
@@ -184,26 +185,34 @@ function SectionEditorModal({
         className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
         style={{ width: '95vw', height: '90vh' }}
       >
-        <div className="flex-1 overflow-hidden p-6">
-          {section.type === 'code' && (
-            <CodeEditor
-              content={content}
-              language={language}
-              onContentChange={handleContentChange}
-              onLanguageChange={setLanguage}
-            />
-          )}
-          {section.type === 'wysiwyg' && (
-            <QuillEditor initial={content} onChange={handleContentChange} />
-          )}
-          {section.type === 'checklist' && (
-            <ChecklistEditor value={checklistData} onChange={setChecklistData} />
-          )}
-          {section.type === 'diagram' && (
-            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-400">
-              Diagram editor (Excalidraw) lands in the editor phase. Content preserved.
-            </div>
-          )}
+        <div className="flex flex-1 flex-col overflow-hidden p-6">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled section"
+            className="mb-4 w-full flex-shrink-0 border-b border-slate-200 bg-transparent pb-2 text-lg font-semibold text-slate-800 focus:border-blue-400 focus:outline-none"
+          />
+          <div className="min-h-0 flex-1">
+            {section.type === 'code' && (
+              <CodeEditor
+                content={content}
+                language={language}
+                onContentChange={handleContentChange}
+                onLanguageChange={setLanguage}
+              />
+            )}
+            {section.type === 'wysiwyg' && (
+              <QuillEditor initial={content} onChange={handleContentChange} />
+            )}
+            {section.type === 'checklist' && (
+              <ChecklistEditor value={checklistData} onChange={setChecklistData} />
+            )}
+            {section.type === 'diagram' && (
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-400">
+                Diagram editor (Excalidraw) lands in the editor phase. Content preserved.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
