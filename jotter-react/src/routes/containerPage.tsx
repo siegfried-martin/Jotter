@@ -4,9 +4,9 @@ import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { AppHeader } from '@/components/AppHeader';
 import { ContainerSidebar } from '@/components/containers/ContainerSidebar';
 import { SectionGrid } from '@/components/sections/SectionGrid';
-import { useCollection } from '@/lib/data/useCollections';
 import { useContainers, useUpdateContainer } from '@/lib/data/useContainers';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
+import { CollectionTabs } from '@/components/layout/CollectionTabs';
 
 export function ContainerPageRoute() {
   return (
@@ -22,7 +22,6 @@ function ContainerPage() {
   const containerId = (params.containerId as string | undefined) ?? null;
 
   const navigate = useNavigate();
-  const { data: collection } = useCollection(collectionId);
   const { data: containers, isPending } = useContainers(collectionId);
   const updateContainer = useUpdateContainer();
 
@@ -43,7 +42,7 @@ function ContainerPage() {
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <AppHeader>
         <span className="text-slate-300">/</span>
-        <span className="text-sm text-slate-600">{collection?.name ?? '…'}</span>
+        <CollectionTabs currentCollectionId={collectionId} />
       </AppHeader>
 
       <div className="flex flex-1">
