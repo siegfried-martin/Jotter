@@ -74,6 +74,7 @@ function CollectionsHome() {
           {collections?.map((c) => (
             <Link
               key={c.id}
+              data-testid="collection-card"
               to="/app/collections/$collectionId"
               params={{ collectionId: c.id }}
               className="group relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"

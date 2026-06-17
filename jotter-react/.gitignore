@@ -5,6 +5,12 @@ dist-ssr
 *.tsbuildinfo
 .env.local
 .env.*.local
+.env.test
+
+# Playwright
+playwright/.auth
+test-results
+playwright-report
 
 # Editor / OS
 .DS_Store
