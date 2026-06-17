@@ -1,39 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { signOut, useAuth } from '@/lib/auth/AuthContext';
-import { useDemoMode } from '@/lib/demo/useDemoMode';
-import { exitDemoMode } from '@/lib/demo/demoMode';
+import { RequireAuth } from '@/lib/auth/RequireAuth';
+import { AppHeader } from '@/components/AppHeader';
 import { useCollections, useCreateCollection } from '@/lib/data/useCollections';
 import { preloadAppData } from '@/lib/data/preload';
 
 const PALETTE = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444'];
 
-/** Route shell: guards access, then renders the authed/demo collections grid. */
 export function AppHomeRoute() {
-  const { user, loading } = useAuth();
-  const demo = useDemoMode();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !user && !demo) navigate({ to: '/' });
-  }, [loading, user, demo, navigate]);
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500">
-        Loading…
-      </main>
-    );
-  }
-  if (!user && !demo) return null; // redirecting
-
-  return <CollectionsHome label={demo ? 'Demo' : (user?.email ?? 'Signed in')} isDemo={demo} />;
+  return (
+    <RequireAuth>
+      <CollectionsHome />
+    </RequireAuth>
+  );
 }
 
-function CollectionsHome({ label, isDemo }: { label: string; isDemo: boolean }) {
+function CollectionsHome() {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const { data: collections, isPending, isError, error } = useCollections();
   const createCollection = useCreateCollection();
   const [creating, setCreating] = useState(false);
@@ -54,26 +38,12 @@ function CollectionsHome({ label, isDemo }: { label: string; isDemo: boolean }) 
     }
   }
 
-  async function handleExit() {
-    if (isDemo) exitDemoMode(false);
-    else await signOut();
-    navigate({ to: '/' });
-  }
-
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <h1 className="text-lg font-semibold">Jotter — Collections</h1>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500">{label}</span>
-          <button
-            onClick={handleExit}
-            className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {isDemo ? 'Exit demo' : 'Sign out'}
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <AppHeader>
+        <span className="text-slate-300">/</span>
+        <span className="text-sm text-slate-600">Collections</span>
+      </AppHeader>
 
       <div className="mx-auto max-w-5xl p-6">
         <div className="mb-4 flex items-center justify-between">
@@ -97,9 +67,11 @@ function CollectionsHome({ label, isDemo }: { label: string; isDemo: boolean }) 
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {collections?.map((c) => (
-            <div
+            <Link
               key={c.id}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow"
+              to="/app/collections/$collectionId"
+              params={{ collectionId: c.id }}
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
             >
               <span
                 className="mb-3 block h-2 w-10 rounded-full"
@@ -114,7 +86,7 @@ function CollectionsHome({ label, isDemo }: { label: string; isDemo: boolean }) 
                   default
                 </span>
               )}
-            </div>
+            </Link>
           ))}
         </div>
 
@@ -124,6 +96,6 @@ function CollectionsHome({ label, isDemo }: { label: string; isDemo: boolean }) 
           </p>
         )}
       </div>
-    </main>
+    </div>
   );
 }
