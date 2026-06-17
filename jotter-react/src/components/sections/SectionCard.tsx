@@ -35,7 +35,13 @@ const TYPE_LABEL: Record<string, string> = {
   diagram: 'Diagram'
 };
 
-function SectionPreview({ section }: { section: NoteSection }) {
+function SectionPreview({
+  section,
+  onToggleChecklistItem
+}: {
+  section: NoteSection;
+  onToggleChecklistItem: (index: number, checked: boolean) => void;
+}) {
   switch (section.type) {
     case 'code':
       return (
@@ -74,8 +80,9 @@ function SectionPreview({ section }: { section: NoteSection }) {
                 <input
                   type="checkbox"
                   checked={item.checked}
-                  readOnly
-                  className="h-4 w-4 flex-shrink-0 rounded"
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => onToggleChecklistItem(i, e.target.checked)}
+                  className="h-4 w-4 flex-shrink-0 cursor-pointer rounded"
                 />
                 <span
                   className={`flex-1 break-words ${item.checked ? 'text-slate-400 line-through' : ''}`}
@@ -115,12 +122,14 @@ export function SectionCard({
   section,
   onOpen,
   onDelete,
-  onRenameTitle
+  onRenameTitle,
+  onToggleChecklistItem
 }: {
   section: NoteSection;
   onOpen: () => void;
   onDelete: () => void;
   onRenameTitle: (title: string | null) => void;
+  onToggleChecklistItem: (index: number, checked: boolean) => void;
 }) {
   return (
     <div
@@ -152,7 +161,7 @@ export function SectionCard({
         </button>
       </div>
       <div className="flex-1 overflow-hidden">
-        <SectionPreview section={section} />
+        <SectionPreview section={section} onToggleChecklistItem={onToggleChecklistItem} />
       </div>
     </div>
   );

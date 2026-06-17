@@ -7,6 +7,7 @@ import {
   useUpdateSection
 } from '@/lib/data/useSections';
 import { SectionCard } from './SectionCard';
+import { isSectionEmpty } from '@/lib/util/sectionContent';
 
 type SectionType = NoteSection['type'];
 
@@ -76,10 +77,26 @@ export function SectionGrid({
               key={s.id}
               section={s}
               onOpen={() => openEditor(s.id)}
-              onDelete={() => deleteSection.mutate({ id: s.id, containerId })}
+              onDelete={() => {
+                // Confirm only when there's content to lose (parity with the docs).
+                if (
+                  !isSectionEmpty(s) &&
+                  !window.confirm(
+                    `Delete this ${s.title || s.type} section? This cannot be undone.`
+                  )
+                )
+                  return;
+                deleteSection.mutate({ id: s.id, containerId });
+              }}
               onRenameTitle={(title) =>
                 updateSection.mutate({ id: s.id, containerId, updates: { title } })
               }
+              onToggleChecklistItem={(index, checked) => {
+                const next = (s.checklist_data ?? []).map((it, i) =>
+                  i === index ? { ...it, checked } : it
+                );
+                updateSection.mutate({ id: s.id, containerId, updates: { checklist_data: next } });
+              }}
             />
           ))}
         </div>

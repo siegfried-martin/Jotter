@@ -33,10 +33,16 @@ export function ContainerSidebar({
     select(created.id);
   }
 
-  async function handleDelete(containerId: string) {
-    await deleteContainer.mutateAsync({ id: containerId, collectionId });
-    if (selectedContainerId === containerId) {
-      const next = containers.find((c) => c.id !== containerId);
+  async function handleDelete(container: NoteContainer) {
+    if (
+      !window.confirm(
+        `Delete "${container.title}"? This also deletes all sections inside it. This cannot be undone.`
+      )
+    )
+      return;
+    await deleteContainer.mutateAsync({ id: container.id, collectionId });
+    if (selectedContainerId === container.id) {
+      const next = containers.find((c) => c.id !== container.id);
       if (next) select(next.id);
       else navigate({ to: '/app/collections/$collectionId', params: { collectionId } });
     }
@@ -78,7 +84,7 @@ export function ContainerSidebar({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(c.id);
+                  handleDelete(c);
                 }}
                 className="ml-2 rounded p-0.5 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
                 title="Delete note"
