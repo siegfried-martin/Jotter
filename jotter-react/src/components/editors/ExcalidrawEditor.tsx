@@ -51,7 +51,14 @@ export function ExcalidrawEditor({
   onChange: (content: string) => void;
 }) {
   const changeRef = useCallbackRef(onChange);
-  const [initialData] = useState<InitialData>(() => parseScene(initial) as InitialData);
+  const [initialData] = useState<InitialData>(() => {
+    const scene = parseScene(initial);
+    // Start with the tool-lock on so tools are sticky from the first render.
+    return {
+      ...scene,
+      appState: { ...scene.appState, activeTool: { type: 'selection', locked: true } }
+    } as InitialData;
+  });
   const lockedDefaultApplied = useRef(false);
 
   return (
@@ -68,7 +75,8 @@ export function ExcalidrawEditor({
           // is the dedicated lever (updateScene doesn't apply activeTool changes).
           if (lockedDefaultApplied.current) return;
           lockedDefaultApplied.current = true;
-          api.setActiveTool({ type: 'selection', locked: true });
+          // Re-assert after init settles, in case Excalidraw's own startup reset it.
+          setTimeout(() => api.setActiveTool({ type: 'selection', locked: true }), 150);
         }}
         onChange={(elements, appState, files) => {
           changeRef(
