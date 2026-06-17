@@ -1,6 +1,11 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { CreateNoteSection, NoteSection } from '@/lib/types';
-import { useCreateSection, useDeleteSection, useSections } from '@/lib/data/useSections';
+import {
+  useCreateSection,
+  useDeleteSection,
+  useSections,
+  useUpdateSection
+} from '@/lib/data/useSections';
 import { SectionCard } from './SectionCard';
 
 type SectionType = NoteSection['type'];
@@ -33,6 +38,7 @@ export function SectionGrid({
   const { data: sections, isPending } = useSections(containerId);
   const createSection = useCreateSection();
   const deleteSection = useDeleteSection();
+  const updateSection = useUpdateSection();
 
   function openEditor(sectionId: string) {
     navigate({
@@ -71,6 +77,9 @@ export function SectionGrid({
               section={s}
               onOpen={() => openEditor(s.id)}
               onDelete={() => deleteSection.mutate({ id: s.id, containerId })}
+              onRenameTitle={(title) =>
+                updateSection.mutate({ id: s.id, containerId, updates: { title } })
+              }
             />
           ))}
         </div>

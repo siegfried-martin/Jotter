@@ -29,7 +29,7 @@ import { rust } from '@codemirror/lang-rust';
 import { xml } from '@codemirror/lang-xml';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 
-const LANGUAGES: Record<string, () => Extension | Extension[]> = {
+export const CODE_LANGUAGES: Record<string, () => Extension | Extension[]> = {
   plaintext: () => [],
   javascript: () => javascript(),
   typescript: () => javascript({ typescript: true }),
@@ -47,45 +47,39 @@ const LANGUAGES: Record<string, () => Extension | Extension[]> = {
   xml: () => xml()
 };
 
-// Light theme — syntax highlighting only, no IDE chrome.
-const lightTheme = EditorView.theme({
-  '&': { backgroundColor: '#ffffff', fontSize: '13px' },
+// Light, syntax-highlighting-only theme; editor fills its container's height.
+const theme = EditorView.theme({
+  '&': { backgroundColor: '#ffffff', fontSize: '13px', height: '100%' },
   '&.cm-focused': { outline: 'none' },
+  '.cm-scroller': { overflow: 'auto' },
   '.cm-gutters': { backgroundColor: '#f8fafc', color: '#94a3b8', border: 'none' },
-  '.cm-content': { padding: '0.75rem 0' },
-  '.cm-editor': { minHeight: '60vh' }
+  '.cm-content': { padding: '0.75rem 0' }
 });
 
 export function CodeMirrorEditor({
   initial,
   language,
-  onSave,
-  onLanguageChange
+  onChange
 }: {
   initial: string;
   language: string;
-  onSave: (content: string) => void;
-  onLanguageChange: (language: string) => void;
+  onChange: (content: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef(initial);
-  const saveRef = useCallbackRef(onSave);
+  const changeRef = useCallbackRef(onChange);
 
-  // Recreate the editor on language change (content preserved via contentRef).
+  // Recreate on language change (content preserved via contentRef).
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
-    let timer: ReturnType<typeof setTimeout>;
-    const langExt = (LANGUAGES[language] ?? LANGUAGES.plaintext)();
-
+    const langExt = (CODE_LANGUAGES[language] ?? CODE_LANGUAGES.plaintext)();
     const view = new EditorView({
       doc: contentRef.current,
       parent: host,
       extensions: [
-        // Minimal set: highlighting + basic editing only. No autocomplete,
-        // bracket-closing, or search panel (this isn't a code IDE — it's for
-        // sharing snippets / discussing technical requirements).
+        // Highlighting + basic editing only — no autocomplete / bracket-closing / search.
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightActiveLine(),
@@ -96,41 +90,18 @@ export function CodeMirrorEditor({
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         EditorView.lineWrapping,
-        lightTheme,
+        theme,
         langExt,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           contentRef.current = update.state.doc.toString();
-          clearTimeout(timer);
-          timer = setTimeout(() => saveRef(contentRef.current), 800);
+          changeRef(contentRef.current);
         })
       ]
     });
 
-    return () => {
-      clearTimeout(timer);
-      saveRef(contentRef.current); // flush pending edits before teardown
-      view.destroy();
-    };
-  }, [language, saveRef]);
+    return () => view.destroy();
+  }, [language, changeRef]);
 
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-2">
-        <label className="text-xs text-slate-500">Language</label>
-        <select
-          value={LANGUAGES[language] ? language : 'plaintext'}
-          onChange={(e) => onLanguageChange(e.target.value)}
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs"
-        >
-          {Object.keys(LANGUAGES).map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div ref={hostRef} className="overflow-hidden rounded-lg border border-slate-200 text-sm" />
-    </div>
-  );
+  return <div ref={hostRef} className="h-full" />;
 }

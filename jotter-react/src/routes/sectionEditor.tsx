@@ -1,11 +1,10 @@
-import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
-import { AppHeader } from '@/components/AppHeader';
-import { CodeMirrorEditor } from '@/components/editors/CodeMirrorEditor';
-import type { ChecklistItem, NoteSection } from '@/lib/types';
-import { useSections, useUpdateSection } from '@/lib/data/useSections';
+import { CodeEditor } from '@/components/editors/CodeEditor';
+import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
+import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
+import { useCallbackRef } from '@/lib/util/useCallbackRef';
 
 export function SectionEditorRoute() {
   return (
@@ -25,118 +24,220 @@ function SectionEditor() {
   const { data: sections, isPending } = useSections(containerId);
   const section = sections?.find((s) => s.id === sectionId) ?? null;
 
-  function back() {
+  const close = useCallbackRef(() =>
     navigate({
       to: '/app/collections/$collectionId/containers/$containerId',
       params: { collectionId, containerId }
-    });
+    })
+  );
+
+  if (isPending && !section) {
+    return <Backdrop onClick={() => close()}>Loading section…</Backdrop>;
+  }
+  if (!section) {
+    return (
+      <Backdrop onClick={() => close()}>
+        <div className="text-center">
+          <p className="mb-4 text-red-600">Section not found</p>
+          <button
+            onClick={() => close()}
+            className="rounded-lg bg-slate-500 px-6 py-2 text-white hover:bg-slate-600"
+          >
+            Go back
+          </button>
+        </div>
+      </Backdrop>
+    );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <AppHeader>
-        <button onClick={back} className="text-sm text-slate-500 hover:text-blue-600">
-          ← Back to notes
-        </button>
-      </AppHeader>
-      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
-        {isPending && !section ? (
-          <p className="text-sm text-slate-400">Loading…</p>
-        ) : !section ? (
-          <p className="text-sm text-slate-400">Section not found.</p>
-        ) : (
-          <SectionEditorBody key={section.id} section={section} containerId={containerId} />
-        )}
-      </main>
-    </div>
-  );
-}
-
-function SectionEditorBody({
-  section,
-  containerId
-}: {
-  section: NoteSection;
-  containerId: string;
-}) {
-  const update = useUpdateSection();
-  const save = useCallbackRef(
-    (updates: Partial<Pick<NoteSection, 'title' | 'content' | 'checklist_data' | 'meta'>>) => {
-      update.mutate({ id: section.id, containerId, updates });
-    }
-  );
-
-  return (
-    <div>
-      <TitleField
-        initial={section.title ?? ''}
-        onSave={(title) => save({ title: title || null })}
-      />
-      <div className="mt-4">
-        {section.type === 'code' && (
-          <CodeMirrorEditor
-            initial={section.content}
-            language={
-              typeof section.meta?.language === 'string' ? section.meta.language : 'plaintext'
-            }
-            onSave={(content) => save({ content })}
-            onLanguageChange={(language) => save({ meta: { ...section.meta, language } })}
-          />
-        )}
-        {section.type === 'wysiwyg' && (
-          <HtmlEditor initial={section.content} onSave={(content) => save({ content })} />
-        )}
-        {section.type === 'checklist' && (
-          <ChecklistEditor
-            initial={section.checklist_data ?? []}
-            onSave={(checklist_data) => save({ checklist_data })}
-          />
-        )}
-        {section.type === 'diagram' && (
-          <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400">
-            Diagram editor (Excalidraw) lands in the editor phase. Raw content preserved.
-          </div>
-        )}
-      </div>
-      {update.isError && (
-        <p className="mt-2 text-xs text-red-500">Save failed — will retry on next edit.</p>
-      )}
-    </div>
-  );
-}
-
-/** Debounce a value change into onSave (800ms), and flush on unmount. */
-function useDebouncedSave<T>(value: T, onSave: (v: T) => void, dirty: boolean) {
-  const onSaveRef = useCallbackRef(onSave);
-  useEffect(() => {
-    if (!dirty) return;
-    const t = setTimeout(() => onSaveRef(value), 800);
-    return () => clearTimeout(t);
-  }, [value, dirty, onSaveRef]);
-}
-
-function TitleField({ initial, onSave }: { initial: string; onSave: (v: string) => void }) {
-  const [value, setValue] = useState(initial);
-  const [dirty, setDirty] = useState(false);
-  useDebouncedSave(value, onSave, dirty);
-  return (
-    <input
-      value={value}
-      placeholder="Untitled section"
-      onChange={(e) => {
-        setValue(e.target.value);
-        setDirty(true);
-      }}
-      onBlur={() => dirty && onSave(value)}
-      className="w-full border-b border-transparent bg-transparent text-xl font-semibold focus:border-slate-300 focus:outline-none"
+    <SectionEditorModal
+      key={section.id}
+      section={section}
+      containerId={containerId}
+      onClose={() => close()}
     />
   );
 }
 
-/** Uncontrolled contentEditable so the cursor doesn't jump; reads innerHTML on input. */
-function HtmlEditor({ initial, onSave }: { initial: string; onSave: (v: string) => void }) {
+function Backdrop({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClick();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 text-slate-500"
+    >
+      {children}
+    </div>
+  );
+}
+
+function draftKey(id: string) {
+  return `draft_${id}`;
+}
+
+function readDraft(id: string): string | null {
+  try {
+    return localStorage.getItem(draftKey(id));
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(id: string, content: string) {
+  try {
+    localStorage.setItem(draftKey(id), content);
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
+function clearDraft(id: string) {
+  try {
+    localStorage.removeItem(draftKey(id));
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
+function SectionEditorModal({
+  section,
+  containerId,
+  onClose
+}: {
+  section: NoteSection;
+  containerId: string;
+  onClose: () => void;
+}) {
+  const update = useUpdateSection();
+  const del = useDeleteSection();
+
+  const [content, setContent] = useState(() => readDraft(section.id) ?? section.content);
+  const [language, setLanguage] = useState(
+    typeof section.meta?.language === 'string' ? section.meta.language : 'plaintext'
+  );
+  const [checklistData, setChecklistData] = useState<ChecklistItem[]>(section.checklist_data ?? []);
+  const [saving, setSaving] = useState(false);
+
+  function handleContentChange(next: string) {
+    setContent(next);
+    writeDraft(section.id, next);
+  }
+
+  // Save & close (Save button, Escape, Ctrl/Cmd+S, click-outside).
+  const saveAndClose = useCallbackRef(async () => {
+    if (saving) return;
+    setSaving(true);
+    const updates: Partial<CreateNoteSection> = { content };
+    if (section.type === 'code') updates.meta = { ...section.meta, language };
+    else if (section.type === 'checklist') updates.checklist_data = checklistData;
+    try {
+      await update.mutateAsync({ id: section.id, containerId, updates });
+      clearDraft(section.id);
+      onClose();
+    } catch (e) {
+      console.error('Failed to save section:', e);
+      setSaving(false);
+    }
+  });
+
+  // Cancel: a section that was never given content gets deleted; otherwise revert
+  // (we never persisted the draft, so just discarding it restores the saved state).
+  const cancel = useCallbackRef(async () => {
+    const wasEmpty =
+      !section.content ||
+      section.content.trim() === '' ||
+      (section.type === 'checklist' && (section.checklist_data?.length ?? 0) === 0);
+    if (wasEmpty) {
+      try {
+        await del.mutateAsync({ id: section.id, containerId });
+      } catch (e) {
+        console.error('Failed to delete empty section:', e);
+      }
+    }
+    clearDraft(section.id);
+    onClose();
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveAndClose();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        saveAndClose();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [saveAndClose]);
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) saveAndClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    >
+      <div
+        className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        style={{ width: '95vw', height: '90vh' }}
+      >
+        <div className="flex-1 overflow-hidden p-6">
+          {section.type === 'code' && (
+            <CodeEditor
+              content={content}
+              language={language}
+              onContentChange={handleContentChange}
+              onLanguageChange={setLanguage}
+            />
+          )}
+          {section.type === 'wysiwyg' && (
+            <WysiwygEditor initial={content} onChange={handleContentChange} />
+          )}
+          {section.type === 'checklist' && (
+            <ChecklistEditor value={checklistData} onChange={setChecklistData} />
+          )}
+          {section.type === 'diagram' && (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-400">
+              Diagram editor (Excalidraw) lands in the editor phase. Content preserved.
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+          <button
+            onClick={() => cancel()}
+            disabled={saving}
+            className="rounded-lg border border-slate-300 px-6 py-2 font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => saveAndClose()}
+            disabled={saving}
+            className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-600 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Uncontrolled contentEditable so the cursor doesn't jump; reports innerHTML on input. */
+function WysiwygEditor({
+  initial,
+  onChange
+}: {
+  initial: string;
+  onChange: (html: string) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  const onSaveRef = useCallbackRef(onSave);
+  const changeRef = useCallbackRef(onChange);
 
   useEffect(() => {
     if (ref.current) ref.current.innerHTML = initial;
@@ -146,65 +247,52 @@ function HtmlEditor({ initial, onSave }: { initial: string; onSave: (v: string) 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    let t: ReturnType<typeof setTimeout>;
-    const onInput = () => {
-      clearTimeout(t);
-      t = setTimeout(() => onSaveRef(el.innerHTML), 800);
-    };
+    const onInput = () => changeRef(el.innerHTML);
     el.addEventListener('input', onInput);
-    return () => {
-      clearTimeout(t);
-      el.removeEventListener('input', onInput);
-    };
-  }, [onSaveRef]);
+    return () => el.removeEventListener('input', onInput);
+  }, [changeRef]);
 
   return (
     <div
       ref={ref}
       contentEditable
       suppressContentEditableWarning
-      className="min-h-[60vh] w-full rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed focus:border-blue-400 focus:outline-none"
+      className="h-full w-full overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed focus:border-blue-400 focus:outline-none"
     />
   );
 }
 
 function ChecklistEditor({
-  initial,
-  onSave
+  value,
+  onChange
 }: {
-  initial: ChecklistItem[];
-  onSave: (v: ChecklistItem[]) => void;
+  value: ChecklistItem[];
+  onChange: (items: ChecklistItem[]) => void;
 }) {
-  const [items, setItems] = useState<ChecklistItem[]>(initial);
-
-  function commit(next: ChecklistItem[]) {
-    setItems(next);
-    onSave(next);
-  }
-
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="h-full overflow-auto rounded-lg border border-slate-200 bg-white p-4">
       <ul className="space-y-2">
-        {items.map((item, i) => (
+        {value.map((item, i) => (
           <li key={i} className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={item.checked}
               onChange={(e) =>
-                commit(items.map((it, j) => (j === i ? { ...it, checked: e.target.checked } : it)))
+                onChange(
+                  value.map((it, j) => (j === i ? { ...it, checked: e.target.checked } : it))
+                )
               }
               className="h-4 w-4 rounded"
             />
             <input
               value={item.text}
               onChange={(e) =>
-                setItems(items.map((it, j) => (j === i ? { ...it, text: e.target.value } : it)))
+                onChange(value.map((it, j) => (j === i ? { ...it, text: e.target.value } : it)))
               }
-              onBlur={() => onSave(items)}
               className="flex-1 border-b border-transparent text-sm focus:border-slate-300 focus:outline-none"
             />
             <button
-              onClick={() => commit(items.filter((_, j) => j !== i))}
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
               className="rounded p-1 text-slate-300 hover:text-red-500"
               aria-label="Remove item"
             >
@@ -214,7 +302,7 @@ function ChecklistEditor({
         ))}
       </ul>
       <button
-        onClick={() => commit([...items, { text: '', checked: false }])}
+        onClick={() => onChange([...value, { text: '', checked: false }])}
         className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
       >
         + Add item

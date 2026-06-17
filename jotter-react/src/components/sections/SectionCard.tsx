@@ -1,4 +1,5 @@
 import type { NoteSection } from '@/lib/types';
+import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 
 const TYPE_LABEL: Record<string, string> = {
   code: 'Code',
@@ -59,11 +60,13 @@ function SectionPreview({ section }: { section: NoteSection }) {
 export function SectionCard({
   section,
   onOpen,
-  onDelete
+  onDelete,
+  onRenameTitle
 }: {
   section: NoteSection;
   onOpen: () => void;
   onDelete: () => void;
+  onRenameTitle: (title: string | null) => void;
 }) {
   return (
     <div
@@ -75,9 +78,12 @@ export function SectionCard({
           <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium tracking-wide text-slate-500 uppercase">
             {TYPE_LABEL[section.type] ?? section.type}
           </span>
-          {section.title && (
-            <h3 className="truncate text-sm font-medium text-slate-800">{section.title}</h3>
-          )}
+          <InlineEditableTitle
+            value={section.title || `Untitled ${TYPE_LABEL[section.type] ?? section.type}`}
+            trigger="dblclick"
+            onSave={onRenameTitle}
+            className="truncate text-sm font-medium text-slate-800"
+          />
         </div>
         <button
           onClick={(e) => {
