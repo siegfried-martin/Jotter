@@ -64,21 +64,25 @@ function CollectionsHome() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {collections?.map((c) => (
-            <CollectionCard
-              key={c.id}
-              collection={c}
-              onSelect={() => open(c.id)}
-              onSave={(input) => handleSave(c.id, input)}
-              onDelete={() => handleDelete(c.id, c.name)}
+        {/* Render the whole grid (cards + create card) only once collections have
+            loaded, so the static create card doesn't flash in first and then jump. */}
+        {!isPending && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {collections?.map((c) => (
+              <CollectionCard
+                key={c.id}
+                collection={c}
+                onSelect={() => open(c.id)}
+                onSave={(input) => handleSave(c.id, input)}
+                onDelete={() => handleDelete(c.id, c.name)}
+              />
+            ))}
+            <CollectionCreateCard
+              count={collections?.length ?? 0}
+              onCreate={(input) => createCollection.mutate(input)}
             />
-          ))}
-          <CollectionCreateCard
-            count={collections?.length ?? 0}
-            onCreate={(input) => createCollection.mutate(input)}
-          />
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
