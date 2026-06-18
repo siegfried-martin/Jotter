@@ -4,21 +4,21 @@ import { test, expect } from '@playwright/test';
 
 test('authenticated app loads the collections grid', async ({ page }) => {
   await page.goto('/app');
-  await expect(page.getByText('Collections')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
+  await expect(page.getByText('Collections', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create New Collection' })).toBeVisible();
 });
 
 test('create then delete a collection (real Supabase insert + delete)', async ({ page }) => {
   await page.goto('/app');
-  // Wait for the grid to finish loading before counting (the count text shows a
-  // number once useCollections resolves; reading too early races the data load).
+  // Wait for the grid to finish loading before counting.
   await expect(page.getByText(/\d+ collection\(s\)/)).toBeVisible();
   const cards = page.getByTestId('collection-card');
-
   const before = await cards.count();
 
-  // Create — real insert; exercises RLS + the first-collection-default trigger path.
-  await page.getByRole('button', { name: 'New collection' }).click();
+  // Create via the inline form — real insert; exercises RLS + the limit/default triggers.
+  await page.getByRole('button', { name: 'Create New Collection' }).click();
+  await page.getByPlaceholder('Collection name').fill('e2e smoke test');
+  await page.getByRole('button', { name: 'Create Collection' }).click();
   await expect(cards).toHaveCount(before + 1);
 
   // Delete the newest — confirm() dialog + real delete (cascade).
