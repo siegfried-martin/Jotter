@@ -4,7 +4,15 @@ import { useCollections } from '@/lib/data/useCollections';
 
 /** Wraps a desktop tab as a drop target: a container dropped here moves to this
  *  collection; a section dropped here moves to this collection's top note. */
-function TabDrop({ collectionId, children }: { collectionId: string; children: React.ReactNode }) {
+function TabDrop({
+  collectionId,
+  eligible,
+  children
+}: {
+  collectionId: string;
+  eligible: boolean;
+  children: React.ReactNode;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `collectiontab:${collectionId}`,
     data: { type: 'collectiontab', collectionId }
@@ -12,7 +20,13 @@ function TabDrop({ collectionId, children }: { collectionId: string; children: R
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-t ${isOver ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+      className={`rounded-t ${
+        isOver
+          ? 'bg-blue-50 outline outline-2 outline-blue-500'
+          : eligible
+            ? 'outline-2 outline-offset-[-2px] outline-blue-400 outline-dashed'
+            : ''
+      }`}
     >
       {children}
     </div>
@@ -25,12 +39,20 @@ function TabDrop({ collectionId, children }: { collectionId: string; children: R
  * first note (the container route redirects). Desktop tabs are drop targets for
  * cross-collection container moves and section→collection moves.
  */
-export function CollectionTabs({ currentCollectionId }: { currentCollectionId: string }) {
+export function CollectionTabs({
+  currentCollectionId,
+  activeType = null
+}: {
+  currentCollectionId: string;
+  activeType?: 'section' | 'container' | null;
+}) {
   const { data: collections } = useCollections();
   const navigate = useNavigate();
 
   if (!collections || collections.length === 0) return null;
   const current = collections.find((c) => c.id === currentCollectionId);
+  // A drag in progress → other collections are eligible drop targets (dashed border).
+  const eligibleFor = (id: string) => activeType !== null && id !== currentCollectionId;
 
   return (
     <>
@@ -59,7 +81,7 @@ export function CollectionTabs({ currentCollectionId }: { currentCollectionId: s
           const active = c.id === currentCollectionId;
           if (active) {
             return (
-              <TabDrop key={c.id} collectionId={c.id}>
+              <TabDrop key={c.id} collectionId={c.id} eligible={eligibleFor(c.id)}>
                 <span
                   className="block max-w-[160px] truncate rounded-t px-3 py-1.5 text-sm font-medium text-slate-900"
                   style={{ borderBottom: `3px solid ${c.color}`, backgroundColor: `${c.color}15` }}
@@ -70,7 +92,7 @@ export function CollectionTabs({ currentCollectionId }: { currentCollectionId: s
             );
           }
           return (
-            <TabDrop key={c.id} collectionId={c.id}>
+            <TabDrop key={c.id} collectionId={c.id} eligible={eligibleFor(c.id)}>
               <Link
                 to="/app/collections/$collectionId"
                 params={{ collectionId: c.id }}

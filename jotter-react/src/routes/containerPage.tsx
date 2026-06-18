@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -11,7 +12,8 @@ import {
   useSensor,
   useSensors,
   type CollisionDetection,
-  type DragEndEvent
+  type DragEndEvent,
+  type DragStartEvent
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
@@ -52,9 +54,19 @@ const collisionDetection: CollisionDetection = (args) => {
 };
 
 type DragData =
-  | { type: 'section'; sectionId: string; containerId: string; index: number }
-  | { type: 'container'; containerId: string; collectionId: string; index: number }
+  | { type: 'section'; sectionId: string; containerId: string; index: number; title: string }
+  | { type: 'container'; containerId: string; collectionId: string; index: number; title: string }
   | { type: 'collectiontab'; collectionId: string };
+
+/** Compact drag preview rendered in the overlay — just the title, like prod. */
+function DragPreview({ data }: { data: DragData }) {
+  if (data.type === 'collectiontab') return null;
+  return (
+    <div className="max-w-[240px] truncate rounded-lg border-2 border-blue-400 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-xl">
+      {data.title || 'Untitled'}
+    </div>
+  );
+}
 
 function ContainerPage() {
   const params = useParams({ strict: false });
@@ -70,6 +82,15 @@ function ContainerPage() {
   const moveSection = useMoveSectionToContainer();
   const reorderContainers = useReorderContainers();
   const moveContainer = useMoveContainerToCollection();
+
+  // The in-flight drag, used for the overlay preview + lighting up eligible targets.
+  const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
+  const activeType =
+    activeDrag?.type === 'section'
+      ? 'section'
+      : activeDrag?.type === 'container'
+        ? 'container'
+        : null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -110,7 +131,12 @@ function ContainerPage() {
     showToast('Section moved to collection');
   }
 
+  function onDragStart(e: DragStartEvent) {
+    setActiveDrag((e.active.data.current as DragData | undefined) ?? null);
+  }
+
   function onDragEnd(e: DragEndEvent) {
+    setActiveDrag(null);
     const { active, over } = e;
     if (!over) return;
     const a = active.data.current as DragData | undefined;
@@ -161,11 +187,17 @@ function ContainerPage() {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={collisionDetection}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveDrag(null)}
+    >
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
         <AppHeader>
           <span className="text-slate-300">/</span>
-          <CollectionTabs currentCollectionId={collectionId} />
+          <CollectionTabs currentCollectionId={collectionId} activeType={activeType} />
         </AppHeader>
 
         <div className="flex flex-1">
@@ -173,6 +205,7 @@ function ContainerPage() {
             collectionId={collectionId}
             containers={containers ?? []}
             selectedContainerId={containerId}
+            activeType={activeType}
           />
 
           <main className="flex-1 overflow-y-auto p-6">
@@ -200,6 +233,12 @@ function ContainerPage() {
           </main>
         </div>
       </div>
+
+      {/* Compact title-only preview that tracks the cursor; no drop animation so the
+          card doesn't fly to the top and back. */}
+      <DragOverlay dropAnimation={null}>
+        {activeDrag ? <DragPreview data={activeDrag} /> : null}
+      </DragOverlay>
     </DndContext>
   );
 }

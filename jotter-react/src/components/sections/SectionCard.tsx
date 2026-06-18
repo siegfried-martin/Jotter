@@ -15,21 +15,11 @@ const TYPE_LABEL: Record<string, string> = {
   diagram: 'Diagram'
 };
 
-const GripIcon = () => (
-  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-    <circle cx="7" cy="5" r="1.5" />
-    <circle cx="13" cy="5" r="1.5" />
-    <circle cx="7" cy="10" r="1.5" />
-    <circle cx="13" cy="10" r="1.5" />
-    <circle cx="7" cy="15" r="1.5" />
-    <circle cx="13" cy="15" r="1.5" />
-  </svg>
-);
-
-export type DragHandleProps = {
-  ref: (el: HTMLElement | null) => void;
-  attributes: DraggableAttributes;
-  listeners: Record<string, unknown> | undefined;
+// The whole card is the drag activator (no handle): any spot that opens the editor
+// is also grabbable. PointerSensor's distance constraint keeps click-to-open working.
+export type CardDragProps = {
+  attributes?: DraggableAttributes;
+  listeners?: Record<string, unknown>;
 };
 
 function priorityPreviewStyle(priority: ChecklistItem['priority']): React.CSSProperties {
@@ -247,7 +237,7 @@ export function SectionCard({
   onToggleChecklistItem,
   dragRef,
   dragStyle,
-  dragHandle
+  drag
 }: {
   section: NoteSection;
   onOpen: () => void;
@@ -256,7 +246,7 @@ export function SectionCard({
   onToggleChecklistItem: (index: number, checked: boolean) => void;
   dragRef?: (el: HTMLElement | null) => void;
   dragStyle?: React.CSSProperties;
-  dragHandle?: DragHandleProps | null;
+  drag?: CardDragProps;
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -275,6 +265,8 @@ export function SectionCard({
     <div
       ref={dragRef}
       style={dragStyle}
+      {...drag?.attributes}
+      {...drag?.listeners}
       data-section-id={section.id}
       data-testid="section-card"
       onClick={onOpen}
@@ -286,19 +278,6 @@ export function SectionCard({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {dragHandle && (
-            <button
-              ref={dragHandle.ref}
-              {...dragHandle.attributes}
-              {...dragHandle.listeners}
-              onClick={(e) => e.stopPropagation()}
-              title="Drag to reorder or move"
-              aria-label="Drag section"
-              className="hidden flex-shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500 active:cursor-grabbing md:flex"
-            >
-              <GripIcon />
-            </button>
-          )}
           <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium tracking-wide text-slate-500 uppercase">
             {TYPE_LABEL[section.type] ?? section.type}
           </span>

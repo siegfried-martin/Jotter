@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -45,16 +45,20 @@ function priorityStyle(priority: Priority): React.CSSProperties {
 }
 
 const EMPTY: ChecklistItem = { text: '', checked: false };
+type Row = { id: string; item: ChecklistItem };
 
-/** One sortable checklist row. Drag is handle-only (the grip), and the grip is
- *  hidden below md — so reordering is desktop-only, matching the mobile policy. */
+/** One sortable checklist row. Drag is handle-only (the grip), hidden below md so
+ *  reordering is desktop-only. The sortable id is a stable row id (not the index),
+ *  so the drop lands cleanly instead of animating back as if cancelled. */
 function ChecklistRow({
+  id,
   item,
   index,
   onUpdate,
   onRemove,
   onAddAfter
 }: {
+  id: string;
   item: ChecklistItem;
   index: number;
   onUpdate: (patch: Partial<ChecklistItem>) => void;
@@ -62,7 +66,7 @@ function ChecklistRow({
   onAddAfter: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: String(index)
+    id
   });
 
   return (
@@ -145,10 +149,12 @@ function ChecklistRow({
 }
 
 /**
- * Checklist section editor — parity with the Svelte ChecklistEditor/SortableChecklistItem.
- * Progress bar + priority + due dates; Enter adds an item below, Backspace on an empty
- * item deletes it. Date/priority controls hide below md (matching the prod mobile layout).
- * Drag-reorder is deferred to the DnD phase.
+ * Checklist section editor — progress bar + priority + due dates; Enter adds an item
+ * below, Backspace on an empty item deletes it. Drag-reorder via the grip handle.
+ *
+ * Rows carry a stable id assigned on creation. The editor is remounted per section
+ * (the modal is keyed by section id), so seeding local row state from `value` once is
+ * safe; every edit flows back out through `onChange`.
  */
 export function ChecklistEditor({
   value,
@@ -157,8 +163,12 @@ export function ChecklistEditor({
   value: ChecklistItem[];
   onChange: (items: ChecklistItem[]) => void;
 }) {
-  // Always show at least one (empty) row; an untouched empty list stays [] until edited.
-  const items = value.length === 0 ? [EMPTY] : value;
+  const idCounter = useRef(0);
+  const newId = () => `cl-${idCounter.current++}`;
+
+  const [rows, setRows] = useState<Row[]>(() =>
+    (value.length === 0 ? [EMPTY] : value).map((item) => ({ id: newId(), item: { ...item } }))
+  );
   const pendingFocus = useRef<number | null>(null);
 
   useEffect(() => {
@@ -169,6 +179,7 @@ export function ChecklistEditor({
     el?.focus();
   });
 
+  const items = rows.map((r) => r.item);
   const completed = items.filter((it) => it.checked && it.text.trim()).length;
   const total = items.filter((it) => it.text.trim()).length;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -178,34 +189,40 @@ export function ChecklistEditor({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  function handleDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    commit(arrayMove(items, Number(active.id), Number(over.id)));
-  }
-
-  function commit(next: ChecklistItem[], focusIndex?: number) {
+  function commit(next: Row[], focusIndex?: number) {
     if (focusIndex !== undefined) pendingFocus.current = focusIndex;
-    onChange(next);
+    setRows(next);
+    onChange(next.map((r) => r.item));
   }
   function update(index: number, patch: Partial<ChecklistItem>) {
-    commit(items.map((it, j) => (j === index ? { ...it, ...patch } : it)));
+    commit(rows.map((r, j) => (j === index ? { ...r, item: { ...r.item, ...patch } } : r)));
   }
   function addAfter(index: number) {
-    commit([...items.slice(0, index + 1), { ...EMPTY }, ...items.slice(index + 1)], index + 1);
+    commit(
+      [...rows.slice(0, index + 1), { id: newId(), item: { ...EMPTY } }, ...rows.slice(index + 1)],
+      index + 1
+    );
   }
   function addEnd() {
-    commit([...items, { ...EMPTY }], items.length);
+    commit([...rows, { id: newId(), item: { ...EMPTY } }], rows.length);
   }
   function remove(index: number) {
-    if (items.length === 1) {
-      commit([{ ...EMPTY }]);
+    if (rows.length === 1) {
+      commit([{ id: newId(), item: { ...EMPTY } }]);
       return;
     }
     commit(
-      items.filter((_, j) => j !== index),
+      rows.filter((_, j) => j !== index),
       index > 0 ? index - 1 : 0
     );
+  }
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = rows.findIndex((r) => r.id === active.id);
+    const newIndex = rows.findIndex((r) => r.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    commit(arrayMove(rows, oldIndex, newIndex));
   }
 
   // Enter when focus isn't in a field → add an item at the end.
@@ -219,9 +236,9 @@ export function ChecklistEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // addEnd reads `items` via closure; re-bind when items identity changes.
+    // addEnd reads `rows` via closure; re-bind when rows identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
+  }, [rows]);
 
   return (
     <div className="flex h-full flex-col">
@@ -244,14 +261,12 @@ export function ChecklistEditor({
 
       <div className="flex-1 space-y-1 overflow-y-auto pr-1">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext
-            items={items.map((_, i) => String(i))}
-            strategy={verticalListSortingStrategy}
-          >
-            {items.map((item, i) => (
+          <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+            {rows.map((r, i) => (
               <ChecklistRow
-                key={i}
-                item={item}
+                key={r.id}
+                id={r.id}
+                item={r.item}
                 index={i}
                 onUpdate={(patch) => update(i, patch)}
                 onRemove={() => remove(i)}

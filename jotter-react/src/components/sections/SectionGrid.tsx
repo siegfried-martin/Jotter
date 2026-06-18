@@ -34,17 +34,15 @@ function SortableSection({
   onRenameTitle: (title: string | null) => void;
   onToggleChecklistItem: (index: number, checked: boolean) => void;
 }) {
-  const {
-    setNodeRef,
-    setActivatorNodeRef,
-    attributes,
-    listeners,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: section.id,
-    data: { type: 'section', sectionId: section.id, containerId, index },
+    data: {
+      type: 'section',
+      sectionId: section.id,
+      containerId,
+      index,
+      title: section.title || 'Untitled section'
+    },
     disabled: !dndEnabled
   });
 
@@ -56,13 +54,12 @@ function SortableSection({
       onRenameTitle={onRenameTitle}
       onToggleChecklistItem={onToggleChecklistItem}
       dragRef={setNodeRef}
-      dragStyle={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : undefined,
-        zIndex: isDragging ? 20 : undefined
-      }}
-      dragHandle={dndEnabled ? { ref: setActivatorNodeRef, attributes, listeners } : null}
+      // While dragging, the card stays put as a dimmed placeholder — the DragOverlay
+      // renders the moving preview. Non-dragging cards shift via their transform.
+      dragStyle={
+        isDragging ? { opacity: 0.4 } : { transform: CSS.Transform.toString(transform), transition }
+      }
+      drag={dndEnabled ? { attributes, listeners } : undefined}
     />
   );
 }

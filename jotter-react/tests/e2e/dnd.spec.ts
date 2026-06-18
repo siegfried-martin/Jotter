@@ -7,6 +7,7 @@ import {
   fetchSectionContainerId,
   fetchSectionOrder,
   gotoAppForSeeding,
+  readDomOrder,
   seedContainer,
   seedTree
 } from './helpers';
@@ -77,7 +78,7 @@ test.describe('drag-and-drop', () => {
     }
   });
 
-  test('section cards reorder within a container via keyboard', async ({ page }) => {
+  test('section cards reorder within a container via pointer drag', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       sections: [
@@ -91,15 +92,11 @@ test.describe('drag-and-drop', () => {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
       await expect(page.getByTestId('section-card')).toHaveCount(3);
 
-      const handle = page.getByRole('button', { name: 'Drag section' }).first();
-      await handle.focus();
-      await page.keyboard.press('Space');
-      await page.waitForTimeout(150);
-      await page.keyboard.press('ArrowDown');
-      await page.waitForTimeout(150);
-      await page.keyboard.press('Space');
-      await page.waitForTimeout(150);
+      // Drag the first card onto the second → first lands after it: [s2, s1, s3].
+      const cards = page.getByTestId('section-card');
+      await pointerDrag(page, cards.nth(0), cards.nth(1));
 
+      await expect.poll(() => readDomOrder(page, 'data-section-id')).toEqual([s2, s1, s3]);
       await expect.poll(() => fetchSectionOrder(page, tree.containerId)).toEqual([s2, s1, s3]);
     } finally {
       await cleanup(page, tree.collectionId);
@@ -144,8 +141,11 @@ test.describe('drag-and-drop', () => {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
       await expect(page.getByTestId('section-card')).toHaveCount(1);
 
-      const handle = page.getByRole('button', { name: 'Drag section' }).first();
-      await pointerDrag(page, handle, page.locator(`[data-container-id="${dest}"]`));
+      await pointerDrag(
+        page,
+        page.getByTestId('section-card').first(),
+        page.locator(`[data-container-id="${dest}"]`)
+      );
 
       await expect.poll(() => fetchSectionContainerId(page, sectionId)).toBe(dest);
     } finally {
@@ -166,8 +166,11 @@ test.describe('drag-and-drop', () => {
     const sectionId = a.sections[0].id;
     try {
       await page.goto(`/app/collections/${a.collectionId}/containers/${a.containerId}`);
-      const handle = page.getByRole('button', { name: 'Drag section' }).first();
-      await pointerDrag(page, handle, page.getByRole('link', { name: 'e2e-dndB', exact: true }));
+      await pointerDrag(
+        page,
+        page.getByTestId('section-card').first(),
+        page.getByRole('link', { name: 'e2e-dndB', exact: true })
+      );
 
       await expect.poll(() => fetchSectionContainerId(page, sectionId)).toBe(b.containerId);
     } finally {

@@ -29,6 +29,7 @@ function SortableContainerItem({
   collectionId,
   active,
   dndEnabled,
+  activeType,
   onSelect,
   onRename,
   onDelete
@@ -38,6 +39,7 @@ function SortableContainerItem({
   collectionId: string;
   active: boolean;
   dndEnabled: boolean;
+  activeType: 'section' | 'container' | null;
   onSelect: () => void;
   onRename: (title: string) => void;
   onDelete: () => void;
@@ -54,11 +56,19 @@ function SortableContainerItem({
     active: activeDrag
   } = useSortable({
     id: container.id,
-    data: { type: 'container', containerId: container.id, collectionId, index },
+    data: {
+      type: 'container',
+      containerId: container.id,
+      collectionId,
+      index,
+      title: container.title
+    },
     disabled: !dndEnabled
   });
 
-  // Highlight only when a *section* is hovering (a move target), not during container reorder.
+  // A section being dragged → every note is an eligible target (dashed); the hovered
+  // one is highlighted solid.
+  const eligible = activeType === 'section';
   const sectionOver = isOver && activeDrag?.data?.current?.type === 'section';
 
   return (
@@ -67,15 +77,18 @@ function SortableContainerItem({
       data-container-id={container.id}
       data-testid="container-item"
       onClick={onSelect}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : undefined,
-        zIndex: isDragging ? 20 : undefined
-      }}
+      style={
+        isDragging ? { opacity: 0.5 } : { transform: CSS.Transform.toString(transform), transition }
+      }
       className={`group mb-1 flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-sm ${
         active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'
-      } ${sectionOver ? 'ring-2 ring-blue-400 ring-inset' : ''}`}
+      } ${
+        sectionOver
+          ? 'bg-blue-100 outline outline-2 outline-blue-500'
+          : eligible
+            ? 'outline-2 outline-offset-[-2px] outline-blue-400 outline-dashed'
+            : ''
+      }`}
     >
       {dndEnabled && (
         <button
@@ -116,11 +129,13 @@ function SortableContainerItem({
 export function ContainerSidebar({
   collectionId,
   containers,
-  selectedContainerId
+  selectedContainerId,
+  activeType = null
 }: {
   collectionId: string;
   containers: NoteContainer[];
   selectedContainerId: string | null;
+  activeType?: 'section' | 'container' | null;
 }) {
   const navigate = useNavigate();
   const dndEnabled = useDndEnabled();
@@ -179,6 +194,7 @@ export function ContainerSidebar({
               collectionId={collectionId}
               active={c.id === selectedContainerId}
               dndEnabled={dndEnabled}
+              activeType={activeType}
               onSelect={() => select(c.id)}
               onRename={(title) =>
                 updateContainer.mutate({ id: c.id, collectionId, updates: { title } })
