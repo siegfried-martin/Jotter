@@ -150,7 +150,7 @@ function SectionPreview({
     case 'code':
       return (
         <div>
-          <pre className="max-h-[232px] overflow-hidden rounded bg-slate-50 p-3 font-mono text-xs whitespace-pre-wrap text-slate-800">
+          <pre className="rounded bg-slate-50 p-3 font-mono text-xs whitespace-pre-wrap text-slate-800">
             {section.content || '(empty)'}
           </pre>
           {typeof section.meta?.language === 'string' && (
@@ -163,7 +163,7 @@ function SectionPreview({
         <p className="text-sm text-slate-400">(empty)</p>
       ) : (
         <div
-          className="max-h-[232px] overflow-hidden text-sm leading-relaxed break-words text-slate-700"
+          className="text-sm leading-relaxed break-words text-slate-700"
           dangerouslySetInnerHTML={{ __html: section.content }}
         />
       );
@@ -171,7 +171,7 @@ function SectionPreview({
       const items = section.checklist_data ?? [];
       if (items.length === 0) return <p className="text-sm text-slate-400">(no items)</p>;
       return (
-        <ul className="max-h-[232px] space-y-1 overflow-hidden">
+        <ul className="space-y-1">
           {items.map((item, i) => {
             const { label, overdue } = formatChecklistDate(item.date);
             return (
@@ -281,7 +281,7 @@ export function SectionCard({
           ⋮
         </button>
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div data-testid="section-card-content" className="flex-1 overflow-y-auto">
         <SectionPreview section={section} onToggleChecklistItem={onToggleChecklistItem} />
       </div>
 
