@@ -68,6 +68,8 @@ export function ContainerSidebar({
           return (
             <div
               key={c.id}
+              data-container-id={c.id}
+              data-testid="container-item"
               onClick={() => select(c.id)}
               className={`group mb-1 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm ${
                 active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'

@@ -21,8 +21,14 @@ test('create then delete a collection (real Supabase insert + delete)', async ({
   await page.getByRole('button', { name: 'Create Collection' }).click();
   await expect(cards).toHaveCount(before + 1);
 
-  // Delete the newest — confirm() dialog + real delete (cascade).
+  // Delete the one we just made — target by name (sequence sorting means it isn't
+  // necessarily the last card, and deleting the wrong one would leak + drop real data).
   page.once('dialog', (d) => d.accept());
-  await cards.last().getByRole('button', { name: 'Delete collection' }).click();
+  await page
+    .locator('[data-collection-id]')
+    .filter({ hasText: 'e2e smoke test' })
+    .first()
+    .getByRole('button', { name: 'Delete collection' })
+    .click();
   await expect(cards).toHaveCount(before);
 });

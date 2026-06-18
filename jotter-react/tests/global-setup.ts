@@ -47,6 +47,18 @@ export default async function globalSetup(_config: FullConfig) {
   );
   if (error) throw new Error('E2E sign-in failed: ' + error);
 
+  // Self-heal: delete any `e2e%` collections leaked by a previous run. Per-test
+  // cleanup lives in `finally`, but a test that times out is terminated before it
+  // runs — and the DB enforces a 12-collection cap, so leaks would eventually wedge
+  // the whole suite. RLS scopes this delete to the test user; the cascade removes
+  // their containers/sections too. Manual ("New collection …") rows are untouched.
+  const sweepError = await page.evaluate(async () => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    const { error } = await sb.from('collections').delete().like('name', 'e2e%');
+    return error ? error.message : null;
+  });
+  if (sweepError) console.warn('⚠️  e2e collection sweep failed:', sweepError);
+
   fs.mkdirSync(path.dirname(AUTH_STATE), { recursive: true });
   await page.context().storageState({ path: AUTH_STATE });
   await browser.close();

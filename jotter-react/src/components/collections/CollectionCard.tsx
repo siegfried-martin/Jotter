@@ -86,6 +86,7 @@ export function CollectionCard({
     return (
       <div
         data-testid="collection-card"
+        data-collection-id={collection.id}
         className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
       >
         <div className="flex items-start gap-3">
@@ -139,6 +140,7 @@ export function CollectionCard({
   return (
     <div
       data-testid="collection-card"
+      data-collection-id={collection.id}
       onClick={onSelect}
       className="group relative flex min-h-[180px] cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >

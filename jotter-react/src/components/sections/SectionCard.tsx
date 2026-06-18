@@ -249,6 +249,8 @@ export function SectionCard({
 
   return (
     <div
+      data-section-id={section.id}
+      data-testid="section-card"
       onClick={onOpen}
       onContextMenu={(e) => {
         e.preventDefault();
