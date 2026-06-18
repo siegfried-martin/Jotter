@@ -35,6 +35,13 @@ backend, so you can compare behavior during the migration.
 | `npm run lint`      | Prettier check + ESLint                  |
 | `npm run format`    | Prettier write                           |
 | `npm run test:unit` | Vitest                                   |
+| `npm run test:e2e`  | Full Playwright suite (real jotter-dev)  |
+| `npm run test:e2e:smoke` | `@smoke`-tagged subset — ~5s fast check |
+
+For small changes (a button label, a copy tweak) run `test:e2e:smoke` — 4 tests
+covering boot+auth+grid, container/section render, the editor, and the header
+menu. Run the full `test:e2e` before anything structural or before a commit that
+touches behavior. Tag a test into the subset by adding `{ tag: '@smoke' }`.
 
 ## Status
 

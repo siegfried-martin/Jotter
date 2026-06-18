@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { cleanup, gotoAppForSeeding, seedTree } from './helpers';
 
 test.describe('section editor', () => {
-  test('seeded code content renders in the editor', async ({ page }) => {
+  test('seeded code content renders in the editor', { tag: '@smoke' }, async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       sections: [{ type: 'code', content: 'const answer = 42;', sequence: 10 }]

@@ -44,7 +44,7 @@ test.describe('navigation', () => {
     }
   });
 
-  test('deep link to a container renders its sections', async ({ page }) => {
+  test('deep link to a container renders its sections', { tag: '@smoke' }, async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       sections: [{ type: 'code', content: 'deep link content', sequence: 10 }]

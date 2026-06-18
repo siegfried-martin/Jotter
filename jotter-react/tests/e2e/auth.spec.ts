@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('authenticated header', () => {
-  test('user menu opens, links to settings, and back', async ({ page }) => {
+  test('user menu opens, links to settings, and back', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/app');
     await page.locator('button[aria-haspopup="true"]').click();
     await expect(page.getByText('Manage Collections')).toBeVisible();

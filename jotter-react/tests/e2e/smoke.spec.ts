@@ -3,7 +3,7 @@ import { countCollectionsNamed } from './helpers';
 
 // Authenticated against real jotter-dev (storage state from global-setup).
 
-test('authenticated app loads the collections grid', async ({ page }) => {
+test('authenticated app loads the collections grid', { tag: '@smoke' }, async ({ page }) => {
   await page.goto('/app');
   await expect(page.getByText('Collections', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create New Collection' })).toBeVisible();
