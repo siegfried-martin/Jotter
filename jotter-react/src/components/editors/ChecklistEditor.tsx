@@ -1,7 +1,35 @@
 import { useEffect, useRef } from 'react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { ChecklistItem } from '@/lib/types';
 
 type Priority = ChecklistItem['priority'];
+
+const GripIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <circle cx="7" cy="5" r="1.5" />
+    <circle cx="13" cy="5" r="1.5" />
+    <circle cx="7" cy="10" r="1.5" />
+    <circle cx="13" cy="10" r="1.5" />
+    <circle cx="7" cy="15" r="1.5" />
+    <circle cx="13" cy="15" r="1.5" />
+  </svg>
+);
 
 function priorityStyle(priority: Priority): React.CSSProperties {
   switch (priority) {
@@ -17,6 +45,104 @@ function priorityStyle(priority: Priority): React.CSSProperties {
 }
 
 const EMPTY: ChecklistItem = { text: '', checked: false };
+
+/** One sortable checklist row. Drag is handle-only (the grip), and the grip is
+ *  hidden below md — so reordering is desktop-only, matching the mobile policy. */
+function ChecklistRow({
+  item,
+  index,
+  onUpdate,
+  onRemove,
+  onAddAfter
+}: {
+  item: ChecklistItem;
+  index: number;
+  onUpdate: (patch: Partial<ChecklistItem>) => void;
+  onRemove: () => void;
+  onAddAfter: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: String(index)
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : undefined,
+        zIndex: isDragging ? 10 : undefined,
+        position: isDragging ? 'relative' : undefined,
+        ...priorityStyle(item.priority)
+      }}
+      className="checklist-item flex items-center gap-2 rounded-lg p-2 md:gap-3 md:p-3"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        title="Drag to reorder"
+        aria-label="Drag to reorder"
+        className="hidden flex-shrink-0 cursor-grab touch-none text-slate-400 hover:text-slate-600 active:cursor-grabbing md:flex"
+      >
+        <GripIcon />
+      </button>
+
+      <input
+        type="checkbox"
+        checked={item.checked}
+        onChange={(e) => onUpdate({ checked: e.target.checked })}
+        className="h-4 w-4 flex-shrink-0 rounded md:h-5 md:w-5"
+      />
+
+      {/* Date + priority — hidden below md, matching prod's mobile layout */}
+      <input
+        type="date"
+        value={item.date ?? ''}
+        onChange={(e) => onUpdate({ date: e.target.value || undefined })}
+        className="hidden w-32 flex-shrink-0 rounded-lg border border-slate-300 bg-white p-2 text-sm focus:border-blue-500 focus:outline-none md:block"
+      />
+      <select
+        value={item.priority ?? ''}
+        onChange={(e) => onUpdate({ priority: (e.target.value || null) as Priority })}
+        className="hidden flex-shrink-0 rounded-lg border border-slate-300 bg-white p-2 text-sm focus:border-blue-500 focus:outline-none md:block"
+      >
+        <option value="">None</option>
+        <option value="low">◦ Low</option>
+        <option value="medium">● Medium</option>
+        <option value="high">⚡ High</option>
+      </select>
+
+      <input
+        type="text"
+        value={item.text}
+        data-checklist-input={index}
+        placeholder="Enter task..."
+        onChange={(e) => onUpdate({ text: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onAddAfter();
+          } else if (e.key === 'Backspace' && !item.text.trim()) {
+            e.preventDefault();
+            onRemove();
+          }
+        }}
+        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white p-2 focus:border-blue-500 focus:outline-none"
+      />
+
+      <button
+        onClick={onRemove}
+        title="Remove item"
+        aria-label="Remove item"
+        className="flex-shrink-0 rounded-lg p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 md:p-2"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
 
 /**
  * Checklist section editor — parity with the Svelte ChecklistEditor/SortableChecklistItem.
@@ -46,6 +172,17 @@ export function ChecklistEditor({
   const completed = items.filter((it) => it.checked && it.text.trim()).length;
   const total = items.filter((it) => it.text.trim()).length;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    commit(arrayMove(items, Number(active.id), Number(over.id)));
+  }
 
   function commit(next: ChecklistItem[], focusIndex?: number) {
     if (focusIndex !== undefined) pendingFocus.current = focusIndex;
@@ -106,65 +243,23 @@ export function ChecklistEditor({
       )}
 
       <div className="flex-1 space-y-1 overflow-y-auto pr-1">
-        {items.map((item, i) => (
-          <div
-            key={i}
-            className="checklist-item flex items-center gap-2 rounded-lg p-2 md:gap-3 md:p-3"
-            style={priorityStyle(item.priority)}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={items.map((_, i) => String(i))}
+            strategy={verticalListSortingStrategy}
           >
-            <input
-              type="checkbox"
-              checked={item.checked}
-              onChange={(e) => update(i, { checked: e.target.checked })}
-              className="h-4 w-4 flex-shrink-0 rounded md:h-5 md:w-5"
-            />
-
-            {/* Date + priority — hidden below md, matching prod's mobile layout */}
-            <input
-              type="date"
-              value={item.date ?? ''}
-              onChange={(e) => update(i, { date: e.target.value || undefined })}
-              className="hidden w-32 flex-shrink-0 rounded-lg border border-slate-300 bg-white p-2 text-sm focus:border-blue-500 focus:outline-none md:block"
-            />
-            <select
-              value={item.priority ?? ''}
-              onChange={(e) => update(i, { priority: (e.target.value || null) as Priority })}
-              className="hidden flex-shrink-0 rounded-lg border border-slate-300 bg-white p-2 text-sm focus:border-blue-500 focus:outline-none md:block"
-            >
-              <option value="">None</option>
-              <option value="low">◦ Low</option>
-              <option value="medium">● Medium</option>
-              <option value="high">⚡ High</option>
-            </select>
-
-            <input
-              type="text"
-              value={item.text}
-              data-checklist-input={i}
-              placeholder="Enter task..."
-              onChange={(e) => update(i, { text: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addAfter(i);
-                } else if (e.key === 'Backspace' && !item.text.trim()) {
-                  e.preventDefault();
-                  remove(i);
-                }
-              }}
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white p-2 focus:border-blue-500 focus:outline-none"
-            />
-
-            <button
-              onClick={() => remove(i)}
-              title="Remove item"
-              aria-label="Remove item"
-              className="flex-shrink-0 rounded-lg p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 md:p-2"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
+            {items.map((item, i) => (
+              <ChecklistRow
+                key={i}
+                item={item}
+                index={i}
+                onUpdate={(patch) => update(i, patch)}
+                onRemove={() => remove(i)}
+                onAddAfter={() => addAfter(i)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
       <div className="mt-6 border-t border-slate-200 pt-4">

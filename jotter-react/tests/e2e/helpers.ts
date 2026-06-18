@@ -188,6 +188,19 @@ export async function fetchSectionOrder(page: Page, containerId: string): Promis
   }, containerId);
 }
 
+/** Persisted checklist item texts (in stored order) for a section. */
+export async function fetchChecklistTexts(page: Page, sectionId: string): Promise<string[]> {
+  return page.evaluate(async (sid) => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    const { data } = await sb
+      .from('note_section')
+      .select('checklist_data')
+      .eq('id', sid)
+      .maybeSingle();
+    return ((data?.checklist_data as { text: string }[]) ?? []).map((it) => it.text);
+  }, sectionId);
+}
+
 /** Persisted ordering of containers under a collection (ascending by sequence). */
 export async function fetchContainerOrder(page: Page, collectionId: string): Promise<string[]> {
   return page.evaluate(async (cid) => {
