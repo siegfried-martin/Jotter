@@ -27,16 +27,16 @@ backend, so you can compare behavior during the migration.
 
 ## Scripts
 
-| Script              | What it does                             |
-| ------------------- | ---------------------------------------- |
-| `npm run dev`       | Vite dev server (port 5174)              |
-| `npm run build`     | Type-check (`tsc -b`) + production build |
-| `npm run typecheck` | Type-check only                          |
-| `npm run lint`      | Prettier check + ESLint                  |
-| `npm run format`    | Prettier write                           |
-| `npm run test:unit` | Vitest                                   |
-| `npm run test:e2e`  | Full Playwright suite (real jotter-dev)  |
-| `npm run test:e2e:smoke` | `@smoke`-tagged subset — ~5s fast check |
+| Script                   | What it does                             |
+| ------------------------ | ---------------------------------------- |
+| `npm run dev`            | Vite dev server (port 5174)              |
+| `npm run build`          | Type-check (`tsc -b`) + production build |
+| `npm run typecheck`      | Type-check only                          |
+| `npm run lint`           | Prettier check + ESLint                  |
+| `npm run format`         | Prettier write                           |
+| `npm run test:unit`      | Vitest                                   |
+| `npm run test:e2e`       | Full Playwright suite (real jotter-dev)  |
+| `npm run test:e2e:smoke` | `@smoke`-tagged subset — ~5s fast check  |
 
 For small changes (a button label, a copy tweak) run `test:e2e:smoke` — 4 tests
 covering boot+auth+grid, container/section render, the editor, and the header
