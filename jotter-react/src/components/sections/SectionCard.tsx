@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { DraggableAttributes } from '@dnd-kit/core';
 import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
@@ -12,6 +13,23 @@ const TYPE_LABEL: Record<string, string> = {
   wysiwyg: 'Text',
   checklist: 'Checklist',
   diagram: 'Diagram'
+};
+
+const GripIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <circle cx="7" cy="5" r="1.5" />
+    <circle cx="13" cy="5" r="1.5" />
+    <circle cx="7" cy="10" r="1.5" />
+    <circle cx="13" cy="10" r="1.5" />
+    <circle cx="7" cy="15" r="1.5" />
+    <circle cx="13" cy="15" r="1.5" />
+  </svg>
+);
+
+export type DragHandleProps = {
+  ref: (el: HTMLElement | null) => void;
+  attributes: DraggableAttributes;
+  listeners: Record<string, unknown> | undefined;
 };
 
 function priorityPreviewStyle(priority: ChecklistItem['priority']): React.CSSProperties {
@@ -226,13 +244,19 @@ export function SectionCard({
   onOpen,
   onDelete,
   onRenameTitle,
-  onToggleChecklistItem
+  onToggleChecklistItem,
+  dragRef,
+  dragStyle,
+  dragHandle
 }: {
   section: NoteSection;
   onOpen: () => void;
   onDelete: () => void;
   onRenameTitle: (title: string | null) => void;
   onToggleChecklistItem: (index: number, checked: boolean) => void;
+  dragRef?: (el: HTMLElement | null) => void;
+  dragStyle?: React.CSSProperties;
+  dragHandle?: DragHandleProps | null;
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -249,6 +273,8 @@ export function SectionCard({
 
   return (
     <div
+      ref={dragRef}
+      style={dragStyle}
       data-section-id={section.id}
       data-testid="section-card"
       onClick={onOpen}
@@ -260,6 +286,19 @@ export function SectionCard({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
+          {dragHandle && (
+            <button
+              ref={dragHandle.ref}
+              {...dragHandle.attributes}
+              {...dragHandle.listeners}
+              onClick={(e) => e.stopPropagation()}
+              title="Drag to reorder or move"
+              aria-label="Drag section"
+              className="hidden flex-shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500 active:cursor-grabbing md:flex"
+            >
+              <GripIcon />
+            </button>
+          )}
           <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium tracking-wide text-slate-500 uppercase">
             {TYPE_LABEL[section.type] ?? section.type}
           </span>

@@ -80,6 +80,13 @@ export function useDeleteContainer() {
   });
 }
 
+function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [m] = next.splice(from, 1);
+  next.splice(to, 0, m);
+  return next;
+}
+
 export function useReorderContainers() {
   const qc = useQueryClient();
   return useMutation({
@@ -92,8 +99,48 @@ export function useReorderContainers() {
       fromIndex: number;
       toIndex: number;
     }) => NoteService.reorderNoteContainers(collectionId, fromIndex, toIndex),
+    // Optimistic: apply the move immediately so the drop doesn't snap back.
+    onMutate: async ({ collectionId, fromIndex, toIndex }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.containers(collectionId) });
+      const prev = qc.getQueryData<NoteContainer[]>(queryKeys.containers(collectionId));
+      if (prev)
+        qc.setQueryData(queryKeys.containers(collectionId), moveItem(prev, fromIndex, toIndex));
+      return { prev };
+    },
+    onError: (_err, { collectionId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.containers(collectionId), ctx.prev);
+    },
     onSuccess: (containers, { collectionId }) => {
       qc.setQueryData(queryKeys.containers(collectionId), containers);
+    }
+  });
+}
+
+/** Move a container to a different collection (drag onto a collection tab). */
+export function useMoveContainerToCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      containerId,
+      toCollectionId
+    }: {
+      containerId: string;
+      fromCollectionId: string;
+      toCollectionId: string;
+    }) => NoteService.moveToCollection(containerId, toCollectionId),
+    onMutate: async ({ containerId, fromCollectionId }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.containers(fromCollectionId) });
+      const prev = qc.getQueryData<NoteContainer[]>(queryKeys.containers(fromCollectionId));
+      qc.setQueryData<NoteContainer[]>(queryKeys.containers(fromCollectionId), (old) =>
+        old?.filter((c) => c.id !== containerId)
+      );
+      return { prev };
+    },
+    onError: (_err, { fromCollectionId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.containers(fromCollectionId), ctx.prev);
+    },
+    onSettled: (_data, _err, { toCollectionId }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.containers(toCollectionId) });
     }
   });
 }

@@ -1,11 +1,29 @@
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useDroppable } from '@dnd-kit/core';
 import { useCollections } from '@/lib/data/useCollections';
+
+/** Wraps a desktop tab as a drop target: a container dropped here moves to this
+ *  collection; a section dropped here moves to this collection's top note. */
+function TabDrop({ collectionId, children }: { collectionId: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `collectiontab:${collectionId}`,
+    data: { type: 'collectiontab', collectionId }
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-t ${isOver ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * Collection switcher in the container-page header — color-coded tabs on desktop,
  * a dropdown below sm. Navigating to /app/collections/$id lands on that collection's
- * first note (the container route redirects). Cross-collection drag-drop onto tabs
- * is deferred to the DnD phase.
+ * first note (the container route redirects). Desktop tabs are drop targets for
+ * cross-collection container moves and section→collection moves.
  */
 export function CollectionTabs({ currentCollectionId }: { currentCollectionId: string }) {
   const { data: collections } = useCollections();
@@ -41,25 +59,27 @@ export function CollectionTabs({ currentCollectionId }: { currentCollectionId: s
           const active = c.id === currentCollectionId;
           if (active) {
             return (
-              <span
-                key={c.id}
-                className="max-w-[160px] truncate rounded-t px-3 py-1.5 text-sm font-medium text-slate-900"
-                style={{ borderBottom: `3px solid ${c.color}`, backgroundColor: `${c.color}15` }}
-              >
-                {c.name}
-              </span>
+              <TabDrop key={c.id} collectionId={c.id}>
+                <span
+                  className="block max-w-[160px] truncate rounded-t px-3 py-1.5 text-sm font-medium text-slate-900"
+                  style={{ borderBottom: `3px solid ${c.color}`, backgroundColor: `${c.color}15` }}
+                >
+                  {c.name}
+                </span>
+              </TabDrop>
             );
           }
           return (
-            <Link
-              key={c.id}
-              to="/app/collections/$collectionId"
-              params={{ collectionId: c.id }}
-              className="max-w-[160px] truncate rounded-t px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-              style={{ borderBottom: `3px solid ${c.color}` }}
-            >
-              {c.name}
-            </Link>
+            <TabDrop key={c.id} collectionId={c.id}>
+              <Link
+                to="/app/collections/$collectionId"
+                params={{ collectionId: c.id }}
+                className="block max-w-[160px] truncate rounded-t px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                style={{ borderBottom: `3px solid ${c.color}` }}
+              >
+                {c.name}
+              </Link>
+            </TabDrop>
           );
         })}
       </div>

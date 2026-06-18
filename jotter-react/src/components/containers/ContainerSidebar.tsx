@@ -1,11 +1,117 @@
 import { useNavigate } from '@tanstack/react-router';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { NoteContainer } from '@/lib/types';
 import {
   useCreateContainer,
   useDeleteContainer,
   useUpdateContainer
 } from '@/lib/data/useContainers';
+import { useDndEnabled } from '@/lib/util/useDndEnabled';
 import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
+
+const GripIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <circle cx="7" cy="5" r="1.5" />
+    <circle cx="13" cy="5" r="1.5" />
+    <circle cx="7" cy="10" r="1.5" />
+    <circle cx="13" cy="10" r="1.5" />
+    <circle cx="7" cy="15" r="1.5" />
+    <circle cx="13" cy="15" r="1.5" />
+  </svg>
+);
+
+/** One sidebar note: a dnd-kit sortable (for reorder + cross-collection move) that
+ *  is simultaneously a drop target for sections being moved between notes. */
+function SortableContainerItem({
+  container,
+  index,
+  collectionId,
+  active,
+  dndEnabled,
+  onSelect,
+  onRename,
+  onDelete
+}: {
+  container: NoteContainer;
+  index: number;
+  collectionId: string;
+  active: boolean;
+  dndEnabled: boolean;
+  onSelect: () => void;
+  onRename: (title: string) => void;
+  onDelete: () => void;
+}) {
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+    isOver,
+    active: activeDrag
+  } = useSortable({
+    id: container.id,
+    data: { type: 'container', containerId: container.id, collectionId, index },
+    disabled: !dndEnabled
+  });
+
+  // Highlight only when a *section* is hovering (a move target), not during container reorder.
+  const sectionOver = isOver && activeDrag?.data?.current?.type === 'section';
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-container-id={container.id}
+      data-testid="container-item"
+      onClick={onSelect}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : undefined,
+        zIndex: isDragging ? 20 : undefined
+      }}
+      className={`group mb-1 flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-sm ${
+        active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'
+      } ${sectionOver ? 'ring-2 ring-blue-400 ring-inset' : ''}`}
+    >
+      {dndEnabled && (
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+          title="Drag to reorder or move to another collection"
+          aria-label="Drag note"
+          className="hidden flex-shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500 active:cursor-grabbing md:flex"
+        >
+          <GripIcon />
+        </button>
+      )}
+
+      <InlineEditableTitle
+        value={container.title}
+        trigger="dblclick"
+        onSave={onRename}
+        className="flex-1 truncate"
+      />
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="ml-1 flex-shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+        title="Delete note"
+        aria-label="Delete note"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
 
 export function ContainerSidebar({
   collectionId,
@@ -17,6 +123,7 @@ export function ContainerSidebar({
   selectedContainerId: string | null;
 }) {
   const navigate = useNavigate();
+  const dndEnabled = useDndEnabled();
   const createContainer = useCreateContainer();
   const deleteContainer = useDeleteContainer();
   const updateContainer = useUpdateContainer();
@@ -63,40 +170,23 @@ export function ContainerSidebar({
         {containers.length === 0 && (
           <p className="px-2 py-4 text-center text-sm text-slate-400">No notes yet</p>
         )}
-        {containers.map((c) => {
-          const active = c.id === selectedContainerId;
-          return (
-            <div
+        <SortableContext items={containers.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          {containers.map((c, index) => (
+            <SortableContainerItem
               key={c.id}
-              data-container-id={c.id}
-              data-testid="container-item"
-              onClick={() => select(c.id)}
-              className={`group mb-1 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <InlineEditableTitle
-                value={c.title}
-                trigger="dblclick"
-                onSave={(title) =>
-                  updateContainer.mutate({ id: c.id, collectionId, updates: { title } })
-                }
-                className="truncate"
-              />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(c);
-                }}
-                className="ml-2 rounded p-0.5 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
-                title="Delete note"
-                aria-label="Delete note"
-              >
-                ✕
-              </button>
-            </div>
-          );
-        })}
+              container={c}
+              index={index}
+              collectionId={collectionId}
+              active={c.id === selectedContainerId}
+              dndEnabled={dndEnabled}
+              onSelect={() => select(c.id)}
+              onRename={(title) =>
+                updateContainer.mutate({ id: c.id, collectionId, updates: { title } })
+              }
+              onDelete={() => handleDelete(c)}
+            />
+          ))}
+        </SortableContext>
       </nav>
     </aside>
   );

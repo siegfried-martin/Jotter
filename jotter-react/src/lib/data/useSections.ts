@@ -69,6 +69,13 @@ export function useDeleteSection() {
   });
 }
 
+function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [m] = next.splice(from, 1);
+  next.splice(to, 0, m);
+  return next;
+}
+
 export function useReorderSections() {
   const qc = useQueryClient();
   return useMutation({
@@ -81,8 +88,53 @@ export function useReorderSections() {
       fromIndex: number;
       toIndex: number;
     }) => SectionService.reorderSections(containerId, fromIndex, toIndex),
+    // Optimistic: apply the move immediately so the drop doesn't snap back.
+    onMutate: async ({ containerId, fromIndex, toIndex }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.sections(containerId) });
+      const prev = qc.getQueryData<NoteSection[]>(queryKeys.sections(containerId));
+      if (prev)
+        qc.setQueryData(queryKeys.sections(containerId), moveItem(prev, fromIndex, toIndex));
+      return { prev };
+    },
+    onError: (_err, { containerId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.sections(containerId), ctx.prev);
+    },
     onSuccess: (sections, { containerId }) => {
       qc.setQueryData(queryKeys.sections(containerId), sections);
+    }
+  });
+}
+
+/** Move a section to a different container (drag onto a sidebar note or collection tab). */
+export function useMoveSectionToContainer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sectionId,
+      toContainerId
+    }: {
+      sectionId: string;
+      fromContainerId: string;
+      toContainerId: string;
+    }) => SectionService.moveSectionToContainer(sectionId, toContainerId),
+    onMutate: async ({ sectionId, fromContainerId }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.sections(fromContainerId) });
+      const prev = qc.getQueryData<NoteSection[]>(queryKeys.sections(fromContainerId));
+      qc.setQueryData<NoteSection[]>(queryKeys.sections(fromContainerId), (old) =>
+        old?.filter((s) => s.id !== sectionId)
+      );
+      return { prev };
+    },
+    onError: (_err, { fromContainerId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.sections(fromContainerId), ctx.prev);
+    },
+    onSuccess: (moved, { toContainerId }) => {
+      qc.setQueryData<NoteSection[]>(queryKeys.sections(toContainerId), (old) =>
+        old ? sortBySequence([...old.filter((s) => s.id !== moved.id), moved]) : old
+      );
+    },
+    onSettled: (_data, _err, { toContainerId }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.sections(toContainerId) });
     }
   });
 }
