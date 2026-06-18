@@ -4,6 +4,7 @@ import { LoginRoute } from '@/routes/login';
 import { AuthCallbackRoute } from '@/routes/authCallback';
 import { AppHomeRoute } from '@/routes/appHome';
 import { ContainerPageRoute } from '@/routes/containerPage';
+import { SettingsRoute } from '@/routes/settings';
 
 // Lazy-load the editor route so the heavy editors (CodeMirror, later Quill/
 // Excalidraw) are a separate chunk, not in the initial collections/notes load.
@@ -41,6 +42,12 @@ const appRoute = createRoute({
   component: AppHomeRoute
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/app/settings',
+  component: SettingsRoute
+});
+
 const collectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/app/collections/$collectionId',
@@ -67,6 +74,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   authCallbackRoute,
   appRoute,
+  settingsRoute,
   collectionRoute,
   containerRoute,
   sectionRoute
