@@ -150,7 +150,7 @@ function SectionPreview({
     case 'code':
       return (
         <div>
-          <pre className="max-h-48 overflow-hidden rounded bg-slate-50 p-3 font-mono text-xs whitespace-pre-wrap text-slate-800">
+          <pre className="max-h-[232px] overflow-hidden rounded bg-slate-50 p-3 font-mono text-xs whitespace-pre-wrap text-slate-800">
             {section.content || '(empty)'}
           </pre>
           {typeof section.meta?.language === 'string' && (
@@ -163,7 +163,7 @@ function SectionPreview({
         <p className="text-sm text-slate-400">(empty)</p>
       ) : (
         <div
-          className="max-h-48 overflow-hidden text-sm leading-relaxed break-words text-slate-700"
+          className="max-h-[232px] overflow-hidden text-sm leading-relaxed break-words text-slate-700"
           dangerouslySetInnerHTML={{ __html: section.content }}
         />
       );
@@ -171,7 +171,7 @@ function SectionPreview({
       const items = section.checklist_data ?? [];
       if (items.length === 0) return <p className="text-sm text-slate-400">(no items)</p>;
       return (
-        <ul className="max-h-48 space-y-1 overflow-hidden">
+        <ul className="max-h-[232px] space-y-1 overflow-hidden">
           {items.map((item, i) => {
             const { label, overdue } = formatChecklistDate(item.date);
             return (
@@ -254,7 +254,7 @@ export function SectionCard({
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY });
       }}
-      className="group flex min-h-[180px] cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group flex min-h-[220px] cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
