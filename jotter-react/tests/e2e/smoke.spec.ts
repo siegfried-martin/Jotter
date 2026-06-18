@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { countCollectionsNamed } from './helpers';
 
 // Authenticated against real jotter-dev (storage state from global-setup).
 
@@ -31,4 +32,6 @@ test('create then delete a collection (real Supabase insert + delete)', async ({
     .getByRole('button', { name: 'Delete collection' })
     .click();
   await expect(cards).toHaveCount(before);
+  // Delete is optimistic — wait for the real DB delete so the row doesn't leak.
+  await expect.poll(() => countCollectionsNamed(page, 'e2e smoke test')).toBe(0);
 });

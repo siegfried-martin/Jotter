@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   cleanup,
+  countCollectionsNamed,
   fetchCollectionName,
   gotoAppForSeeding,
   readDomOrder,
@@ -87,5 +88,7 @@ test.describe('collections', () => {
       .getByRole('button', { name: 'Delete collection' })
       .click();
     await expect(cards).toHaveCount(before);
+    // Delete is optimistic — wait for the real DB delete so the row doesn't leak.
+    await expect.poll(() => countCollectionsNamed(page, 'e2e-create-delete')).toBe(0);
   });
 });

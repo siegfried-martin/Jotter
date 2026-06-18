@@ -202,6 +202,18 @@ export async function fetchContainerOrder(page: Page, collectionId: string): Pro
   }, collectionId);
 }
 
+/** How many of the test user's collections currently have this exact name. */
+export async function countCollectionsNamed(page: Page, name: string): Promise<number> {
+  return page.evaluate(async (n) => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    const { count } = await sb
+      .from('collections')
+      .select('id', { count: 'exact', head: true })
+      .eq('name', n);
+    return count ?? 0;
+  }, name);
+}
+
 /** Current persisted name of a collection (null if gone). For settle-then-reload polls. */
 export async function fetchCollectionName(page: Page, id: string): Promise<string | null> {
   return page.evaluate(async (cid) => {
