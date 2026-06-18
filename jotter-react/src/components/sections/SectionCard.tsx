@@ -254,7 +254,7 @@ export function SectionCard({
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY });
       }}
-      className="group flex min-h-[220px] cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group flex h-[280px] cursor-pointer flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
