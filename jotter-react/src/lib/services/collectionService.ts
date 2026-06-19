@@ -17,37 +17,42 @@ export class CollectionService {
       return DemoCollectionService.getCollections();
     }
 
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('collections')
-      .select('*')
-      .eq('user_id', user.id) // ← CRITICAL FIX: Filter by user_id
-      .order('sequence', { ascending: true });
+    // Membership-scoped (own + joined) via RPC — SELECT is public now, so a plain
+    // query can no longer scope "my collections".
+    const { data, error } = await supabase.rpc('get_my_collections');
 
     if (error) {
       console.error('Error loading collections:', error);
       throw error;
     }
 
-    return data || [];
+    return (data as Collection[]) || [];
   }
 
-  // Get single collection by ID - WITH PROPER USER FILTERING
+  /** Opening a collection you're not in joins you (you become a contributor). No-op if
+   *  already a member. Returns true if newly added. */
+  static async openSharedCollection(collectionId: string): Promise<boolean> {
+    if (isDemoMode()) return false;
+    const { data, error } = await supabase.rpc('open_shared_collection', {
+      p_collection_id: collectionId
+    });
+    if (error) {
+      console.error('Error joining shared collection:', error);
+      return false;
+    }
+    return Boolean(data);
+  }
+
+  // Get single collection by ID (public SELECT; any authenticated user can read by link).
   static async getCollection(collectionId: string): Promise<Collection | null> {
     if (isDemoMode()) {
       return DemoCollectionService.getCollection(collectionId);
     }
 
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
-
     const { data, error } = await supabase
       .from('collections')
       .select('*')
       .eq('id', collectionId)
-      .eq('user_id', user.id) // SECURITY: Ensure user owns this collection
       .single();
 
     if (error) {
@@ -183,37 +188,14 @@ export class CollectionService {
       return DemoCollectionService.deleteCollection(id);
     }
 
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
-
-    // Get collection name for logging before deletion
-    const collection = await this.getCollection(id);
-    const collectionName = collection?.name ?? 'Unknown';
-
-    // First, move any notes in this collection to the user's default collection
-    const defaultCollection = await this.getDefaultCollection();
-    if (defaultCollection && defaultCollection.id !== id) {
-      await supabase
-        .from('note_container')
-        .update({ collection_id: defaultCollection.id })
-        .eq('collection_id', id)
-        .eq('user_id', user.id); // Ensure we only move user's own notes
-    }
-
-    // Delete the collection
-    const { error } = await supabase
-      .from('collections')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id); // ← SECURITY: Ensure user owns this collection
-
+    // Under shared ownership "delete" means "leave": remove yourself from the
+    // collection. The collection (and its tree) is deleted only when the last member
+    // leaves — so a contributor can't nuke a shared collection for everyone else.
+    const { error } = await supabase.rpc('leave_collection', { p_collection_id: id });
     if (error) {
-      console.error('Error deleting collection:', error);
+      console.error('Error leaving collection:', error);
       throw error;
     }
-
-    // Log event
-    EventLogService.logCollectionDeleted(id, collectionName);
   }
 
   // NEW: Reorder collections via drag & drop

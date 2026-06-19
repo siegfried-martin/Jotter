@@ -25,9 +25,13 @@ function RecentNoteCard({
 }) {
   const { data: container } = useContainer(section.note_container_id);
   const collection = collections?.find((c) => c.id === container?.collection_id) ?? null;
-  const location = section.note_container_id
-    ? `${collection?.name ?? '…'} / ${container?.title ?? '…'}`
-    : 'Unfiled';
+  // Parented in a collection of mine → show the path; parented elsewhere → it's a
+  // section shared with me (its collection isn't one I belong to); else unfiled.
+  const location = !section.note_container_id
+    ? 'Unfiled'
+    : collection
+      ? `${collection.name} / ${container?.title ?? '…'}`
+      : 'Shared with you';
 
   return (
     <div>

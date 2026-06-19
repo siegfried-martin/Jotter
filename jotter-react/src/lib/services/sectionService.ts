@@ -79,25 +79,30 @@ export class SectionService {
     return data;
   }
 
-  /** Recently-updated sections for the current user (parented or unfiled) — the home feed. */
+  /** Recently-updated sections the user can access (own + shared-with-them) — home feed. */
   static async getRecentSections(limit = 30): Promise<NoteSection[]> {
     if (isDemoMode()) return [];
 
-    const user = await getAuthenticatedUser();
-    if (!user) return [];
-
-    const { data, error } = await supabase
-      .from('note_section')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
-      .limit(limit);
-
+    // RPC scopes by membership (section_member or collection membership); SELECT is
+    // public now, so a plain query can't scope "my data" any more.
+    const { data, error } = await supabase.rpc('get_recent_sections', { p_limit: limit });
     if (error) {
       console.error('Error loading recent sections:', error);
       throw error;
     }
-    return data ?? [];
+    return (data as NoteSection[]) ?? [];
+  }
+
+  /** Opening a section you can't already access joins you to it (it becomes unfiled for
+   *  you). No-op if you already have access. Returns true if you were newly added. */
+  static async openSharedSection(sectionId: string): Promise<boolean> {
+    if (isDemoMode()) return false;
+    const { data, error } = await supabase.rpc('open_shared_section', { p_section_id: sectionId });
+    if (error) {
+      console.error('Error joining shared section:', error);
+      return false;
+    }
+    return Boolean(data);
   }
 
   // Update section content - NOW SUPPORTS SEQUENCE UPDATES
@@ -180,19 +185,13 @@ export class SectionService {
       return DemoSectionService.deleteSection(id);
     }
 
-    // Get section type for logging before deletion
-    const section = await this.getSection(id);
-    const sectionType = section?.type ?? 'unknown';
-
-    const { error } = await supabase.from('note_section').delete().eq('id', id);
-
+    // "Delete" respects shared ownership: a contributor deletes the shared section; a
+    // direct share is merely dismissed (membership removed), GC'd only if orphaned.
+    const { error } = await supabase.rpc('leave_section', { p_section_id: id });
     if (error) {
-      console.error('Error deleting section:', error);
+      console.error('Error leaving/deleting section:', error);
       throw error;
     }
-
-    // Log event
-    EventLogService.logSectionDeleted(id, sectionType);
   }
 
   // Get single section (for edit page)

@@ -53,6 +53,7 @@ export interface NoteContainer {
 export interface NoteSection {
   id: string;
   note_container_id: string | null; // nullable since migration 0001 (unparented sections, #2)
+  user_id: string; // creator/provenance (access is via membership since migration 0002)
   type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
   title?: string | null; // NEW: Optional title field
   content: string;

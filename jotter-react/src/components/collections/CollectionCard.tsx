@@ -1,6 +1,18 @@
 import { useState } from 'react';
 import type { Collection } from '@/lib/types';
 import { DEFAULT_COLLECTION_COLORS, LIMITS } from '@/lib/constants';
+import { showToast } from '@/lib/ui/toast';
+
+const LinkIcon = () => (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+    />
+  </svg>
+);
 
 export type CollectionSaveInput = { name: string; color: string; description?: string };
 
@@ -145,6 +157,20 @@ export function CollectionCard({
       className="group relative flex min-h-[180px] cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="absolute top-3 right-3 flex gap-1 opacity-0 transition group-hover:opacity-100">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigator.clipboard
+              .writeText(`${window.location.origin}/app/collections/${collection.id}`)
+              .then(() => showToast('Share link copied'))
+              .catch(() => showToast('Copy failed'));
+          }}
+          title="Copy share link"
+          aria-label="Copy share link"
+          className="rounded p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600"
+        >
+          <LinkIcon />
+        </button>
         <button
           onClick={startEdit}
           title="Edit collection"

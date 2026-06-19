@@ -18,9 +18,11 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { AppHeader } from '@/components/AppHeader';
 import { ContainerSidebar } from '@/components/containers/ContainerSidebar';
 import { SectionGrid } from '@/components/sections/SectionGrid';
+import { CollectionService } from '@/lib/services/collectionService';
 import {
   useContainers,
   useMoveContainerToCollection,
@@ -113,9 +115,22 @@ function ContainerPage() {
 
   const selected = containers?.find((c) => c.id === containerId) ?? null;
 
+  const { user } = useAuth();
   const { data: collections } = useCollections();
   const collection = collections?.find((c) => c.id === collectionId);
   useDocumentTitle(selected?.title ?? collection?.name ?? 'Notes');
+
+  // Opening a collection you're not in joins you to it (you become a contributor).
+  useEffect(() => {
+    if (!user || !collections || collections.some((c) => c.id === collectionId)) return;
+    CollectionService.openSharedCollection(collectionId).then((added) => {
+      if (added) {
+        qc.invalidateQueries({ queryKey: queryKeys.collections() });
+        showToast('Added to your collections');
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionId, collections, user?.id, qc]);
 
   /** Drop a section on a collection tab → move it to that collection's top note. */
   async function moveSectionToCollectionTop(

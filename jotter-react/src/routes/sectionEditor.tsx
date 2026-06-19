@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { CodeEditor } from '@/components/editors/CodeEditor';
 import { QuillEditor } from '@/components/editors/QuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
@@ -8,9 +10,13 @@ import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
 import { useContainer } from '@/lib/data/useContainers';
+import { useCollections } from '@/lib/data/useCollections';
+import { queryKeys } from '@/lib/data/queryKeys';
+import { SectionService } from '@/lib/services/sectionService';
 import { SectionFiling } from '@/components/sections/SectionFiling';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
+import { showToast } from '@/lib/ui/toast';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
 
 const TYPE_TITLE: Record<NoteSection['type'], string> = {
@@ -93,12 +99,30 @@ function FlatSectionEditor() {
   const params = useParams({ strict: false });
   const sectionId = params.sectionId as string;
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user } = useAuth();
   const { data: section, isPending } = useSection(sectionId);
   const { data: container } = useContainer(section?.note_container_id);
+  const { data: collections } = useCollections();
 
-  // A filed note closes back to its container page; an unfiled jot closes to home.
+  // The section is "filed" for me only if its collection is one I belong to. A section
+  // shared with me lives in someone else's collection → unfiled for me.
+  const isMyCollection = !!collections?.some((c) => c.id === container?.collection_id);
+
+  // Opening a section I can't already access joins me to it (becomes unfiled for me).
+  useEffect(() => {
+    if (!section || !user || section.user_id === user.id) return;
+    SectionService.openSharedSection(section.id).then((added) => {
+      if (added) {
+        qc.invalidateQueries({ queryKey: queryKeys.recentSections() });
+        showToast('Added to your notes');
+      }
+    });
+  }, [section?.id, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A filed note (mine) closes back to its container page; otherwise close to home.
   const close = useCallbackRef(() => {
-    if (section?.note_container_id && container?.collection_id) {
+    if (section?.note_container_id && container?.collection_id && isMyCollection) {
       navigate({
         to: '/app/collections/$collectionId/containers/$containerId',
         params: { collectionId: container.collection_id, containerId: section.note_container_id }
@@ -191,6 +215,7 @@ function SectionEditorModal({
 }) {
   const update = useUpdateSection();
   const del = useDeleteSection();
+  const { user } = useAuth();
 
   const [content, setContent] = useState(() => readDraft(section.id) ?? section.content);
   const [language, setLanguage] = useState(
@@ -215,6 +240,12 @@ function SectionEditorModal({
       // Drop blank items on save (e.g. the trailing empty row left after Enter → Escape).
       updates.checklist_data = checklistData.filter((it) => it.text.trim() !== '');
     try {
+      // Guarantee write access first: editing a section you don't own joins you to it
+      // (idempotent / no-op if you already can write). Covers every way you opened the
+      // editor and removes the open-then-save race that caused RLS 406s.
+      if (user && section.user_id !== user.id) {
+        await SectionService.openSharedSection(section.id);
+      }
       await update.mutateAsync({ id: section.id, containerId, updates });
       clearDraft(section.id);
       onClose();
