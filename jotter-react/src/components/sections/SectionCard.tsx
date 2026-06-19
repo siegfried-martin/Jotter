@@ -5,14 +5,8 @@ import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 import { getDiagramElementCount } from '@/lib/util/diagram';
 import { showToast } from '@/lib/ui/toast';
+import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { DiagramThumbnail } from './DiagramThumbnail';
-
-const TYPE_LABEL: Record<string, string> = {
-  code: 'Code',
-  wysiwyg: 'Text',
-  checklist: 'Checklist',
-  diagram: 'Diagram'
-};
 
 // The whole card is the drag activator (no handle): any spot that opens the editor
 // is also grabbable. PointerSensor's distance constraint keeps click-to-open working.
@@ -154,10 +148,14 @@ function CardMenu({
 function EditableTypeTitle({
   title,
   typeLabel,
+  colorBase,
+  colorHover,
   onSave
 }: {
   title: string | null;
   typeLabel: string;
+  colorBase: string;
+  colorHover: string;
   onSave: (title: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -194,7 +192,7 @@ function EditableTypeTitle({
             setEditing(false);
           }
         }}
-        className="max-w-[220px] min-w-0 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-300 focus:outline-none"
+        className={`max-w-[220px] min-w-0 rounded px-2 py-1 text-sm font-semibold focus:ring-2 focus:ring-blue-300 focus:outline-none ${colorBase}`}
       />
     );
   }
@@ -202,7 +200,7 @@ function EditableTypeTitle({
     <span
       onClick={start}
       title="Click to rename"
-      className="cursor-text truncate rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
+      className={`cursor-text truncate rounded px-2 py-1 text-sm font-semibold ${colorBase} ${colorHover}`}
     >
       {display}
     </span>
@@ -341,7 +339,9 @@ export function SectionCard({
       <div className="mb-2 flex items-center justify-between gap-2">
         <EditableTypeTitle
           title={section.title ?? null}
-          typeLabel={TYPE_LABEL[section.type] ?? section.type}
+          typeLabel={SECTION_TYPE_META[section.type].typeLabel}
+          colorBase={SECTION_TYPE_META[section.type].base}
+          colorHover={SECTION_TYPE_META[section.type].hover}
           onSave={onRenameTitle}
         />
         <button
