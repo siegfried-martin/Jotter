@@ -22,6 +22,7 @@ import {
   acquireCrdtText,
   releaseCrdtText,
   destroyCrdtStore,
+  encodeDocState,
   type CrdtHandle
 } from '@/lib/offline/crdtSection';
 import { isSectionEmpty, isWysiwygEmpty } from '@/lib/util/sectionContent';
@@ -291,6 +292,9 @@ function SectionEditorModal({
     else if (section.type === 'checklist')
       // Drop blank items on save (e.g. the trailing empty row left after Enter → Escape).
       updates.checklist_data = checklistData.filter((it) => it.text.trim() !== '');
+    // Persist the CRDT snapshot alongside the materialized content, so other clients seed
+    // from the shared ops (no duplicate-text on independent re-seed).
+    if (handle) updates.ydoc = encodeDocState(handle);
     return updates;
   }
 

@@ -16,6 +16,8 @@ import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { Awareness } from 'y-protocols/awareness';
 import type { NoteSection } from '@/lib/types';
+import { SupabaseYjsProvider } from './supabaseYjsProvider';
+import { bytesToBase64, base64ToBytes } from './base64';
 
 export interface CrdtHandle {
   doc: Y.Doc;
@@ -30,6 +32,7 @@ export interface CrdtHandle {
 interface Entry {
   handle: CrdtHandle;
   persistence: IndexeddbPersistence;
+  provider: SupabaseYjsProvider;
   refs: number;
   destroyTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -46,12 +49,24 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
   const text = doc.getText('content');
   const awareness = new Awareness(doc);
   const persistence = new IndexeddbPersistence(roomFor(section.id), doc);
+  // Live multi-user sync over Supabase Realtime (slice 5). Tolerates offline (it just
+  // reconnects); local durability is y-indexeddb regardless.
+  const provider = new SupabaseYjsProvider(doc, awareness, section.id);
 
   const whenReady = new Promise<void>((resolve) => {
     persistence.once('synced', () => {
-      // First-ever open of a section that predates CRDT: seed the document from its plain
-      // content so nothing appears blank. Only for plain-text (code) — rich-text (wysiwyg)
-      // can't be inserted as a string, so its editor seeds through Quill instead.
+      // The shared persistent CRDT snapshot (Postgres) is the canonical seed source —
+      // applying it is idempotent, so every client converges on the same ops instead of
+      // independently re-seeding from `content` (which would duplicate text).
+      if (section.ydoc) {
+        try {
+          Y.applyUpdate(doc, base64ToBytes(section.ydoc));
+        } catch {
+          /* corrupt snapshot — fall through to a plain seed */
+        }
+      }
+      // Legacy section (no ydoc yet): seed plain content for code so nothing's blank.
+      // Wysiwyg seeds through Quill. Only when nothing else populated the doc.
       if (plainSeed && text.length === 0 && section.content) {
         text.insert(0, section.content);
       }
@@ -59,7 +74,18 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
     });
   });
 
-  return { handle: { doc, text, awareness, whenReady }, persistence, refs: 0, destroyTimer: null };
+  return {
+    handle: { doc, text, awareness, whenReady },
+    persistence,
+    provider,
+    refs: 0,
+    destroyTimer: null
+  };
+}
+
+/** The current document state as a base64 snapshot, for persisting to note_section.ydoc. */
+export function encodeDocState(handle: CrdtHandle): string {
+  return bytesToBase64(Y.encodeStateAsUpdate(handle.doc));
 }
 
 /**
@@ -98,6 +124,7 @@ export function releaseCrdtText(sectionId: string): void {
 
 function tearDown(sectionId: string, entry: Entry): void {
   if (entry.destroyTimer) clearTimeout(entry.destroyTimer);
+  entry.provider.destroy();
   entry.handle.awareness.destroy();
   void entry.persistence.destroy();
   entry.handle.doc.destroy();
