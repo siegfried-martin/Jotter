@@ -227,7 +227,7 @@ function SectionEditorModal({
           <button
             onClick={() => saveAndClose()}
             disabled={saving}
-            className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-600 disabled:opacity-50"
+            className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>

@@ -76,7 +76,7 @@ test.describe('section editor', () => {
     const tree = await seedTree(page);
     try {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
-      await page.getByRole('button', { name: '+ Code', exact: true }).click();
+      await page.getByRole('button', { name: 'Code', exact: true }).click();
       await expect(page.getByPlaceholder('Untitled section')).toBeVisible();
 
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();

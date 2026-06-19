@@ -13,13 +13,16 @@ export function InlineEditableTitle({
   onSave,
   className,
   inputClassName,
-  trigger = 'click'
+  trigger = 'click',
+  placeholder
 }: {
   value: string;
   onSave: (next: string) => void;
   className?: string;
   inputClassName?: string;
   trigger?: 'click' | 'dblclick';
+  /** Shown as a faint italic hint when the value is empty (e.g. an untitled section). */
+  placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -71,7 +74,7 @@ export function InlineEditableTitle({
       title={trigger === 'dblclick' ? 'Double-click to rename' : 'Click to rename'}
       className={className}
     >
-      {value}
+      {value.trim() ? value : <span className="text-slate-400 italic">{placeholder ?? ''}</span>}
     </span>
   );
 }

@@ -14,6 +14,13 @@ import { isSectionEmpty } from '@/lib/util/sectionContent';
 
 type SectionType = NoteSection['type'];
 
+const TYPE_LABEL: Record<SectionType, string> = {
+  code: 'Code',
+  wysiwyg: 'Text',
+  checklist: 'Checklist',
+  diagram: 'Diagram'
+};
+
 /** A section card wired as a dnd-kit sortable (drag handle, transform, drop ordering). */
 function SortableSection({
   section,
@@ -41,7 +48,7 @@ function SortableSection({
       sectionId: section.id,
       containerId,
       index,
-      title: section.title || 'Untitled section'
+      title: section.title || TYPE_LABEL[section.type]
     },
     disabled: !dndEnabled
   });
@@ -64,11 +71,38 @@ function SortableSection({
   );
 }
 
-const ADD_BUTTONS: { type: SectionType; label: string }[] = [
-  { type: 'wysiwyg', label: '+ Text' },
-  { type: 'code', label: '+ Code' },
-  { type: 'checklist', label: '+ Checklist' },
-  { type: 'diagram', label: '+ Diagram' }
+// Per-type icon + hover color. Hover classes are spelled out (not interpolated) so
+// Tailwind keeps them. New section types slot in here and the row wraps to fit.
+const SECTION_TYPES: {
+  type: SectionType;
+  label: string;
+  icon: string;
+  hover: string;
+}[] = [
+  {
+    type: 'wysiwyg',
+    label: 'Text',
+    icon: 'M4 6h16M4 12h16M4 18h7',
+    hover: 'hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'
+  },
+  {
+    type: 'code',
+    label: 'Code',
+    icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+    hover: 'hover:bg-green-50 hover:text-green-700 hover:border-green-200'
+  },
+  {
+    type: 'diagram',
+    label: 'Draw',
+    icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z',
+    hover: 'hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+  },
+  {
+    type: 'checklist',
+    label: 'Tasks',
+    icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+    hover: 'hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200'
+  }
 ];
 
 function defaultSection(type: SectionType, containerId: string): CreateNoteSection {
@@ -109,15 +143,25 @@ export function SectionGrid({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {ADD_BUTTONS.map((b) => (
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-sm font-medium text-slate-400">Add</span>
+        {SECTION_TYPES.map((b) => (
           <button
             key={b.type}
             onClick={() => addSection(b.type)}
             disabled={createSection.isPending}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            title={`${b.label} section`}
+            className={`group flex min-h-[2.25rem] items-center gap-2 rounded-md border border-transparent bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 transition disabled:opacity-50 ${b.hover}`}
           >
-            {b.label}
+            <svg
+              className="h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={b.icon} />
+            </svg>
+            <span className="hidden sm:inline">{b.label}</span>
           </button>
         ))}
       </div>

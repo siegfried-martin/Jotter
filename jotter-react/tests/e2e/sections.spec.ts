@@ -23,13 +23,8 @@ test.describe('sections', () => {
     }
   });
 
-  for (const { label, typeLabel } of [
-    { label: '+ Text', typeLabel: 'Text' },
-    { label: '+ Code', typeLabel: 'Code' },
-    { label: '+ Checklist', typeLabel: 'Checklist' },
-    { label: '+ Diagram', typeLabel: 'Diagram' }
-  ]) {
-    test(`create a ${typeLabel} section opens the editor and persists a card`, async ({ page }) => {
+  for (const label of ['Text', 'Code', 'Draw', 'Tasks']) {
+    test(`create a ${label} section opens the editor and persists a card`, async ({ page }) => {
       await gotoAppForSeeding(page);
       const tree = await seedTree(page);
       try {
@@ -38,11 +33,11 @@ test.describe('sections', () => {
 
         const titleInput = page.getByPlaceholder('Untitled section');
         await expect(titleInput).toBeVisible();
-        await titleInput.fill(`e2e ${typeLabel} title`);
+        await titleInput.fill(`e2e ${label} title`);
         await page.getByRole('button', { name: 'Save', exact: true }).click();
 
         await expect(page.getByTestId('section-card')).toHaveCount(1);
-        await expect(page.getByText(`e2e ${typeLabel} title`)).toBeVisible();
+        await expect(page.getByText(`e2e ${label} title`)).toBeVisible();
       } finally {
         await cleanup(page, tree.collectionId);
       }

@@ -282,9 +282,10 @@ export function SectionCard({
             {TYPE_LABEL[section.type] ?? section.type}
           </span>
           <InlineEditableTitle
-            value={section.title || `Untitled ${TYPE_LABEL[section.type] ?? section.type}`}
+            value={section.title ?? ''}
             trigger="click"
             onSave={onRenameTitle}
+            placeholder="title"
             className="cursor-text truncate text-sm font-medium text-slate-800"
           />
         </div>

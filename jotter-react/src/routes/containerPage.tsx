@@ -235,10 +235,14 @@ function ContainerPage() {
         </div>
       </div>
 
-      {/* Compact title-only preview centered on the cursor (snapCenterToCursor), so it
-          sits at the mouse no matter where on the card you grabbed; no drop animation
-          so the card doesn't fly to the top and back. */}
-      <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
+      {/* Compact title-only preview; no drop animation. Section cards are grabbed
+          anywhere so we center the preview on the cursor; sidebar notes are grabbed by
+          the left-edge handle, where centering would push the preview off-screen, so
+          they keep the default top-left anchoring. */}
+      <DragOverlay
+        dropAnimation={null}
+        modifiers={activeDrag?.type === 'section' ? [snapCenterToCursor] : undefined}
+      >
         {activeDrag ? <DragPreview data={activeDrag} /> : null}
       </DragOverlay>
     </DndContext>
