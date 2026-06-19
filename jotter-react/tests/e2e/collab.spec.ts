@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { SECOND_EMAIL, cleanup, e2ePassword, gotoAppForSeeding, seedTree, signInAs } from './helpers';
+import {
+  SECOND_EMAIL,
+  cleanup,
+  e2ePassword,
+  gotoAppForSeeding,
+  seedTree,
+  signInAs
+} from './helpers';
 
 test.describe('real-time collaboration', () => {
   test('two users editing the same code section see each other live', async ({ page, browser }) => {

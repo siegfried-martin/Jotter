@@ -1,0 +1,136 @@
+/* Rendered-Markdown styling (no @tailwindcss/typography dependency). Scoped to
+   .markdown-preview so it never leaks into the rest of the app. Mirrors a light,
+   document-like look consistent with the WYSIWYG section. */
+
+.markdown-preview {
+  color: #334155; /* slate-700 */
+  font-size: 0.95rem;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.markdown-preview > :first-child {
+  margin-top: 0;
+}
+.markdown-preview > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+  font-weight: 600;
+  line-height: 1.3;
+  color: #1e293b; /* slate-800 */
+  margin: 1.4em 0 0.6em;
+}
+.markdown-preview h1 {
+  font-size: 1.7em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #e2e8f0;
+}
+.markdown-preview h2 {
+  font-size: 1.4em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid #e2e8f0;
+}
+.markdown-preview h3 {
+  font-size: 1.2em;
+}
+.markdown-preview h4 {
+  font-size: 1.05em;
+}
+
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview ol,
+.markdown-preview blockquote,
+.markdown-preview pre,
+.markdown-preview table {
+  margin: 0 0 1em;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+  padding-left: 1.6em;
+}
+.markdown-preview ul {
+  list-style: disc;
+}
+.markdown-preview ol {
+  list-style: decimal;
+}
+.markdown-preview li {
+  margin: 0.25em 0;
+}
+.markdown-preview li > ul,
+.markdown-preview li > ol {
+  margin: 0.25em 0;
+}
+
+/* GFM task lists ([ ] / [x]) */
+.markdown-preview li > input[type='checkbox'] {
+  margin-right: 0.5em;
+}
+
+.markdown-preview a {
+  color: #2563eb; /* blue-600 */
+  text-decoration: underline;
+}
+
+.markdown-preview blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 1em;
+  color: #64748b; /* slate-500 */
+}
+
+.markdown-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: #f1f5f9; /* slate-100 */
+  padding: 0.15em 0.35em;
+  border-radius: 0.25rem;
+}
+.markdown-preview pre {
+  background: #f8fafc; /* slate-50 */
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+}
+.markdown-preview pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+.markdown-preview table {
+  border-collapse: collapse;
+  width: auto;
+  display: block;
+  overflow-x: auto;
+}
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid #e2e8f0;
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.markdown-preview th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.markdown-preview hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 1.5em 0;
+}
+
+.markdown-preview img {
+  max-width: 100%;
+  height: auto;
+}

@@ -36,8 +36,22 @@ export const SECTION_TYPE_META: Record<
     icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
     base: 'bg-purple-50 text-purple-700',
     hover: 'hover:bg-purple-100'
+  },
+  markdown: {
+    typeLabel: 'Markdown',
+    addLabel: 'Markdown',
+    // Document with a folded corner and a centered "M" — reads clearly at icon size.
+    icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9.5 17v-5l2.5 3 2.5-3v5',
+    base: 'bg-rose-50 text-rose-700',
+    hover: 'hover:bg-rose-100'
   }
 };
 
 // Display order for the Add row (and a stable iteration order).
-export const SECTION_TYPE_ORDER: SectionType[] = ['wysiwyg', 'code', 'diagram', 'checklist'];
+export const SECTION_TYPE_ORDER: SectionType[] = [
+  'wysiwyg',
+  'code',
+  'markdown',
+  'diagram',
+  'checklist'
+];

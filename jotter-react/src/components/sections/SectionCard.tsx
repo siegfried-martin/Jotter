@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import type { DraggableAttributes } from '@dnd-kit/core';
 import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
+import { renderMarkdown } from '@/lib/util/renderMarkdown';
 import { getDiagramElementCount } from '@/lib/util/diagram';
+import '@/components/editors/markdown-preview.css';
 import { showToast } from '@/lib/ui/toast';
 import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { DiagramThumbnail } from './DiagramThumbnail';
@@ -235,6 +237,15 @@ function SectionPreview({
           dangerouslySetInnerHTML={{ __html: section.content }}
         />
       );
+    case 'markdown': {
+      // Card shows the rendered Markdown (sanitized), not the raw source.
+      const html = renderMarkdown(section.content);
+      return html ? (
+        <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <p className="text-sm text-slate-400">(empty)</p>
+      );
+    }
     case 'checklist': {
       const items = section.checklist_data ?? [];
       if (items.length === 0) return <p className="text-sm text-slate-400">(no items)</p>;

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { YCodeEditor } from '@/components/editors/YCodeEditor';
+import { YMarkdownEditor } from '@/components/editors/YMarkdownEditor';
 import { YQuillEditor } from '@/components/editors/YQuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
@@ -31,7 +32,8 @@ const TYPE_TITLE: Record<NoteSection['type'], string> = {
   code: 'Code',
   wysiwyg: 'Text',
   checklist: 'Checklist',
-  diagram: 'Diagram'
+  diagram: 'Diagram',
+  markdown: 'Markdown'
 };
 
 export function SectionEditorRoute() {
@@ -253,11 +255,14 @@ function SectionEditorModal({
   const del = useDeleteSection();
   const { user } = useAuth();
 
-  // Code + wysiwyg are CRDT-backed (slice 3): their content lives in a Yjs doc persisted to
+  // Code + wysiwyg + markdown are CRDT-backed: their content lives in a Yjs doc persisted to
   // y-indexeddb, so edits are durable the instant they're typed. Checklist/diagram keep the
-  // controlled-string path. Code seeds the doc as plain text; wysiwyg seeds through Quill.
-  const isCrdt = section.type === 'code' || section.type === 'wysiwyg';
-  const { handle, ready: crdtReady } = useCrdtHandle(section, isCrdt, section.type === 'code');
+  // controlled-string path. Code and markdown seed the doc as plain text (they ARE plain
+  // text — markdown source); wysiwyg seeds through Quill.
+  const isCrdt =
+    section.type === 'code' || section.type === 'wysiwyg' || section.type === 'markdown';
+  const isPlainText = section.type === 'code' || section.type === 'markdown';
+  const { handle, ready: crdtReady } = useCrdtHandle(section, isCrdt, isPlainText);
 
   const [content, setContent] = useState(() => readDraft(section.id) ?? section.content);
   const [language, setLanguage] = useState(
@@ -281,9 +286,10 @@ function SectionEditorModal({
   }
 
   function buildUpdates(): Partial<CreateNoteSection> {
-    // Materialize on flush: code reads its plain Y.Text; wysiwyg uses the live HTML kept by
-    // the editor's onChange (its Y.Text holds deltas, not HTML); other types use their state.
-    const nextContent = section.type === 'code' && handle ? handle.text.toString() : content;
+    // Materialize on flush: code/markdown read their plain Y.Text (the markdown source is
+    // the canonical content); wysiwyg uses the live HTML kept by the editor's onChange (its
+    // Y.Text holds deltas, not HTML); other types use their state.
+    const nextContent = isPlainText && handle ? handle.text.toString() : content;
     const updates: Partial<CreateNoteSection> = {
       content: nextContent,
       title: title.trim() || null
@@ -381,7 +387,7 @@ function SectionEditorModal({
     // Emptiness from the *current* doc: code from its Y.Text, wysiwyg from the live HTML,
     // others from the (saved) section.
     const emptyNow =
-      section.type === 'code' && handle
+      isPlainText && handle
         ? handle.text.length === 0
         : section.type === 'wysiwyg'
           ? isWysiwygEmpty(content)
@@ -442,6 +448,14 @@ function SectionEditorModal({
                   language={language}
                   onLanguageChange={setLanguage}
                 />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                  Loading…
+                </div>
+              ))}
+            {section.type === 'markdown' &&
+              (crdtReady && handle ? (
+                <YMarkdownEditor text={handle.text} awareness={handle.awareness} />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-slate-400">
                   Loading…
