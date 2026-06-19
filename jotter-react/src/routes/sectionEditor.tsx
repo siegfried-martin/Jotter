@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { YCodeEditor } from '@/components/editors/YCodeEditor';
-import { QuillEditor } from '@/components/editors/QuillEditor';
+import { YQuillEditor } from '@/components/editors/YQuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
@@ -24,7 +24,7 @@ import {
   destroyCrdtStore,
   type CrdtHandle
 } from '@/lib/offline/crdtSection';
-import { isSectionEmpty } from '@/lib/util/sectionContent';
+import { isSectionEmpty, isWysiwygEmpty } from '@/lib/util/sectionContent';
 
 const TYPE_TITLE: Record<NoteSection['type'], string> = {
   code: 'Code',
@@ -216,14 +216,14 @@ function clearDraft(id: string) {
  * local store has loaded and any first-open seed is applied — render the editor only then,
  * so its initial content is present. The doc is destroyed on unmount.
  */
-function useCrdtHandle(section: NoteSection, enabled: boolean) {
+function useCrdtHandle(section: NoteSection, enabled: boolean, plainSeed: boolean) {
   const [handle, setHandle] = useState<CrdtHandle | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
     let active = true;
-    const h = acquireCrdtText(section);
+    const h = acquireCrdtText(section, plainSeed);
     setHandle(h);
     h.whenReady.then(() => {
       if (active) setReady(true);
@@ -252,11 +252,11 @@ function SectionEditorModal({
   const del = useDeleteSection();
   const { user } = useAuth();
 
-  // Code sections are CRDT-backed (slice 3): their text lives in a Yjs doc persisted to
-  // y-indexeddb, so edits are durable the instant they're typed. Other types keep the
-  // controlled-string + localStorage-draft path (wysiwyg joins the CRDT path in slice 3b).
-  const isCrdt = section.type === 'code';
-  const { handle, ready: crdtReady } = useCrdtHandle(section, isCrdt);
+  // Code + wysiwyg are CRDT-backed (slice 3): their content lives in a Yjs doc persisted to
+  // y-indexeddb, so edits are durable the instant they're typed. Checklist/diagram keep the
+  // controlled-string path. Code seeds the doc as plain text; wysiwyg seeds through Quill.
+  const isCrdt = section.type === 'code' || section.type === 'wysiwyg';
+  const { handle, ready: crdtReady } = useCrdtHandle(section, isCrdt, section.type === 'code');
 
   const [content, setContent] = useState(() => readDraft(section.id) ?? section.content);
   const [language, setLanguage] = useState(
@@ -275,8 +275,9 @@ function SectionEditorModal({
   const saveAndClose = useCallbackRef(async () => {
     if (saving) return;
     setSaving(true);
-    // Materialize the CRDT doc to plain content on flush; other types use their state.
-    const nextContent = isCrdt && handle ? handle.text.toString() : content;
+    // Materialize on flush: code reads its plain Y.Text; wysiwyg uses the live HTML kept by
+    // the editor's onChange (its Y.Text holds deltas, not HTML); other types use their state.
+    const nextContent = section.type === 'code' && handle ? handle.text.toString() : content;
     const updates: Partial<CreateNoteSection> = {
       content: nextContent,
       title: title.trim() || null
@@ -306,8 +307,14 @@ function SectionEditorModal({
   // also revert (the draft was never persisted). CRDT edits are already durable locally, so
   // Cancel just closes without publishing them to the server (they flush on a later Save).
   const cancel = useCallbackRef(async () => {
+    // Emptiness from the *current* doc: code from its Y.Text, wysiwyg from the live HTML,
+    // others from the (saved) section.
     const emptyNow =
-      isCrdt && handle ? handle.text.length === 0 && !title.trim() : isSectionEmpty(section);
+      section.type === 'code' && handle
+        ? handle.text.length === 0
+        : section.type === 'wysiwyg'
+          ? isWysiwygEmpty(content)
+          : isSectionEmpty(section);
     if (emptyNow) {
       try {
         await del.mutateAsync({ id: section.id, containerId });
@@ -369,9 +376,14 @@ function SectionEditorModal({
                   Loading…
                 </div>
               ))}
-            {section.type === 'wysiwyg' && (
-              <QuillEditor initial={content} onChange={handleContentChange} />
-            )}
+            {section.type === 'wysiwyg' &&
+              (crdtReady && handle ? (
+                <YQuillEditor text={handle.text} initial={content} onChange={handleContentChange} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                  Loading…
+                </div>
+              ))}
             {section.type === 'checklist' && (
               <ChecklistEditor value={checklistData} onChange={setChecklistData} />
             )}

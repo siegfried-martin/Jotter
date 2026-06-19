@@ -41,7 +41,7 @@ function roomFor(sectionId: string): string {
   return `jotter-section-${sectionId}`;
 }
 
-function createEntry(section: NoteSection): Entry {
+function createEntry(section: NoteSection, plainSeed: boolean): Entry {
   const doc = new Y.Doc();
   const text = doc.getText('content');
   const awareness = new Awareness(doc);
@@ -49,9 +49,10 @@ function createEntry(section: NoteSection): Entry {
 
   const whenReady = new Promise<void>((resolve) => {
     persistence.once('synced', () => {
-      // First-ever open of a section that predates CRDT (or was created via the LWW/quick
-      // path): seed the document from its plain content so nothing appears blank.
-      if (text.length === 0 && section.content) {
+      // First-ever open of a section that predates CRDT: seed the document from its plain
+      // content so nothing appears blank. Only for plain-text (code) — rich-text (wysiwyg)
+      // can't be inserted as a string, so its editor seeds through Quill instead.
+      if (plainSeed && text.length === 0 && section.content) {
         text.insert(0, section.content);
       }
       resolve();
@@ -61,15 +62,19 @@ function createEntry(section: NoteSection): Entry {
   return { handle: { doc, text, awareness, whenReady }, persistence, refs: 0, destroyTimer: null };
 }
 
-/** Get (or open) a section's CRDT document and register interest in it. */
-export function acquireCrdtText(section: NoteSection): CrdtHandle {
+/**
+ * Get (or open) a section's CRDT document and register interest in it. `plainSeed` controls
+ * whether the document is seeded from `content` as plain text (code) or left for the editor
+ * to seed (wysiwyg). Ignored if the document already exists.
+ */
+export function acquireCrdtText(section: NoteSection, plainSeed: boolean): CrdtHandle {
   let entry = registry.get(section.id);
   if (entry?.destroyTimer) {
     clearTimeout(entry.destroyTimer);
     entry.destroyTimer = null;
   }
   if (!entry) {
-    entry = createEntry(section);
+    entry = createEntry(section, plainSeed);
     registry.set(section.id, entry);
   }
   entry.refs += 1;
