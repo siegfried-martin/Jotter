@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SectionService } from '@/lib/services/sectionService';
 import type { CreateNoteSection, NoteSection } from '@/lib/types';
 import { sortBySequence } from '@/lib/utils/sequenceUtils';
+import { saveUpdate } from '@/lib/offline/sectionSync';
+import { showToast } from '@/lib/ui/toast';
 import { queryKeys } from './queryKeys';
 
 type SectionUpdates = Partial<CreateNoteSection> & { sequence?: number };
@@ -62,20 +64,47 @@ export function useCreateSection() {
 export function useUpdateSection() {
   const qc = useQueryClient();
   return useMutation({
+    // networkMode 'always' so the mutationFn runs even offline — TanStack's default would
+    // PAUSE it, defeating our durable outbox. saveUpdate decides online-vs-queue itself.
+    networkMode: 'always',
+    // Offline-aware: parks the write in the durable outbox when there's no connection and
+    // resolves to null (the optimistic cache stands; it syncs on reconnect).
     mutationFn: ({ id, updates }: { id: string; containerId: string; updates: SectionUpdates }) =>
-      SectionService.updateSection(id, updates),
+      saveUpdate(id, updates),
     onMutate: async ({ id, containerId, updates }) => {
       await qc.cancelQueries({ queryKey: queryKeys.sections(containerId) });
       const prev = qc.getQueryData<NoteSection[]>(queryKeys.sections(containerId));
+      const prevSection = qc.getQueryData<NoteSection>(queryKeys.section(id));
+      const prevRecent = qc.getQueryData<NoteSection[]>(queryKeys.recentSections());
+      // Apply optimistically across every cache that holds this section, with a bumped
+      // timestamp so the recent feed reorders — a queued (offline) save looks identical.
+      const patch = { ...updates, updated_at: new Date().toISOString() };
       qc.setQueryData<NoteSection[]>(queryKeys.sections(containerId), (old) =>
-        old?.map((s) => (s.id === id ? { ...s, ...updates } : s))
+        old?.map((s) => (s.id === id ? { ...s, ...patch } : s))
       );
-      return { prev };
+      qc.setQueryData<NoteSection>(queryKeys.section(id), (old) =>
+        old ? { ...old, ...patch } : old
+      );
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old
+          ? old
+              .map((s) => (s.id === id ? { ...s, ...patch } : s))
+              .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
+          : old
+      );
+      return { prev, prevSection, prevRecent };
     },
-    onError: (_err, { containerId }, ctx) => {
+    onError: (_err, { containerId, id }, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKeys.sections(containerId), ctx.prev);
+      if (ctx?.prevSection) qc.setQueryData(queryKeys.section(id), ctx.prevSection);
+      if (ctx?.prevRecent) qc.setQueryData(queryKeys.recentSections(), ctx.prevRecent);
     },
     onSuccess: (updated, { containerId }) => {
+      if (!updated) {
+        // Queued offline — optimistic state stands; the outbox syncs it on reconnect.
+        showToast('Saved offline — will sync when you reconnect');
+        return;
+      }
       qc.setQueryData<NoteSection[]>(queryKeys.sections(containerId), (old) =>
         old?.map((s) => (s.id === updated.id ? updated : s))
       );

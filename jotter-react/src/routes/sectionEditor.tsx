@@ -17,6 +17,7 @@ import { SectionFiling } from '@/components/sections/SectionFiling';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { showToast } from '@/lib/ui/toast';
+import { isOnline } from '@/lib/offline/onlineStatus';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
 
 const TYPE_TITLE: Record<NoteSection['type'], string> = {
@@ -242,8 +243,9 @@ function SectionEditorModal({
     try {
       // Guarantee write access first: editing a section you don't own joins you to it
       // (idempotent / no-op if you already can write). Covers every way you opened the
-      // editor and removes the open-then-save race that caused RLS 406s.
-      if (user && section.user_id !== user.id) {
+      // editor and removes the open-then-save race that caused RLS 406s. Skipped offline —
+      // the RPC can't run; the save itself queues and reconciles on reconnect.
+      if (user && section.user_id !== user.id && isOnline()) {
         await SectionService.openSharedSection(section.id);
       }
       await update.mutateAsync({ id: section.id, containerId, updates });
