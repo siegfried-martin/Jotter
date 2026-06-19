@@ -1,7 +1,37 @@
 import { test, expect } from '@playwright/test';
-import { cleanup, gotoAppForSeeding, readDomOrder, seedTree } from './helpers';
+import { cleanup, fetchSectionTitle, gotoAppForSeeding, readDomOrder, seedTree } from './helpers';
 
 test.describe('sections', () => {
+  test('the type pill doubles as an editable title', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      sections: [{ type: 'code', content: 'x', sequence: 10 }]
+    });
+    try {
+      await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+      const card = page.getByTestId('section-card');
+      // Untitled → the pill shows the type name.
+      await expect(card.getByText('Code', { exact: true })).toBeVisible();
+
+      // Click the pill → edit, type a title (persists, shows instead of the type).
+      await card.getByText('Code', { exact: true }).click();
+      const input = card.getByRole('textbox');
+      await input.fill('Auth flow');
+      await input.press('Enter');
+      await expect(card.getByText('Auth flow')).toBeVisible();
+      await expect.poll(() => fetchSectionTitle(page, tree.sections[0].id)).toBe('Auth flow');
+
+      // Clearing the title falls back to the type again.
+      await card.getByText('Auth flow').click();
+      await card.getByRole('textbox').fill('');
+      await card.getByRole('textbox').press('Enter');
+      await expect(card.getByText('Code', { exact: true })).toBeVisible();
+      await expect.poll(() => fetchSectionTitle(page, tree.sections[0].id)).toBeNull();
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('render in ascending sequence order', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {

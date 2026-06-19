@@ -1,8 +1,10 @@
 import { Link } from '@tanstack/react-router';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { AppHeader } from '@/components/AppHeader';
+import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 
 export function SettingsRoute() {
+  useDocumentTitle('Settings');
   return (
     <RequireAuth>
       <div className="min-h-screen bg-slate-50 text-slate-900">

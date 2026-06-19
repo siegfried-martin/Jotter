@@ -204,6 +204,15 @@ export async function fetchSectionContainerId(
   }, sectionId);
 }
 
+/** Current persisted title of a section (null if untitled). */
+export async function fetchSectionTitle(page: Page, sectionId: string): Promise<string | null> {
+  return page.evaluate(async (sid) => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    const { data } = await sb.from('note_section').select('title').eq('id', sid).maybeSingle();
+    return (data?.title as string) ?? null;
+  }, sectionId);
+}
+
 /** Which collection a container currently belongs to. */
 export async function fetchContainerCollectionId(
   page: Page,

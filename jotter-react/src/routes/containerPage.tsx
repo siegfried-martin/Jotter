@@ -28,6 +28,8 @@ import {
   useUpdateContainer
 } from '@/lib/data/useContainers';
 import { useMoveSectionToContainer, useReorderSections } from '@/lib/data/useSections';
+import { useCollections } from '@/lib/data/useCollections';
+import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { NoteService } from '@/lib/services/noteService';
 import type { NoteContainer } from '@/lib/types';
@@ -110,6 +112,10 @@ function ContainerPage() {
   }, [containerId, containers, collectionId, navigate]);
 
   const selected = containers?.find((c) => c.id === containerId) ?? null;
+
+  const { data: collections } = useCollections();
+  const collection = collections?.find((c) => c.id === collectionId);
+  useDocumentTitle(selected?.title ?? collection?.name ?? 'Notes');
 
   /** Drop a section on a collection tab → move it to that collection's top note. */
   async function moveSectionToCollectionTop(

@@ -8,7 +8,15 @@ import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
+import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
+
+const TYPE_TITLE: Record<NoteSection['type'], string> = {
+  code: 'Code',
+  wysiwyg: 'Text',
+  checklist: 'Checklist',
+  diagram: 'Diagram'
+};
 
 export function SectionEditorRoute() {
   return (
@@ -34,6 +42,8 @@ function SectionEditor() {
       params: { collectionId, containerId }
     })
   );
+
+  useDocumentTitle(section?.title?.trim() || (section ? TYPE_TITLE[section.type] : 'Section'));
 
   if (isPending && !section) {
     return <Backdrop onClick={() => close()}>Loading section…</Backdrop>;

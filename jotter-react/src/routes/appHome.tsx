@@ -10,6 +10,7 @@ import {
   useUpdateCollection
 } from '@/lib/data/useCollections';
 import { preloadAppData } from '@/lib/data/preload';
+import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { CollectionCard, type CollectionSaveInput } from '@/components/collections/CollectionCard';
 import { CollectionCreateCard } from '@/components/collections/CollectionCreateCard';
 
@@ -28,6 +29,8 @@ function CollectionsHome() {
   const createCollection = useCreateCollection();
   const updateCollection = useUpdateCollection();
   const deleteCollection = useDeleteCollection();
+
+  useDocumentTitle('Collections');
 
   useEffect(() => {
     preloadAppData(qc).catch((e) => console.warn('preload failed:', e));

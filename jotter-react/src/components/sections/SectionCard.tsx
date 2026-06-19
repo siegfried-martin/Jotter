@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { DraggableAttributes } from '@dnd-kit/core';
 import type { ChecklistItem, NoteSection } from '@/lib/types';
-import { InlineEditableTitle } from '@/components/ui/InlineEditableTitle';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 import { getDiagramElementCount } from '@/lib/util/diagram';
 import { showToast } from '@/lib/ui/toast';
@@ -147,6 +146,69 @@ function CardMenu({
   );
 }
 
+/**
+ * The type pill doubles as the title: it shows the section title, or the type name
+ * when there's no title. Click to edit (text is pre-selected); saving empty — or the
+ * bare type name — clears the title back to the type.
+ */
+function EditableTypeTitle({
+  title,
+  typeLabel,
+  onSave
+}: {
+  title: string | null;
+  typeLabel: string;
+  onSave: (title: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const display = title?.trim() || typeLabel;
+  const [draft, setDraft] = useState(display);
+
+  function start(e: React.MouseEvent) {
+    e.stopPropagation();
+    setDraft(title?.trim() || typeLabel);
+    setEditing(true);
+  }
+  function commit() {
+    setEditing(false);
+    const t = draft.trim();
+    const next = t === '' || t === typeLabel ? null : t;
+    const current = title?.trim() ? title : null;
+    if (next !== current) onSave(next);
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          } else if (e.key === 'Escape') {
+            setEditing(false);
+          }
+        }}
+        className="max-w-[220px] min-w-0 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-300 focus:outline-none"
+      />
+    );
+  }
+  return (
+    <span
+      onClick={start}
+      title="Click to rename"
+      className="cursor-text truncate rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
+    >
+      {display}
+    </span>
+  );
+}
+
 function SectionPreview({
   section,
   onToggleChecklistItem
@@ -277,18 +339,11 @@ export function SectionCard({
       className="group flex h-[280px] cursor-pointer flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium tracking-wide text-slate-500 uppercase">
-            {TYPE_LABEL[section.type] ?? section.type}
-          </span>
-          <InlineEditableTitle
-            value={section.title ?? ''}
-            trigger="click"
-            onSave={onRenameTitle}
-            placeholder="title"
-            className="cursor-text truncate text-sm font-medium text-slate-800"
-          />
-        </div>
+        <EditableTypeTitle
+          title={section.title ?? null}
+          typeLabel={TYPE_LABEL[section.type] ?? section.type}
+          onSave={onRenameTitle}
+        />
         <button
           onClick={(e) => {
             e.stopPropagation();

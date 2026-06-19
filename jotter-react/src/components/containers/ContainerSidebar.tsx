@@ -21,6 +21,22 @@ const GripIcon = () => (
   </svg>
 );
 
+// A stable per-note color from its title (parity with prod's note avatars).
+const NOTE_COLORS = [
+  'bg-blue-500',
+  'bg-green-500',
+  'bg-purple-500',
+  'bg-pink-500',
+  'bg-yellow-500',
+  'bg-indigo-500',
+  'bg-red-500',
+  'bg-teal-500'
+];
+function noteColor(title: string): string {
+  const hash = [...title].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return NOTE_COLORS[hash % NOTE_COLORS.length];
+}
+
 /** One sidebar note: a dnd-kit sortable (for reorder + cross-collection move) that
  *  is simultaneously a drop target for sections being moved between notes. */
 function SortableContainerItem({
@@ -104,6 +120,13 @@ function SortableContainerItem({
         </button>
       )}
 
+      <span
+        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-[11px] font-semibold text-white ${noteColor(container.title)}`}
+        aria-hidden="true"
+      >
+        {(container.title.trim()[0] ?? '•').toUpperCase()}
+      </span>
+
       <InlineEditableTitle
         value={container.title}
         trigger="dblclick"
@@ -151,7 +174,10 @@ export function ContainerSidebar({
   }
 
   async function handleNew() {
-    const created = await createContainer.mutateAsync({ collectionId, title: 'Untitled Note' });
+    const created = await createContainer.mutateAsync({
+      collectionId,
+      title: `New Note ${new Date().toLocaleDateString()}`
+    });
     select(created.id);
   }
 

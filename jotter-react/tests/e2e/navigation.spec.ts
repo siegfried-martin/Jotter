@@ -53,6 +53,8 @@ test.describe('navigation', () => {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
       await expect(page.getByTestId('section-card')).toHaveCount(1);
       await expect(page.getByTestId('section-card-content')).toContainText('deep link content');
+      // Tab title follows the page (prod convention: "<note> - Jotter").
+      await expect(page).toHaveTitle('e2e-note - Jotter');
     } finally {
       await cleanup(page, tree.collectionId);
     }

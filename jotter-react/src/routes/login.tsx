@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { signInWithGoogle, useAuth } from '@/lib/auth/AuthContext';
 import { hasDemoData, initDemoMode } from '@/lib/demo/demoMode';
+import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 
 function mapAuthError(code: string, message: string | null): string {
   switch (code) {
@@ -60,6 +61,8 @@ export function LoginRoute() {
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [hasDemo] = useState(() => hasDemoData());
+
+  useDocumentTitle('');
 
   useEffect(() => {
     if (!loading && user) navigate({ to: '/app' });
