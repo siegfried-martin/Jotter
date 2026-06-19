@@ -66,6 +66,25 @@ export default async function globalSetup(_config: FullConfig) {
     await sb.from('note_section').delete().is('note_container_id', null);
   });
 
+  // Provision the second test user for cross-user sharing tests. A separate page →
+  // its own context, so signing up B doesn't disturb A's saved session. Confirmations
+  // are off on jotter-dev, so the account is immediately usable; ignore "already exists".
+  const page2 = await browser.newPage();
+  await page2.goto(BASE_URL + '/');
+  await page2.waitForFunction(
+    () => Boolean((window as unknown as Record<string, unknown>).__SUPABASE_CLIENT__),
+    null,
+    { timeout: 15000 }
+  );
+  await page2.evaluate(
+    async ({ email, password }) => {
+      const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+      await sb.auth.signUp({ email, password });
+    },
+    { email: 'e2e-tester-2@example.com', password }
+  );
+  await page2.close();
+
   fs.mkdirSync(path.dirname(AUTH_STATE), { recursive: true });
   await page.context().storageState({ path: AUTH_STATE });
   await browser.close();

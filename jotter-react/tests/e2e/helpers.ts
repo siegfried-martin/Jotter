@@ -1,4 +1,48 @@
 import { type Page, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** Second test account for cross-user sharing tests (provisioned in global-setup). */
+export const SECOND_EMAIL = 'e2e-tester-2@example.com';
+
+function envTest(key: string): string | undefined {
+  if (process.env[key]) return process.env[key];
+  try {
+    for (const line of fs.readFileSync(path.resolve('.env.test'), 'utf8').split('\n')) {
+      const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+      if (m && m[1] === key) return m[2];
+    }
+  } catch {
+    /* no .env.test */
+  }
+  return undefined;
+}
+
+/** The shared E2E password (both test users use it). */
+export function e2ePassword(): string {
+  const pw = envTest('E2E_PASSWORD');
+  if (!pw) throw new Error('E2E_PASSWORD missing (.env.test)');
+  return pw;
+}
+
+/** Sign a page's Supabase client in as the given user (for a second-user context). */
+export async function signInAs(page: Page, email: string, password: string): Promise<void> {
+  await page.goto('/');
+  await page.waitForFunction(
+    () => Boolean((window as unknown as Record<string, unknown>).__SUPABASE_CLIENT__),
+    null,
+    { timeout: 15000 }
+  );
+  const err = await page.evaluate(
+    async ({ email, password }) => {
+      const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      return error ? error.message : null;
+    },
+    { email, password }
+  );
+  if (err) throw new Error(`sign-in failed for ${email}: ${err}`);
+}
 
 // ---------------------------------------------------------------------------
 // E2E helpers — seed/cleanup via the app's authed Supabase client

@@ -318,6 +318,14 @@ export function SectionCard({
           .then(showToast)
           .catch(() => showToast('Copy failed'))
     },
+    {
+      label: 'Copy share link',
+      onClick: () =>
+        navigator.clipboard
+          .writeText(`${window.location.origin}/app/sections/${section.id}`)
+          .then(() => showToast('Share link copied'))
+          .catch(() => showToast('Copy failed'))
+    },
     { label: 'Delete', danger: true, onClick: onDelete }
   ];
 
