@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { CodeEditor } from '@/components/editors/CodeEditor';
+import { YCodeEditor } from '@/components/editors/YCodeEditor';
 import { QuillEditor } from '@/components/editors/QuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
@@ -18,6 +18,12 @@ import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { showToast } from '@/lib/ui/toast';
 import { isOnline } from '@/lib/offline/onlineStatus';
+import {
+  acquireCrdtText,
+  releaseCrdtText,
+  destroyCrdtStore,
+  type CrdtHandle
+} from '@/lib/offline/crdtSection';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
 
 const TYPE_TITLE: Record<NoteSection['type'], string> = {
@@ -205,6 +211,34 @@ function clearDraft(id: string) {
   }
 }
 
+/**
+ * Own a section's CRDT document for the lifetime of the editor. `ready` flips true once the
+ * local store has loaded and any first-open seed is applied — render the editor only then,
+ * so its initial content is present. The doc is destroyed on unmount.
+ */
+function useCrdtHandle(section: NoteSection, enabled: boolean) {
+  const [handle, setHandle] = useState<CrdtHandle | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    const h = acquireCrdtText(section);
+    setHandle(h);
+    h.whenReady.then(() => {
+      if (active) setReady(true);
+    });
+    return () => {
+      active = false;
+      releaseCrdtText(section.id);
+    };
+    // section.id is stable for the modal's lifetime (keyed by it upstream).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, section.id]);
+
+  return { handle, ready };
+}
+
 function SectionEditorModal({
   section,
   containerId,
@@ -217,6 +251,12 @@ function SectionEditorModal({
   const update = useUpdateSection();
   const del = useDeleteSection();
   const { user } = useAuth();
+
+  // Code sections are CRDT-backed (slice 3): their text lives in a Yjs doc persisted to
+  // y-indexeddb, so edits are durable the instant they're typed. Other types keep the
+  // controlled-string + localStorage-draft path (wysiwyg joins the CRDT path in slice 3b).
+  const isCrdt = section.type === 'code';
+  const { handle, ready: crdtReady } = useCrdtHandle(section, isCrdt);
 
   const [content, setContent] = useState(() => readDraft(section.id) ?? section.content);
   const [language, setLanguage] = useState(
@@ -235,7 +275,12 @@ function SectionEditorModal({
   const saveAndClose = useCallbackRef(async () => {
     if (saving) return;
     setSaving(true);
-    const updates: Partial<CreateNoteSection> = { content, title: title.trim() || null };
+    // Materialize the CRDT doc to plain content on flush; other types use their state.
+    const nextContent = isCrdt && handle ? handle.text.toString() : content;
+    const updates: Partial<CreateNoteSection> = {
+      content: nextContent,
+      title: title.trim() || null
+    };
     if (section.type === 'code') updates.meta = { ...section.meta, language };
     else if (section.type === 'checklist')
       // Drop blank items on save (e.g. the trailing empty row left after Enter → Escape).
@@ -257,12 +302,16 @@ function SectionEditorModal({
     }
   });
 
-  // Cancel: a section that was never given content gets deleted; otherwise revert
-  // (we never persisted the draft, so just discarding it restores the saved state).
+  // Cancel: a section that was never given content gets deleted. For string-based types we
+  // also revert (the draft was never persisted). CRDT edits are already durable locally, so
+  // Cancel just closes without publishing them to the server (they flush on a later Save).
   const cancel = useCallbackRef(async () => {
-    if (isSectionEmpty(section)) {
+    const emptyNow =
+      isCrdt && handle ? handle.text.length === 0 && !title.trim() : isSectionEmpty(section);
+    if (emptyNow) {
       try {
         await del.mutateAsync({ id: section.id, containerId });
+        if (isCrdt) await destroyCrdtStore(section.id);
       } catch (e) {
         console.error('Failed to delete empty section:', e);
       }
@@ -307,14 +356,19 @@ function SectionEditorModal({
             <SectionFiling section={section} />
           </div>
           <div className="min-h-0 flex-1">
-            {section.type === 'code' && (
-              <CodeEditor
-                content={content}
-                language={language}
-                onContentChange={handleContentChange}
-                onLanguageChange={setLanguage}
-              />
-            )}
+            {section.type === 'code' &&
+              (crdtReady && handle ? (
+                <YCodeEditor
+                  text={handle.text}
+                  awareness={handle.awareness}
+                  language={language}
+                  onLanguageChange={setLanguage}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                  Loading…
+                </div>
+              ))}
             {section.type === 'wysiwyg' && (
               <QuillEditor initial={content} onChange={handleContentChange} />
             )}

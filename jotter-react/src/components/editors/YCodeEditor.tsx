@@ -1,39 +1,27 @@
-import { CodeMirrorEditor } from './CodeMirrorEditor';
+import type * as Y from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
+import { YCodeMirrorEditor } from './YCodeMirrorEditor';
+import { LANGUAGES } from './codeLanguages';
 
-// Order + labels mirror the Svelte CodeEditor's dropdown.
-const LANGUAGES: { value: string; label: string }[] = [
-  { value: 'plaintext', label: 'Plain Text (Pseudocode)' },
-  { value: 'javascript', label: 'JavaScript' },
-  { value: 'typescript', label: 'TypeScript' },
-  { value: 'python', label: 'Python' },
-  { value: 'html', label: 'HTML' },
-  { value: 'css', label: 'CSS' },
-  { value: 'json', label: 'JSON' },
-  { value: 'sql', label: 'SQL' },
-  { value: 'rust', label: 'Rust' },
-  { value: 'cpp', label: 'C++' },
-  { value: 'java', label: 'Java' },
-  { value: 'php', label: 'PHP' },
-  { value: 'xml', label: 'XML' },
-  { value: 'markdown', label: 'Markdown' }
-];
-
-/** Code section editor: CodeMirror fills the height; language selector sits in a bottom bar. */
-export function CodeEditor({
-  content,
+/**
+ * Yjs-backed code section editor — same layout as CodeEditor, but the text lives in a
+ * shared Y.Text (durable via y-indexeddb) instead of a controlled string.
+ */
+export function YCodeEditor({
+  text,
+  awareness,
   language,
-  onContentChange,
   onLanguageChange
 }: {
-  content: string;
+  text: Y.Text;
+  awareness: Awareness;
   language: string;
-  onContentChange: (content: string) => void;
   onLanguageChange: (language: string) => void;
 }) {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <CodeMirrorEditor initial={content} language={language} onChange={onContentChange} />
+        <YCodeMirrorEditor text={text} awareness={awareness} language={language} />
       </div>
       <div className="flex flex-shrink-0 items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
         <label htmlFor="code-language" className="text-sm font-medium text-slate-600">
