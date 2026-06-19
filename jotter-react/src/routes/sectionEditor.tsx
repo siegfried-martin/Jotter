@@ -215,6 +215,7 @@ function SectionEditorModal({
 }) {
   const update = useUpdateSection();
   const del = useDeleteSection();
+  const { user } = useAuth();
 
   const [content, setContent] = useState(() => readDraft(section.id) ?? section.content);
   const [language, setLanguage] = useState(
@@ -239,6 +240,12 @@ function SectionEditorModal({
       // Drop blank items on save (e.g. the trailing empty row left after Enter → Escape).
       updates.checklist_data = checklistData.filter((it) => it.text.trim() !== '');
     try {
+      // Guarantee write access first: editing a section you don't own joins you to it
+      // (idempotent / no-op if you already can write). Covers every way you opened the
+      // editor and removes the open-then-save race that caused RLS 406s.
+      if (user && section.user_id !== user.id) {
+        await SectionService.openSharedSection(section.id);
+      }
       await update.mutateAsync({ id: section.id, containerId, updates });
       clearDraft(section.id);
       onClose();

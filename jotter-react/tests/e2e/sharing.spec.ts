@@ -3,6 +3,7 @@ import {
   SECOND_EMAIL,
   cleanup,
   e2ePassword,
+  fetchSectionTitle,
   gotoAppForSeeding,
   seedTree,
   signInAs
@@ -30,6 +31,11 @@ test.describe('section sharing', () => {
       await pageB.goto(`/app/sections/${sectionId}`);
       await expect(pageB.locator('.cm-content')).toContainText('shared secret content');
       await expect(pageB.getByText('Added to your notes')).toBeVisible();
+
+      // B (now a contributor) edits and saves — the write path that used to RLS-406.
+      await pageB.getByPlaceholder('Untitled section').fill('edited by B');
+      await pageB.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect.poll(() => fetchSectionTitle(pageB, sectionId)).toBe('edited by B');
 
       // The section now appears in B's accessible recent feed.
       const inFeed = await pageB.evaluate(async (sid) => {
