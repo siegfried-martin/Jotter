@@ -15,6 +15,38 @@ export function useSections(containerId: string | null | undefined) {
   });
 }
 
+/** A single section by id — used by the flat editor route for unfiled sections. */
+export function useSection(sectionId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.section(sectionId ?? ''),
+    queryFn: () => SectionService.getSection(sectionId as string),
+    enabled: !!sectionId
+  });
+}
+
+/** Recently-updated sections for the home feed (parented or unfiled). */
+export function useRecentSections(limit = 30) {
+  return useQuery({
+    queryKey: queryKeys.recentSections(),
+    queryFn: () => SectionService.getRecentSections(limit)
+  });
+}
+
+/** Create an unparented "quick jot" section (no container) from the home page. */
+export function useCreateUnparentedSection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<CreateNoteSection, 'note_container_id' | 'sequence'>) =>
+      SectionService.createSection({ ...input, note_container_id: null, sequence: 0 }),
+    onSuccess: (created) => {
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old ? [created, ...old] : [created]
+      );
+      qc.setQueryData(queryKeys.section(created.id), created);
+    }
+  });
+}
+
 export function useCreateSection() {
   const qc = useQueryClient();
   return useMutation({

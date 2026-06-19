@@ -6,5 +6,7 @@ export const queryKeys = {
   collection: (id: string) => ['collection', id] as const,
   containers: (collectionId: string) => ['containers', collectionId] as const,
   sections: (containerId: string) => ['sections', containerId] as const,
+  section: (sectionId: string) => ['section', sectionId] as const,
+  recentSections: () => ['recentSections'] as const,
   userPreferences: () => ['userPreferences'] as const
 };

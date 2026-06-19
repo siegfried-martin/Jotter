@@ -70,7 +70,7 @@ export interface CreateNoteContainer {
 }
 
 export interface CreateNoteSection {
-  note_container_id: string;
+  note_container_id: string | null; // nullable since migration 0001 (unparented "quick jot" sections, #2)
   type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
   title?: string | null; // NEW: Optional title field
   content: string;

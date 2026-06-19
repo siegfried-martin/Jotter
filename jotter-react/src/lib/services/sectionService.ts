@@ -40,9 +40,12 @@ export class SectionService {
     const user = await getAuthenticatedUser();
     if (!user) throw new Error('User not authenticated');
 
-    // Get next sequence if not provided
+    // Get next sequence if not provided. Unparented ("quick jot") sections have no
+    // container to scope a sequence to, so they default to 0 (the recent list orders
+    // by updated_at, not sequence).
     const sequence =
-      section.sequence ?? (await getNextNoteSectionSequence(section.note_container_id));
+      section.sequence ??
+      (section.note_container_id ? await getNextNoteSectionSequence(section.note_container_id) : 0);
 
     const newSection = {
       ...section,
@@ -66,9 +69,35 @@ export class SectionService {
       section.meta && typeof section.meta === 'object' && 'language' in section.meta
         ? String(section.meta.language)
         : undefined;
-    EventLogService.logSectionCreated(data.id, section.note_container_id, section.type, language);
+    EventLogService.logSectionCreated(
+      data.id,
+      section.note_container_id ?? '',
+      section.type,
+      language
+    );
 
     return data;
+  }
+
+  /** Recently-updated sections for the current user (parented or unfiled) — the home feed. */
+  static async getRecentSections(limit = 30): Promise<NoteSection[]> {
+    if (isDemoMode()) return [];
+
+    const user = await getAuthenticatedUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('note_section')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error loading recent sections:', error);
+      throw error;
+    }
+    return data ?? [];
   }
 
   // Update section content - NOW SUPPORTS SEQUENCE UPDATES
