@@ -15,11 +15,23 @@ export function useContainers(collectionId: string | null | undefined) {
   });
 }
 
+/** A single container by id — used by the editor's "filed in" breadcrumb. */
+export function useContainer(containerId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.containerById(containerId ?? ''),
+    queryFn: () => NoteService.getNoteContainer(containerId as string),
+    enabled: !!containerId
+  });
+}
+
 export function useCreateContainer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ collectionId, title }: { collectionId: string; title?: string }) =>
-      NoteService.createSimpleNoteContainer(collectionId, title ?? 'Untitled Note'),
+      NoteService.createSimpleNoteContainer(
+        collectionId,
+        title ?? `New Note ${new Date().toLocaleDateString()}`
+      ),
     onSuccess: (created, { collectionId }) => {
       qc.setQueryData<NoteContainer[]>(queryKeys.containers(collectionId), (old) =>
         sortBySequence(old ? [...old, created] : [created])

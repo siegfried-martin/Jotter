@@ -6,7 +6,9 @@ import { QuillEditor } from '@/components/editors/QuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
-import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
+import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
+import { useContainer } from '@/lib/data/useContainers';
+import { SectionFiling } from '@/components/sections/SectionFiling';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
@@ -33,8 +35,9 @@ function SectionEditor() {
   const sectionId = params.sectionId as string;
 
   const navigate = useNavigate();
-  const { data: sections, isPending } = useSections(containerId);
-  const section = sections?.find((s) => s.id === sectionId) ?? null;
+  // Read by id (not via the container list) so reassigning the section from inside
+  // the editor stays coherent. The URL container is only the close destination.
+  const { data: section, isPending } = useSection(sectionId);
 
   const close = useCallbackRef(() =>
     navigate({
@@ -68,7 +71,69 @@ function SectionEditor() {
     <SectionEditorModal
       key={section.id}
       section={section}
-      containerId={containerId}
+      containerId={section.note_container_id ?? ''}
+      onClose={() => close()}
+    />
+  );
+}
+
+/**
+ * Flat editor route (/app/sections/$sectionId) — opens any section by id, filed or
+ * unfiled, from the home recent feed or a quick jot. Closes back to the home page.
+ */
+export function FlatSectionEditorRoute() {
+  return (
+    <RequireAuth>
+      <FlatSectionEditor />
+    </RequireAuth>
+  );
+}
+
+function FlatSectionEditor() {
+  const params = useParams({ strict: false });
+  const sectionId = params.sectionId as string;
+  const navigate = useNavigate();
+  const { data: section, isPending } = useSection(sectionId);
+  const { data: container } = useContainer(section?.note_container_id);
+
+  // A filed note closes back to its container page; an unfiled jot closes to home.
+  const close = useCallbackRef(() => {
+    if (section?.note_container_id && container?.collection_id) {
+      navigate({
+        to: '/app/collections/$collectionId/containers/$containerId',
+        params: { collectionId: container.collection_id, containerId: section.note_container_id }
+      });
+    } else {
+      navigate({ to: '/app' });
+    }
+  });
+
+  useDocumentTitle(section?.title?.trim() || (section ? TYPE_TITLE[section.type] : 'Section'));
+
+  if (isPending && !section) {
+    return <Backdrop onClick={() => close()}>Loading section…</Backdrop>;
+  }
+  if (!section) {
+    return (
+      <Backdrop onClick={() => close()}>
+        <div className="text-center">
+          <p className="mb-4 text-red-600">Section not found</p>
+          <button
+            onClick={() => close()}
+            className="rounded-lg bg-slate-500 px-6 py-2 text-white hover:bg-slate-600"
+          >
+            Go back
+          </button>
+        </div>
+      </Backdrop>
+    );
+  }
+
+  return (
+    <SectionEditorModal
+      key={section.id}
+      section={section}
+      containerId={section.note_container_id ?? ''}
       onClose={() => close()}
     />
   );
@@ -199,12 +264,15 @@ function SectionEditorModal({
         style={{ width: '95vw', height: '90vh' }}
       >
         <div className="flex flex-1 flex-col overflow-hidden p-6">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Untitled section"
-            className="mb-4 w-full flex-shrink-0 border-b border-slate-200 bg-transparent pb-2 text-lg font-semibold text-slate-800 focus:border-blue-400 focus:outline-none"
-          />
+          <div className="mb-4 flex flex-shrink-0 items-center gap-4 border-b border-slate-200 pb-2">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Untitled section"
+              className="min-w-0 flex-1 bg-transparent text-lg font-semibold text-slate-800 focus:outline-none"
+            />
+            <SectionFiling section={section} />
+          </div>
           <div className="min-h-0 flex-1">
             {section.type === 'code' && (
               <CodeEditor

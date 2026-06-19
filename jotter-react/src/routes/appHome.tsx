@@ -11,6 +11,8 @@ import {
 } from '@/lib/data/useCollections';
 import { preloadAppData } from '@/lib/data/preload';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
+import { QuickJotBar } from '@/components/home/QuickJotBar';
+import { RecentNotes } from '@/components/home/RecentNotes';
 import { CollectionCard, type CollectionSaveInput } from '@/components/collections/CollectionCard';
 import { CollectionCreateCard } from '@/components/collections/CollectionCreateCard';
 
@@ -57,6 +59,9 @@ function CollectionsHome() {
       </AppHeader>
 
       <div className="mx-auto max-w-6xl p-6">
+        <QuickJotBar />
+
+        <h2 className="mb-1 text-sm font-semibold text-slate-500">Collections</h2>
         <p className="mb-4 text-sm text-slate-500">
           {isPending ? 'Loading…' : `${collections?.length ?? 0} collection(s)`}
         </p>
@@ -86,6 +91,8 @@ function CollectionsHome() {
             />
           </div>
         )}
+
+        <RecentNotes />
       </div>
     </div>
   );

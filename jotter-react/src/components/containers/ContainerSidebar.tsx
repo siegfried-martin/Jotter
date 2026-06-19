@@ -174,10 +174,8 @@ export function ContainerSidebar({
   }
 
   async function handleNew() {
-    const created = await createContainer.mutateAsync({
-      collectionId,
-      title: `New Note ${new Date().toLocaleDateString()}`
-    });
+    // Default title ("New Note <date>") is provided by useCreateContainer.
+    const created = await createContainer.mutateAsync({ collectionId });
     select(created.id);
   }
 

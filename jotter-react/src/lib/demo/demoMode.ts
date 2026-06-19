@@ -174,7 +174,7 @@ export interface DemoContainer {
 
 export interface DemoSection {
   id: string;
-  note_container_id: string;
+  note_container_id: string | null;
   user_id: string;
   type: string;
   title: string | null;

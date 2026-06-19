@@ -15,6 +15,38 @@ export function useSections(containerId: string | null | undefined) {
   });
 }
 
+/** A single section by id — used by the flat editor route for unfiled sections. */
+export function useSection(sectionId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.section(sectionId ?? ''),
+    queryFn: () => SectionService.getSection(sectionId as string),
+    enabled: !!sectionId
+  });
+}
+
+/** Recently-updated sections for the home feed (parented or unfiled). */
+export function useRecentSections(limit = 30) {
+  return useQuery({
+    queryKey: queryKeys.recentSections(),
+    queryFn: () => SectionService.getRecentSections(limit)
+  });
+}
+
+/** Create an unparented "quick jot" section (no container) from the home page. */
+export function useCreateUnparentedSection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<CreateNoteSection, 'note_container_id' | 'sequence'>) =>
+      SectionService.createSection({ ...input, note_container_id: null, sequence: 0 }),
+    onSuccess: (created) => {
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old ? [created, ...old] : [created]
+      );
+      qc.setQueryData(queryKeys.section(created.id), created);
+    }
+  });
+}
+
 export function useCreateSection() {
   const qc = useQueryClient();
   return useMutation({
@@ -47,6 +79,15 @@ export function useUpdateSection() {
       qc.setQueryData<NoteSection[]>(queryKeys.sections(containerId), (old) =>
         old?.map((s) => (s.id === updated.id ? updated : s))
       );
+      // Keep the flat-editor (section) + home-feed (recentSections) caches coherent.
+      qc.setQueryData(queryKeys.section(updated.id), updated);
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old
+          ? old
+              .map((s) => (s.id === updated.id ? updated : s))
+              .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
+          : old
+      );
     }
   });
 }
@@ -58,13 +99,21 @@ export function useDeleteSection() {
     onMutate: async ({ id, containerId }) => {
       await qc.cancelQueries({ queryKey: queryKeys.sections(containerId) });
       const prev = qc.getQueryData<NoteSection[]>(queryKeys.sections(containerId));
+      const prevRecent = qc.getQueryData<NoteSection[]>(queryKeys.recentSections());
       qc.setQueryData<NoteSection[]>(queryKeys.sections(containerId), (old) =>
         old?.filter((s) => s.id !== id)
       );
-      return { prev };
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old?.filter((s) => s.id !== id)
+      );
+      return { prev, prevRecent };
     },
     onError: (_err, { containerId }, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKeys.sections(containerId), ctx.prev);
+      if (ctx?.prevRecent) qc.setQueryData(queryKeys.recentSections(), ctx.prevRecent);
+    },
+    onSettled: (_data, _err, { id }) => {
+      qc.removeQueries({ queryKey: queryKeys.section(id) });
     }
   });
 }
@@ -131,6 +180,11 @@ export function useMoveSectionToContainer() {
     onSuccess: (moved, { toContainerId }) => {
       qc.setQueryData<NoteSection[]>(queryKeys.sections(toContainerId), (old) =>
         old ? sortBySequence([...old.filter((s) => s.id !== moved.id), moved]) : old
+      );
+      // Keep the flat editor + home feed coherent (the section's container changed).
+      qc.setQueryData(queryKeys.section(moved.id), moved);
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old?.map((s) => (s.id === moved.id ? moved : s))
       );
     },
     onSettled: (_data, _err, { toContainerId }) => {

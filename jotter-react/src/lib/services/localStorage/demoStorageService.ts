@@ -147,7 +147,9 @@ export class DemoCollectionService {
     } else {
       // Delete containers and their sections
       const containerIds = data.containers.filter((c) => c.collection_id === id).map((c) => c.id);
-      data.sections = data.sections.filter((s) => !containerIds.includes(s.note_container_id));
+      data.sections = data.sections.filter(
+        (s) => s.note_container_id === null || !containerIds.includes(s.note_container_id)
+      );
       data.containers = data.containers.filter((c) => c.collection_id !== id);
     }
 
@@ -489,7 +491,7 @@ export class DemoSectionService {
         : undefined;
     EventLogService.logSectionCreated(
       newSection.id,
-      section.note_container_id,
+      section.note_container_id ?? '',
       section.type,
       language
     );
@@ -619,7 +621,7 @@ export class DemoSectionService {
     }
 
     // Get original container for logging
-    const fromContainerId = data.sections[index].note_container_id;
+    const fromContainerId = data.sections[index].note_container_id ?? '';
 
     data.sections[index].note_container_id = newContainerId;
     data.sections[index].updated_at = now;

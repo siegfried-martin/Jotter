@@ -11,6 +11,9 @@ import { SettingsRoute } from '@/routes/settings';
 const SectionEditorRoute = lazy(() =>
   import('@/routes/sectionEditor').then((m) => ({ default: m.SectionEditorRoute }))
 );
+const FlatSectionEditorRoute = lazy(() =>
+  import('@/routes/sectionEditor').then((m) => ({ default: m.FlatSectionEditorRoute }))
+);
 
 function EditorFallback() {
   return (
@@ -70,11 +73,22 @@ const sectionRoute = createRoute({
   )
 });
 
+const flatSectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/app/sections/$sectionId',
+  component: () => (
+    <Suspense fallback={<EditorFallback />}>
+      <FlatSectionEditorRoute />
+    </Suspense>
+  )
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authCallbackRoute,
   appRoute,
   settingsRoute,
+  flatSectionRoute,
   collectionRoute,
   containerRoute,
   sectionRoute
