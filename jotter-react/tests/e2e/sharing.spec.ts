@@ -4,6 +4,7 @@ import {
   cleanup,
   e2ePassword,
   fetchCollectionName,
+  fetchSectionContainerId,
   fetchSectionTitle,
   gotoAppForSeeding,
   seedTree,
@@ -135,6 +136,47 @@ test.describe('section sharing', () => {
       await leaveAs(pageB, collId).catch(() => {}); // ensure GC even on failure
       await ctxB.close();
       await cleanup(page, collId);
+    }
+  });
+
+  test('deleting a section shared with you only dismisses it; the owner keeps it', async ({
+    page,
+    browser
+  }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-dismiss',
+      sections: [{ type: 'code', content: 'keep me', sequence: 10 }]
+    });
+    const sectionId = tree.sections[0].id;
+
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await signInAs(pageB, SECOND_EMAIL, e2ePassword());
+    try {
+      // B opens the section link → joins as a direct member (not a collection member).
+      await pageB.goto(`/app/sections/${sectionId}`);
+      await expect(pageB.getByText('Added to your notes')).toBeVisible();
+
+      // B "deletes" it → dismiss (removes B's membership), not a real delete.
+      await pageB.evaluate(async (sid) => {
+        const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+        await sb.rpc('leave_section', { p_section_id: sid });
+      }, sectionId);
+
+      // Gone from B's feed…
+      const inB = await pageB.evaluate(async (sid) => {
+        const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+        const { data } = await sb.rpc('get_recent_sections', { p_limit: 50 });
+        return (data as { id: string }[]).some((s) => s.id === sid);
+      }, sectionId);
+      expect(inB).toBe(false);
+
+      // …but A still has it, still filed in their collection.
+      expect(await fetchSectionContainerId(page, sectionId)).toBe(tree.containerId);
+    } finally {
+      await ctxB.close();
+      await cleanup(page, tree.collectionId);
     }
   });
 });

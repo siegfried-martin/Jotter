@@ -185,19 +185,13 @@ export class SectionService {
       return DemoSectionService.deleteSection(id);
     }
 
-    // Get section type for logging before deletion
-    const section = await this.getSection(id);
-    const sectionType = section?.type ?? 'unknown';
-
-    const { error } = await supabase.from('note_section').delete().eq('id', id);
-
+    // "Delete" respects shared ownership: a contributor deletes the shared section; a
+    // direct share is merely dismissed (membership removed), GC'd only if orphaned.
+    const { error } = await supabase.rpc('leave_section', { p_section_id: id });
     if (error) {
-      console.error('Error deleting section:', error);
+      console.error('Error leaving/deleting section:', error);
       throw error;
     }
-
-    // Log event
-    EventLogService.logSectionDeleted(id, sectionType);
   }
 
   // Get single section (for edit page)
