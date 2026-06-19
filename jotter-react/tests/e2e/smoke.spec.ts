@@ -5,7 +5,7 @@ import { countCollectionsNamed } from './helpers';
 
 test('authenticated app loads the collections grid', { tag: '@smoke' }, async ({ page }) => {
   await page.goto('/app');
-  await expect(page.getByText('Collections', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Collections' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create New Collection' })).toBeVisible();
 });
 

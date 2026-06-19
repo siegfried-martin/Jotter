@@ -6,7 +6,12 @@ import { QuillEditor } from '@/components/editors/QuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
-import { useDeleteSection, useSections, useUpdateSection } from '@/lib/data/useSections';
+import {
+  useDeleteSection,
+  useSection,
+  useSections,
+  useUpdateSection
+} from '@/lib/data/useSections';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
@@ -69,6 +74,57 @@ function SectionEditor() {
       key={section.id}
       section={section}
       containerId={containerId}
+      onClose={() => close()}
+    />
+  );
+}
+
+/**
+ * Flat editor route (/app/sections/$sectionId) — opens any section by id, filed or
+ * unfiled, from the home recent feed or a quick jot. Closes back to the home page.
+ */
+export function FlatSectionEditorRoute() {
+  return (
+    <RequireAuth>
+      <FlatSectionEditor />
+    </RequireAuth>
+  );
+}
+
+function FlatSectionEditor() {
+  const params = useParams({ strict: false });
+  const sectionId = params.sectionId as string;
+  const navigate = useNavigate();
+  const { data: section, isPending } = useSection(sectionId);
+
+  const close = useCallbackRef(() => navigate({ to: '/app' }));
+
+  useDocumentTitle(section?.title?.trim() || (section ? TYPE_TITLE[section.type] : 'Section'));
+
+  if (isPending && !section) {
+    return <Backdrop onClick={() => close()}>Loading section…</Backdrop>;
+  }
+  if (!section) {
+    return (
+      <Backdrop onClick={() => close()}>
+        <div className="text-center">
+          <p className="mb-4 text-red-600">Section not found</p>
+          <button
+            onClick={() => close()}
+            className="rounded-lg bg-slate-500 px-6 py-2 text-white hover:bg-slate-600"
+          >
+            Go back
+          </button>
+        </div>
+      </Backdrop>
+    );
+  }
+
+  return (
+    <SectionEditorModal
+      key={section.id}
+      section={section}
+      containerId={section.note_container_id ?? ''}
       onClose={() => close()}
     />
   );

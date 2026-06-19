@@ -79,6 +79,15 @@ export function useUpdateSection() {
       qc.setQueryData<NoteSection[]>(queryKeys.sections(containerId), (old) =>
         old?.map((s) => (s.id === updated.id ? updated : s))
       );
+      // Keep the flat-editor (section) + home-feed (recentSections) caches coherent.
+      qc.setQueryData(queryKeys.section(updated.id), updated);
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old
+          ? old
+              .map((s) => (s.id === updated.id ? updated : s))
+              .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
+          : old
+      );
     }
   });
 }
@@ -90,13 +99,21 @@ export function useDeleteSection() {
     onMutate: async ({ id, containerId }) => {
       await qc.cancelQueries({ queryKey: queryKeys.sections(containerId) });
       const prev = qc.getQueryData<NoteSection[]>(queryKeys.sections(containerId));
+      const prevRecent = qc.getQueryData<NoteSection[]>(queryKeys.recentSections());
       qc.setQueryData<NoteSection[]>(queryKeys.sections(containerId), (old) =>
         old?.filter((s) => s.id !== id)
       );
-      return { prev };
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old?.filter((s) => s.id !== id)
+      );
+      return { prev, prevRecent };
     },
     onError: (_err, { containerId }, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKeys.sections(containerId), ctx.prev);
+      if (ctx?.prevRecent) qc.setQueryData(queryKeys.recentSections(), ctx.prevRecent);
+    },
+    onSettled: (_data, _err, { id }) => {
+      qc.removeQueries({ queryKey: queryKeys.section(id) });
     }
   });
 }
