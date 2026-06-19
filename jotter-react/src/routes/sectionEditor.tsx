@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
@@ -265,16 +265,21 @@ function SectionEditorModal({
   const [checklistData, setChecklistData] = useState<ChecklistItem[]>(section.checklist_data ?? []);
   const [title, setTitle] = useState(section.title ?? '');
   const [saving, setSaving] = useState(false);
+  // A concurrent edit detected on save (LWW types only) — drives the conflict dialog.
+  const [conflict, setConflict] = useState<NoteSection | null>(null);
+
+  const qc = useQueryClient();
+  // The server timestamp we loaded; a mismatch on save means someone else changed it.
+  const baseUpdatedAt = useRef(section.updated_at);
+  // The pending updates, stashed while the conflict dialog is open.
+  const pendingUpdates = useRef<Partial<CreateNoteSection>>({});
 
   function handleContentChange(next: string) {
     setContent(next);
     writeDraft(section.id, next);
   }
 
-  // Save & close (Save button, Escape, Ctrl/Cmd+S, click-outside).
-  const saveAndClose = useCallbackRef(async () => {
-    if (saving) return;
-    setSaving(true);
+  function buildUpdates(): Partial<CreateNoteSection> {
     // Materialize on flush: code reads its plain Y.Text; wysiwyg uses the live HTML kept by
     // the editor's onChange (its Y.Text holds deltas, not HTML); other types use their state.
     const nextContent = section.type === 'code' && handle ? handle.text.toString() : content;
@@ -286,11 +291,15 @@ function SectionEditorModal({
     else if (section.type === 'checklist')
       // Drop blank items on save (e.g. the trailing empty row left after Enter → Escape).
       updates.checklist_data = checklistData.filter((it) => it.text.trim() !== '');
+    return updates;
+  }
+
+  // The actual write + close. CRDT merge handles concurrent edits for code/wysiwyg; LWW
+  // types (checklist/diagram) are guarded by the conflict pre-check in saveAndClose.
+  async function performSave(updates: Partial<CreateNoteSection>) {
     try {
       // Guarantee write access first: editing a section you don't own joins you to it
-      // (idempotent / no-op if you already can write). Covers every way you opened the
-      // editor and removes the open-then-save race that caused RLS 406s. Skipped offline —
-      // the RPC can't run; the save itself queues and reconciles on reconnect.
+      // (idempotent / no-op if you already can write). Skipped offline — the save queues.
       if (user && section.user_id !== user.id && isOnline()) {
         await SectionService.openSharedSection(section.id);
       }
@@ -301,6 +310,64 @@ function SectionEditorModal({
       console.error('Failed to save section:', e);
       setSaving(false);
     }
+  }
+
+  // Save & close (Save button, Escape, Ctrl/Cmd+S, click-outside).
+  const saveAndClose = useCallbackRef(async () => {
+    if (saving || conflict) return;
+    setSaving(true);
+    const updates = buildUpdates();
+    // LWW types: if the section changed under us since we opened it, don't silently
+    // overwrite — surface the choice. (CRDT types merge, so they skip this.)
+    const isLww = section.type === 'checklist' || section.type === 'diagram';
+    if (isLww && isOnline()) {
+      const current = await SectionService.getSection(section.id).catch(() => null);
+      if (current && current.updated_at !== baseUpdatedAt.current) {
+        pendingUpdates.current = updates;
+        setConflict(current);
+        setSaving(false);
+        return;
+      }
+    }
+    await performSave(updates);
+  });
+
+  // Conflict dialog actions.
+  const overwriteConflict = useCallbackRef(async () => {
+    setConflict(null);
+    setSaving(true);
+    await performSave(pendingUpdates.current);
+  });
+  const saveConflictAsCopy = useCallbackRef(async () => {
+    setConflict(null);
+    setSaving(true);
+    try {
+      const u = pendingUpdates.current;
+      await SectionService.createSection({
+        note_container_id: section.note_container_id,
+        type: section.type,
+        content: u.content ?? '',
+        title: u.title ?? null,
+        meta: u.meta,
+        checklist_data: u.checklist_data
+      });
+      qc.invalidateQueries({ queryKey: queryKeys.sections(containerId) });
+      qc.invalidateQueries({ queryKey: queryKeys.recentSections() });
+      clearDraft(section.id);
+      onClose();
+    } catch (e) {
+      console.error('Failed to save a copy:', e);
+      setSaving(false);
+    }
+  });
+  const discardConflict = useCallbackRef(() => {
+    setConflict(null);
+    // Drop our edits and reload the other person's version.
+    qc.invalidateQueries({ queryKey: queryKeys.section(section.id) });
+    qc.invalidateQueries({ queryKey: queryKeys.sections(containerId) });
+    qc.invalidateQueries({ queryKey: queryKeys.recentSections() });
+    clearDraft(section.id);
+    onClose();
   });
 
   // Cancel: a section that was never given content gets deleted. For string-based types we
@@ -410,6 +477,44 @@ function SectionEditorModal({
           </button>
         </div>
       </div>
+
+      {conflict && (
+        <div
+          data-testid="conflict-dialog"
+          onClick={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <h2 className="mb-2 text-lg font-semibold text-slate-900">
+              This note changed while you were editing
+            </h2>
+            <p className="mb-5 text-sm text-slate-600">
+              Someone else saved it since you opened it. Saving now would overwrite their changes.
+              You can keep both by saving yours as a copy.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => saveConflictAsCopy()}
+                className="rounded-lg bg-blue-500 px-4 py-2 font-medium text-white hover:bg-blue-600"
+              >
+                Save as a copy
+              </button>
+              <button
+                onClick={() => overwriteConflict()}
+                className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Overwrite their changes
+              </button>
+              <button
+                onClick={() => discardConflict()}
+                className="rounded-lg px-4 py-2 font-medium text-slate-500 hover:bg-slate-100"
+              >
+                Discard mine &amp; keep theirs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

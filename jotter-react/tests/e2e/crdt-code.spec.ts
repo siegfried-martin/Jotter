@@ -30,7 +30,7 @@ test.describe('CRDT code editor', () => {
       // persists immediately. Do NOT save.
       await page.locator('.cm-content').click();
       await page.keyboard.press('Control+End');
-      await page.keyboard.type(' XYZ123');
+      await page.keyboard.type('XYZ123', { delay: 60 });
       await expect(page.locator('.cm-content')).toContainText('XYZ123');
 
       // Server still has only the seed — the edit hasn't been published.
