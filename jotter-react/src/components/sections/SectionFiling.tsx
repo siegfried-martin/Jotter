@@ -65,8 +65,7 @@ export function SectionFiling({ section }: { section: NoteSection }) {
   const recentContainers = [...(containersInCollection ?? [])].sort(byRecent).slice(0, 10);
 
   return (
-    <div ref={ref} className="relative mb-3 flex items-center gap-1 text-xs">
-      <span className="mr-1 text-slate-400">Filed in</span>
+    <div ref={ref} className="relative flex flex-shrink-0 items-center gap-1 text-xs">
       <button
         data-testid="filing-collection"
         onClick={() => setMenu(menu === 'collection' ? null : 'collection')}
@@ -89,7 +88,7 @@ export function SectionFiling({ section }: { section: NoteSection }) {
       </button>
 
       {menu === 'collection' && (
-        <div className="absolute top-full left-12 z-50 mt-1 max-h-60 w-56 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        <div className="absolute top-full right-0 z-50 mt-1 max-h-60 w-56 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {collections?.length ? (
             collections.map((c) => (
               <button
@@ -106,7 +105,7 @@ export function SectionFiling({ section }: { section: NoteSection }) {
         </div>
       )}
       {menu === 'container' && (
-        <div className="absolute top-full left-28 z-50 mt-1 max-h-60 w-56 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        <div className="absolute top-full right-0 z-50 mt-1 max-h-60 w-56 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {recentContainers.length ? (
             recentContainers.map((c) => (
               <button
