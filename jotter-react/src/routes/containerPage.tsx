@@ -16,6 +16,7 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { AppHeader } from '@/components/AppHeader';
 import { ContainerSidebar } from '@/components/containers/ContainerSidebar';
@@ -234,9 +235,10 @@ function ContainerPage() {
         </div>
       </div>
 
-      {/* Compact title-only preview that tracks the cursor; no drop animation so the
-          card doesn't fly to the top and back. */}
-      <DragOverlay dropAnimation={null}>
+      {/* Compact title-only preview centered on the cursor (snapCenterToCursor), so it
+          sits at the mouse no matter where on the card you grabbed; no drop animation
+          so the card doesn't fly to the top and back. */}
+      <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
         {activeDrag ? <DragPreview data={activeDrag} /> : null}
       </DragOverlay>
     </DndContext>
