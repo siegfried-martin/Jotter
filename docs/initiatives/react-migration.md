@@ -1,7 +1,32 @@
 # Initiative: Migrate Jotter from Svelte to React
 
-**Status**: Planned / Not Started
+**Status**: In Progress — Phases 0–4 substantially built (basic editors); next: real editors + DnD
 **Priority**: High (blocks the new feature roadmap)
+
+> ### Progress log — 2026-06-17
+> The React app (`jotter-react/`) is a **runnable, navigable, CRUD-capable slice**, tested
+> against **jotter-dev** with real Google OAuth (owner signed in; a real collection + an
+> `event_log` row were created and verified via direct psql). Built so far:
+> - **Scaffold** (Vite + React + TS strict + Tailwind v4 + TanStack Router/Query) — Phase 0.
+> - **Service layer** ported framework-neutral (collection/note/section/user/sequence/
+>   eventLog + the localStorage demo backend); `isDemoMode()` abstracted — Phase 1.
+> - **Data layer** on TanStack Query (cache-as-database): read hooks, optimistic CRUD
+>   mutations + rollback, `preloadAppData()` — Phase 1.
+> - **DB**: `0000_prod_baseline.sql` (prod public schema) applied to dev; `0001` made
+>   `note_container_id` nullable. Tooling: pg_dump17/psql17 + `~/.pgpass` (see `supabase/README.md`).
+> - **Auth shell**: login (Google + demo), `/auth/callback`, `RequireAuth` guard — Phase 2.
+> - **Collections grid** (create/delete/navigate) + **container page** (sidebar:
+>   create/rename/delete/select; section grid) + **section editor** with per-type editors
+>   (autosave) + inline rename — Phases 3–4.
+>
+> **Editors are functional placeholders** (mono textarea / contentEditable / custom
+> checklist / diagram stub) — **real CodeMirror, Quill, Excalidraw are NOT yet wired**.
+> **Not started:** DnD (Phase 5), Load More, demo→cloud migration prompt, Playwright
+> against the React app, performance/parity hardening (Phases 5–7). UI is approximate, not
+> a faithful visual port of the Svelte styling yet.
+>
+> **Run it:** `cd jotter-react && npm run dev` → http://localhost:5174 (demo needs no setup;
+> Google login uses jotter-dev). Branch: `feat/react-scaffold`.
 **Owner decision date**: 2026-06-16
 **Goal**: Re-platform the existing, working Jotter app from SvelteKit (Svelte 5) to React,
 preserving 100% of current behavior, using the Playwright E2E suite as the acceptance
@@ -52,14 +77,51 @@ So React is literally executing in production today to host the diagram editor.
 
 ---
 
-## Target Stack (proposed — confirm before Phase 0)
+## Rollout Sequence & Environments (locked 2026-06-16)
+
+The owner set the binding release plan. **This initiative is step 1 only.**
+
+1. **React upgrade/cutover — parity only.** Re-platform with a rock-solid base for future
+   features. This includes two foundation items beyond pure parity (see below): a
+   forward-looking data-model change and a hardened test suite. No feature UI is built.
+2. **A few key features, iteratively** — **markdown support first** (cheap, additive;
+   proves the post-cutover feature pipeline), then **basic** sharing (public read link +
+   import; concurrent-edit/real-time deferred to the offline project, #6). Owner tests each
+   on `dev` and gives feedback.
+3. **Major production release** with those few features (an invisible re-platform is all
+   risk and no reward — ship it with user-visible value). Replay accumulated SQL migrations
+   against prod; point the React app at prod Supabase; keep the Svelte build as rollback for
+   one cycle.
+4. **Remaining key features, iteratively**, shipped to prod.
+
+**Environments**
+- **`dev`** = local React app connected to a **separate Supabase project** with static test
+  data. Serves as the owner's UAT environment and the rehearsal ground for schema
+  migrations. Daily editing never points at the unfinished app.
+- **`prod`** = live Svelte app + production Supabase, untouched until the step-3 cutover.
+
+**Migration discipline**: every schema change is a **versioned SQL migration file in the
+repo**, applied to `dev` first, replayed against `prod` at cutover.
+
+**Foundation items folded into step 1** (not pure parity, but cheap-now / expensive-later):
+- **Nullable `note_section.note_container_id`** (+ collection linkage). A no-op for parity
+  (nothing creates unparented sections yet), but it means the section query/type/cache layer
+  is written once in its final shape instead of being rewritten for unparented sections (#2)
+  and sharing (#5). Net-new tables (e.g. `shares`) are *additive* and stay deferred to their
+  feature.
+- **Test-suite hardening** as the explicit cutover gate (see Phase 6): React-DOM selector
+  cleanup (prefer role/text/`data-testid`) and closing the current gaps (2 skipped specs).
+
+---
+
+## Target Stack (locked 2026-06-16)
 
 | Concern | Current (Svelte) | Proposed (React) | Rationale |
 |---------|------------------|------------------|-----------|
 | Framework | Svelte 5 | React 18/19 | Already a dependency |
 | Build/dev | Vite + SvelteKit | **Vite + React** (SPA) | Keep Vite; drop SSR (app is cache-first, auth-gated) |
-| Routing | SvelteKit file routes + `+page.ts` loaders | **TanStack Router** (or React Router) | Type-safe; closest mental model to current loaders |
-| State / cache | Svelte stores (`writable`/`derived`) | **Zustand** (+ optionally TanStack Query later for sync) | Maps cleanly to `AppDataManager`; minimal ceremony |
+| Routing | SvelteKit file routes + `+page.ts` loaders | **TanStack Router** | Type-safe; loader model maps onto current `+page.ts` loaders |
+| State / cache | Svelte stores (`writable`/`derived`) | **TanStack Query** (primary, cache-as-database) + small client store (Zustand/context) for UI/demo state | Built-in dedup/polling/optimistic+rollback for later sharing/sync; `staleTime: Infinity` + startup preload preserve instant synchronous reads |
 | Drag & drop | custom `src/lib/dnd/*` + svelte-dnd-action + sortablejs | **@dnd-kit** (already a dep) | First-class multi-container sortable — the original pain point |
 | Styling | Tailwind v4 | Tailwind v4 (unchanged) | Class strings port directly |
 | Code editor | CodeMirror 6 (Svelte wrapper) | CodeMirror 6 (React wrapper) | Library is framework-agnostic |
@@ -69,11 +131,16 @@ So React is literally executing in production today to host the diagram editor.
 | Unit/component tests | Vitest + @testing-library/svelte | Vitest + @testing-library/react | Rewrite component tests; util tests port |
 | E2E | Playwright | Playwright (unchanged) | The acceptance gate |
 
-**Open stack questions** (resolve before starting):
-- TanStack Router vs React Router?
-- Zustand vs Redux Toolkit vs TanStack Query as the cache primitive? (Leaning Zustand for
-  parity now, TanStack Query when we tackle offline/sync.)
-- Greenfield React app in a new directory and swap, vs. in-place conversion?
+**Locked decisions (2026-06-16):**
+- **Router:** TanStack Router.
+- **Cache primitive:** **TanStack Query as the primary cache**, configured as a
+  cache-as-database (`staleTime: Infinity`, high `gcTime`, refetch off by default; startup
+  preload via `setQueryData`/`prefetchQuery`; synchronous reads off already-cached data;
+  optimistic `onMutate` → `setQueryData` → snapshot/rollback). A small client-state store
+  (Zustand or context) holds non-server state (`isDemo`, transient drag/modal UI).
+  *(Supersedes the earlier Zustand-for-the-cache lean.)*
+- **App layout:** greenfield React app in a **sibling `jotter-react/` folder**, run
+  side-by-side with the Svelte app against the same backend, swapped at cutover.
 
 ---
 
@@ -94,7 +161,7 @@ So React is literally executing in production today to host the diagram editor.
 
 | Area | Files | Approach |
 |------|-------|----------|
-| App data store | `src/lib/stores/appDataStore.ts` (AppDataManager) + `appStore.ts`, `collectionCacheStore.ts`, `collectionStore.ts`, `noteStore.ts`, `sectionCacheStore.ts`, `demoStore.ts` | Re-express as Zustand store(s) wrapping the ported cache logic. Public API (`ensureCollectionData`, optimistic updaters) kept stable so call sites map 1:1. |
+| App data store | `src/lib/stores/appDataStore.ts` (AppDataManager) + `appStore.ts`, `collectionCacheStore.ts`, `collectionStore.ts`, `noteStore.ts`, `sectionCacheStore.ts`, `demoStore.ts` | Re-express on **TanStack Query** as a cache-as-database: port the cache logic (deep clone, optimistic-update math, preload sequencing) into query/mutation helpers; keep a stable public API (`ensureCollectionData`, optimistic updaters) so call sites map ~1:1. Non-server state (`isDemo`, UI) → small client store (Zustand/context). |
 | Composables | `src/lib/composables/use*.ts` (11 files) | Conceptually → React hooks, but rewritten (they use Svelte reactivity/stores). |
 
 ### ✍️ Full rewrite (Svelte → React components)
@@ -128,7 +195,7 @@ So React is literally executing in production today to host the diagram editor.
 > production app throughout; the React app is built alongside until cutover (Phase 7).
 
 ### Phase 0 — Scaffold & decisions
-- [ ] Confirm stack open questions (router, state lib, in-place vs parallel app).
+- [x] Confirm stack decisions (router, cache primitive, parallel app) — **locked 2026-06-16**.
 - [ ] Stand up Vite + React + Tailwind v4 + TypeScript strict, ESLint/Prettier parity.
 - [ ] Wire Supabase client + auth; port `types.ts`; establish `$lib`-equivalent aliases.
 - [ ] Get the Playwright runner pointed at the new app (behind a flag) so specs can run
@@ -137,7 +204,10 @@ So React is literally executing in production today to host the diagram editor.
 ### Phase 1 — Data & service layer (no UI)
 - [ ] Abstract `isDemoMode()` out of services into a framework-neutral module.
 - [ ] Port all services + Supabase/auth/eventLog/migration verbatim; unit-test green.
-- [ ] Re-host `AppDataManager` cache logic on Zustand with a parity public API.
+- [ ] Re-host `AppDataManager` cache logic on **TanStack Query** (cache-as-database config)
+      with a parity public API; small client-state store for non-server state.
+- [ ] Apply the **nullable `note_container_id`** migration on `dev` (versioned SQL file) and
+      update `types.ts` accordingly. Schema only — no unparented-section UI yet.
 
 ### Phase 2 — Routing & auth shell
 - [ ] Implement routes: landing, auth (login/register/**callback**), `/app` layout, guard.

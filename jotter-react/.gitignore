@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+.env.local
+.env.*.local
+.env.test
+
+# Playwright
+playwright/.auth
+test-results
+playwright-report
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.log
