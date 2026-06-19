@@ -1,6 +1,6 @@
 # Initiative: Seamless Offline / Online Mode
 
-**Status**: In progress (started 2026-06-19, branch `feat/offline-sync`)
+**Status**: Complete — all 5 slices landed on `feat/offline-sync` (2026-06-19), 44 e2e + 10 unit green.
 **Feature**: `docs/features/requested-features.md` #6 — the highest-risk / highest-value item.
 **Predecessor**: Sharing (#5) shipped — shared-ownership model, last-write-wins, no app server.
 
@@ -50,19 +50,32 @@ Additive and lazy — the existing `content` column stays:
 - **No backfill.** Existing sections have no ydoc; the first time one is opened in a Yjs
   editor, the ydoc is seeded from its current `content`.
 
-## Slice plan
+## Slice plan (all complete)
 
-1. **Foundation** (this slice) — additive `ydoc` column; online/offline detection; the
-   durable IndexedDB **outbox** primitive; the track classifier. Substrate only, no
-   behavior change. Unit-tested; full e2e stays green.
-2. **LWW offline durability** — route checklist/diagram/title/meta saves through the
-   outbox; replay on reconnect; offline/pending UI. *Data loss dead for LWW types.*
-3. **Yjs offline-first** — `y-codemirror.next` + `y-quill` bound to `y-indexeddb`,
-   materialize → `content` on flush. *Data loss dead for code/wysiwyg, still single-user.*
-4. **Conflict detect + "save as copy"** — compare-and-swap for the LWW types.
-5. **Real-time provider** — custom Yjs provider over **Supabase Realtime broadcast**
-   (stays inside existing infra, honors "no app server") → live collab. Only slice that
-   touches infra; decided when we reach it.
+1. ✅ **Foundation** — additive `ydoc` column; online/offline detection; the durable
+   IndexedDB **outbox** primitive; the track classifier. Substrate only. (`276dc87`)
+2. ✅ **LWW offline durability** — checklist/diagram/title/meta saves route through the
+   outbox; replay on reconnect; offline/pending indicator. (`33bf722`)
+3. ✅ **Yjs offline-first** — `y-codemirror.next` (3a, `155177b`) + `y-quill` (3b,
+   `af5a44b`) bound to `y-indexeddb`, materialize → `content` on flush.
+4. ✅ **Conflict detect + "save as copy"** — compare-and-swap for the LWW types.
+   (`3043d13`)
+5. ✅ **Real-time provider** — custom Yjs provider over **Supabase Realtime broadcast**
+   (no app server) → live collab + awareness. ydoc is base64 text in Postgres as the
+   shared seed source. (`29245a8`)
+
+## Known limitations / follow-ups
+
+- **Legacy seed duplication (narrow):** two clients first-opening a pre-CRDT section (no
+  `ydoc` yet) while *not* simultaneously connected can duplicate the seeded text. Once any
+  save writes a `ydoc`, it becomes the shared source and the issue is gone. New/empty
+  sections are unaffected. A migration job that pre-populates `ydoc` for existing sections
+  would close this entirely.
+- **Conflict detection is online-only** (interactive). An offline edit that conflicts on
+  drain still last-write-wins silently (acceptable for the LWW types).
+- **Awareness shows "Anonymous":** remote cursors render but without a user name/colour —
+  wire real identity into the awareness state for a nicer collab UI.
+- **Prod migrations** `0007`/`0008` run at cutover (dev-only for now).
 
 ## Deferred / out of scope (for now)
 
