@@ -47,7 +47,12 @@ function CollectionsHome() {
   }
 
   function handleDelete(id: string, name: string) {
-    if (!window.confirm(`Delete "${name}"? Its notes move to your default collection.`)) return;
+    if (
+      !window.confirm(
+        `Remove "${name}" from your collections? If no one else is a member, it and its notes are permanently deleted.`
+      )
+    )
+      return;
     deleteCollection.mutate(id);
   }
 

@@ -188,37 +188,14 @@ export class CollectionService {
       return DemoCollectionService.deleteCollection(id);
     }
 
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
-
-    // Get collection name for logging before deletion
-    const collection = await this.getCollection(id);
-    const collectionName = collection?.name ?? 'Unknown';
-
-    // First, move any notes in this collection to the user's default collection
-    const defaultCollection = await this.getDefaultCollection();
-    if (defaultCollection && defaultCollection.id !== id) {
-      await supabase
-        .from('note_container')
-        .update({ collection_id: defaultCollection.id })
-        .eq('collection_id', id)
-        .eq('user_id', user.id); // Ensure we only move user's own notes
-    }
-
-    // Delete the collection
-    const { error } = await supabase
-      .from('collections')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id); // ← SECURITY: Ensure user owns this collection
-
+    // Under shared ownership "delete" means "leave": remove yourself from the
+    // collection. The collection (and its tree) is deleted only when the last member
+    // leaves — so a contributor can't nuke a shared collection for everyone else.
+    const { error } = await supabase.rpc('leave_collection', { p_collection_id: id });
     if (error) {
-      console.error('Error deleting collection:', error);
+      console.error('Error leaving collection:', error);
       throw error;
     }
-
-    // Log event
-    EventLogService.logCollectionDeleted(id, collectionName);
   }
 
   // NEW: Reorder collections via drag & drop

@@ -3,6 +3,7 @@ import {
   SECOND_EMAIL,
   cleanup,
   e2ePassword,
+  fetchCollectionName,
   fetchSectionTitle,
   gotoAppForSeeding,
   seedTree,
@@ -89,6 +90,51 @@ test.describe('section sharing', () => {
     } finally {
       await ctxB.close();
       await cleanup(page, tree.collectionId);
+    }
+  });
+
+  test('deleting a shared collection only removes you; gone when the last member leaves', async ({
+    page,
+    browser
+  }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-leave',
+      sections: [{ type: 'code', content: 'x', sequence: 10 }]
+    });
+    const collId = tree.collectionId;
+
+    const leaveAs = (p: typeof page, cid: string) =>
+      p.evaluate(async (id) => {
+        const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+        await sb.rpc('leave_collection', { p_collection_id: id });
+      }, cid);
+
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await signInAs(pageB, SECOND_EMAIL, e2ePassword());
+    try {
+      // B joins by opening the collection.
+      await pageB.goto(`/app/collections/${collId}`);
+      await expect(pageB.getByText('Added to your collections')).toBeVisible();
+
+      // A "deletes" (leaves) → the collection survives because B is still a member.
+      await leaveAs(page, collId);
+      expect(await fetchCollectionName(page, collId)).toBe('e2e-leave');
+      const stillInB = await pageB.evaluate(async (cid) => {
+        const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+        const { data } = await sb.rpc('get_my_collections');
+        return (data as { id: string }[]).some((c) => c.id === cid);
+      }, collId);
+      expect(stillInB).toBe(true);
+
+      // B leaves too → last member out → the collection (and its tree) is deleted.
+      await leaveAs(pageB, collId);
+      expect(await fetchCollectionName(page, collId)).toBeNull();
+    } finally {
+      await leaveAs(pageB, collId).catch(() => {}); // ensure GC even on failure
+      await ctxB.close();
+      await cleanup(page, collId);
     }
   });
 });
