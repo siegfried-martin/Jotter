@@ -60,6 +60,7 @@ export interface NoteSection {
   sequence: number;
   meta: Record<string, unknown>;
   checklist_data?: ChecklistItem[];
+  ydoc?: string | null; // Yjs snapshot (base64) for CRDT sections; content mirrors it
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +79,7 @@ export interface CreateNoteSection {
   sequence?: number; // Optional - will be auto-assigned if not provided
   meta?: Record<string, unknown>;
   checklist_data?: ChecklistItem[];
+  ydoc?: string | null; // Yjs snapshot (base64), written on CRDT-section save
 }
 
 // Update interfaces
