@@ -59,6 +59,13 @@ export default async function globalSetup(_config: FullConfig) {
   });
   if (sweepError) console.warn('⚠️  e2e collection sweep failed:', sweepError);
 
+  // Also clear leaked unparented "quick jot" sections (no container, so the collection
+  // sweep above can't cascade them). RLS scopes to the dedicated test user.
+  await page.evaluate(async () => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    await sb.from('note_section').delete().is('note_container_id', null);
+  });
+
   fs.mkdirSync(path.dirname(AUTH_STATE), { recursive: true });
   await page.context().storageState({ path: AUTH_STATE });
   await browser.close();

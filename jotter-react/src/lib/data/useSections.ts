@@ -181,6 +181,11 @@ export function useMoveSectionToContainer() {
       qc.setQueryData<NoteSection[]>(queryKeys.sections(toContainerId), (old) =>
         old ? sortBySequence([...old.filter((s) => s.id !== moved.id), moved]) : old
       );
+      // Keep the flat editor + home feed coherent (the section's container changed).
+      qc.setQueryData(queryKeys.section(moved.id), moved);
+      qc.setQueryData<NoteSection[]>(queryKeys.recentSections(), (old) =>
+        old?.map((s) => (s.id === moved.id ? moved : s))
+      );
     },
     onSettled: (_data, _err, { toContainerId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.sections(toContainerId) });

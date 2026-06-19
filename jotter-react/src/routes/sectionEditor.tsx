@@ -6,12 +6,8 @@ import { QuillEditor } from '@/components/editors/QuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
-import {
-  useDeleteSection,
-  useSection,
-  useSections,
-  useUpdateSection
-} from '@/lib/data/useSections';
+import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
+import { SectionFiling } from '@/components/sections/SectionFiling';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
@@ -38,8 +34,9 @@ function SectionEditor() {
   const sectionId = params.sectionId as string;
 
   const navigate = useNavigate();
-  const { data: sections, isPending } = useSections(containerId);
-  const section = sections?.find((s) => s.id === sectionId) ?? null;
+  // Read by id (not via the container list) so reassigning the section from inside
+  // the editor stays coherent. The URL container is only the close destination.
+  const { data: section, isPending } = useSection(sectionId);
 
   const close = useCallbackRef(() =>
     navigate({
@@ -73,7 +70,7 @@ function SectionEditor() {
     <SectionEditorModal
       key={section.id}
       section={section}
-      containerId={containerId}
+      containerId={section.note_container_id ?? ''}
       onClose={() => close()}
     />
   );
@@ -255,6 +252,7 @@ function SectionEditorModal({
         style={{ width: '95vw', height: '90vh' }}
       >
         <div className="flex flex-1 flex-col overflow-hidden p-6">
+          <SectionFiling section={section} />
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
