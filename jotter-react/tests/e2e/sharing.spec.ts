@@ -51,4 +51,38 @@ test.describe('section sharing', () => {
       await cleanup(page, tree.collectionId); // cascade removes the section + B's membership
     }
   });
+
+  test('a collection shared by one user can be opened and joined by another', async ({
+    page,
+    browser
+  }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-share-coll',
+      containerTitle: 'e2e-shared-note',
+      sections: [{ type: 'code', content: 'collection content', sequence: 10 }]
+    });
+
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await signInAs(pageB, SECOND_EMAIL, e2ePassword());
+    try {
+      // B opens the collection link → joins → its note + section are visible.
+      await pageB.goto(`/app/collections/${tree.collectionId}`);
+      await expect(pageB.getByText('Added to your collections')).toBeVisible();
+      await expect(pageB.getByTestId('container-item')).toContainText('e2e-shared-note');
+      await expect(pageB.getByTestId('section-card')).toHaveCount(1);
+
+      // The collection is now in B's home grid (membership feed).
+      const inHome = await pageB.evaluate(async (cid) => {
+        const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+        const { data } = await sb.rpc('get_my_collections');
+        return (data as { id: string }[]).some((c) => c.id === cid);
+      }, tree.collectionId);
+      expect(inHome).toBe(true);
+    } finally {
+      await ctxB.close();
+      await cleanup(page, tree.collectionId);
+    }
+  });
 });

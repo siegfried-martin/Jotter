@@ -33,11 +33,15 @@ export class NoteService {
         )
       `
       )
-      .eq('user_id', user.id) // ← CRITICAL FIX: Filter by user_id
       .order('sequence', { ascending: true });
 
+    // Scope by collection (access granted via collection membership in RLS) so members
+    // see a shared collection's notes. Without a collection, fall back to the caller's
+    // own (SELECT is public, so an unscoped query would return everyone's).
     if (collectionId) {
       query = query.eq('collection_id', collectionId);
+    } else {
+      query = query.eq('user_id', user.id);
     }
 
     const { data, error } = await query;
@@ -51,14 +55,11 @@ export class NoteService {
     return data || [];
   }
 
-  // Get a single note container by ID - ENHANCED with user ownership check
+  // Get a single note container by ID (public SELECT; readable by link/membership).
   static async getNoteContainer(containerId: string): Promise<NoteContainer | null> {
     if (isDemoMode()) {
       return DemoNoteService.getNoteContainer(containerId);
     }
-
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
       .from('note_container')
@@ -73,7 +74,6 @@ export class NoteService {
       `
       )
       .eq('id', containerId)
-      .eq('user_id', user.id) // Security: Ensure user owns this note
       .single();
 
     if (error) {

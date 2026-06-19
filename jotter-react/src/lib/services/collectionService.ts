@@ -17,37 +17,42 @@ export class CollectionService {
       return DemoCollectionService.getCollections();
     }
 
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('collections')
-      .select('*')
-      .eq('user_id', user.id) // ← CRITICAL FIX: Filter by user_id
-      .order('sequence', { ascending: true });
+    // Membership-scoped (own + joined) via RPC — SELECT is public now, so a plain
+    // query can no longer scope "my collections".
+    const { data, error } = await supabase.rpc('get_my_collections');
 
     if (error) {
       console.error('Error loading collections:', error);
       throw error;
     }
 
-    return data || [];
+    return (data as Collection[]) || [];
   }
 
-  // Get single collection by ID - WITH PROPER USER FILTERING
+  /** Opening a collection you're not in joins you (you become a contributor). No-op if
+   *  already a member. Returns true if newly added. */
+  static async openSharedCollection(collectionId: string): Promise<boolean> {
+    if (isDemoMode()) return false;
+    const { data, error } = await supabase.rpc('open_shared_collection', {
+      p_collection_id: collectionId
+    });
+    if (error) {
+      console.error('Error joining shared collection:', error);
+      return false;
+    }
+    return Boolean(data);
+  }
+
+  // Get single collection by ID (public SELECT; any authenticated user can read by link).
   static async getCollection(collectionId: string): Promise<Collection | null> {
     if (isDemoMode()) {
       return DemoCollectionService.getCollection(collectionId);
     }
 
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error('User not authenticated');
-
     const { data, error } = await supabase
       .from('collections')
       .select('*')
       .eq('id', collectionId)
-      .eq('user_id', user.id) // SECURITY: Ensure user owns this collection
       .single();
 
     if (error) {
