@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { parseTimeline, type Annotation } from '@/lib/util/schedule';
+import { prefetchTimelineEngine } from './timelinePrefetch';
 import './timeline-editor.css';
 
 /**
@@ -120,8 +121,9 @@ export function TimelineEditor({
 
     (async () => {
       try {
-        const vis: any = await import('vis-timeline/standalone');
-        await import('vis-timeline/styles/vis-timeline-graph2d.min.css');
+        // Reuses the prefetched chunk when the card/Add button was hovered first (instant);
+        // otherwise this is the first load.
+        const vis: any = await prefetchTimelineEngine();
         if (disposed || !containerRef.current) return;
 
         const doc = parseTimeline(initialRef.current);

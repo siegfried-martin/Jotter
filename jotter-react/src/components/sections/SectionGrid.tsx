@@ -12,6 +12,7 @@ import { useDndEnabled } from '@/lib/util/useDndEnabled';
 import { SECTION_TYPE_META, SECTION_TYPE_ORDER } from '@/lib/util/sectionTypeStyle';
 import { SectionCard } from './SectionCard';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
+import { prefetchTimelineEngine } from '@/components/editors/timelinePrefetch';
 
 type SectionType = NoteSection['type'];
 
@@ -111,6 +112,7 @@ export function SectionGrid({
             <button
               key={type}
               onClick={() => addSection(type)}
+              onPointerEnter={type === 'timeline' ? prefetchTimelineEngine : undefined}
               disabled={createSection.isPending}
               title={`${meta.addLabel} section`}
               className={`group flex min-h-[2.25rem] items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${meta.base} ${meta.hover}`}

@@ -19,6 +19,7 @@ import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { DiagramThumbnail } from './DiagramThumbnail';
 import { TablePreview } from './TablePreview';
 import { TimelinePreview } from './TimelinePreview';
+import { prefetchTimelineEngine } from '@/components/editors/timelinePrefetch';
 
 // The whole card is the drag activator (no handle): any spot that opens the editor
 // is also grabbable. PointerSensor's distance constraint keeps click-to-open working.
@@ -343,6 +344,7 @@ export function SectionCard({
       data-section-id={section.id}
       data-testid="section-card"
       onClick={onOpen}
+      onPointerEnter={section.type === 'timeline' ? prefetchTimelineEngine : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY });
