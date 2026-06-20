@@ -257,6 +257,15 @@ export async function fetchSectionTitle(page: Page, sectionId: string): Promise<
   }, sectionId);
 }
 
+/** Raw persisted `content` blob for a section (e.g. a table's workbook snapshot JSON). */
+export async function fetchSectionContent(page: Page, sectionId: string): Promise<string | null> {
+  return page.evaluate(async (sid) => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    const { data } = await sb.from('note_section').select('content').eq('id', sid).maybeSingle();
+    return (data?.content as string) ?? null;
+  }, sectionId);
+}
+
 /** Which collection a container currently belongs to. */
 export async function fetchContainerCollectionId(
   page: Page,
