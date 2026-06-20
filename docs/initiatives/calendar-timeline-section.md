@@ -181,6 +181,19 @@ dispose).
   month/week toggle, `editable`/`selectable`; `select` → create event, `eventClick` → edit/
   delete, `eventsSet` → serialize `CalendarDoc` → `onChange`.
 
+## Floating annotations (Timeline) — added post-sign-off (2026-06-20)
+
+Owner request: lane-independent **annotations** — a labeled band spanning the whole board
+over a date range (a phase marker, a multi-team event, the "Existing 2026 Roadmap" block).
+Chosen rendering (owner picked "overlay band only"): vis-timeline **`background` items** —
+full-height, translucent, behind the bars. `TimelineDoc` gains an `annotations: Annotation[]`
+array (still our own JSON, LWW). Because background bands aren't draggable, each is edited via
+a **toolbar chip** + the docked panel (title/start/end/color/delete). Exports include them
+under an "Annotation" lane. The zoom/pan **window is persisted** on user-driven range changes.
+
+Deferred annotation ideas (not built): per-annotation spanning a *subset* of lanes; richer
+styles (icons/markers). Revisit if the owner asks.
+
 ## Card previews (static, no library instance)
 
 Like `TablePreview` — parse our own JSON and render plain HTML/SVG; **the heavy library
