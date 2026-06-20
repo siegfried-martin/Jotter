@@ -1,0 +1,23 @@
+/*
+ * Layout tweaks for the embedded Univer spreadsheet. Univer has no stable semantic class
+ * hooks (its chrome uses prefixed Tailwind utility classes), so these selectors lean on the
+ * structural layout and are intentionally scoped under our container. If a Univer upgrade
+ * shuffles the DOM, revisit here.
+ *
+ * Goal: move the formula (fx) bar from above the grid to below it — just above the sheet-tab
+ * / zoom footer. The formula bar is the <header> inside the center column (the grid cell that
+ * also holds the canvas <section>). We flip that column to flex-column and reorder so the
+ * grid comes first and the formula bar second.
+ */
+[data-testid='table-editor'] section.univer-flex-1 {
+  display: flex !important;
+  flex-direction: column !important;
+}
+[data-testid='table-editor'] section.univer-flex-1 > header {
+  order: 2; /* formula bar after the grid */
+}
+[data-testid='table-editor'] section.univer-flex-1 > section {
+  order: 1; /* the canvas grid */
+  flex: 1 1 auto;
+  min-height: 0;
+}

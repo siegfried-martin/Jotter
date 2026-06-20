@@ -460,6 +460,10 @@ function SectionEditorModal({
         e.preventDefault();
         saveAndClose();
       } else if (e.key === 'Escape') {
+        // The spreadsheet editor is complex enough that Escape belongs to it (exit cell
+        // edit, cancel a selection/formula, dismiss its menus) rather than closing the
+        // modal. Let Univer handle it; the user saves explicitly (Save button / Cmd+S).
+        if (section.type === 'table') return;
         e.preventDefault();
         saveAndClose();
       }

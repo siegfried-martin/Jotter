@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from 'react';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
+import './table-editor.css';
 
 /**
  * Table (spreadsheet) section editor — a code-split Univer instance.
@@ -60,7 +61,14 @@ export function TableEditor({
           locale: LocaleType.EN_US,
           locales: { [LocaleType.EN_US]: mergeLocales(enUS) },
           theme: defaultTheme,
-          presets: [UniverSheetsCorePreset({ container: containerRef.current })]
+          presets: [
+            UniverSheetsCorePreset({
+              container: containerRef.current,
+              // Compact single-row toolbar instead of the multi-tab ribbon (we don't lean on
+              // tabs/formulas). The formula bar is relocated below the grid via table-editor.css.
+              ribbonType: 'simple'
+            })
+          ]
         });
         univer = created.univer;
         const univerAPI = created.univerAPI;
