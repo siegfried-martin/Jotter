@@ -193,6 +193,11 @@ export function TimelineEditor({
           persist();
           bump();
         });
+        // Persist the zoom/pan window too, but only when the user drives it — the initial
+        // programmatic fit/setWindow reports byUser:false, so opening a section stays clean.
+        timeline.on('rangechanged', (props: any) => {
+          if (props?.byUser) persist();
+        });
 
         // ---- imperative API (used by the React toolbar/panel + the e2e hook) -------------
         const api: TimelineApi = {
