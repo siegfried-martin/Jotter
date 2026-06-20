@@ -8,6 +8,7 @@ import { getDiagramElementCount } from '@/lib/util/diagram';
 import {
   copyNative,
   copyAsMarkdown,
+  downloadCsv,
   nativeCopyLabel,
   hasMarkdownCopy
 } from '@/lib/util/sectionClipboard';
@@ -307,6 +308,14 @@ export function SectionCard({
               copyAsMarkdown(section)
                 .then(showToast)
                 .catch(() => showToast('Copy failed'))
+          }
+        ]
+      : []),
+    ...(section.type === 'table'
+      ? [
+          {
+            label: 'Download CSV',
+            onClick: () => showToast(downloadCsv(section))
           }
         ]
       : []),

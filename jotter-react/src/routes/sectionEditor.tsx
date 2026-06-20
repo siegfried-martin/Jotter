@@ -22,6 +22,7 @@ import { showToast } from '@/lib/ui/toast';
 import {
   copyNative,
   copyAsMarkdown,
+  downloadCsv,
   nativeCopyLabel,
   hasMarkdownCopy
 } from '@/lib/util/sectionClipboard';
@@ -351,6 +352,7 @@ function SectionEditorModal({
     copyAsMarkdown(liveSection())
       .then(showToast)
       .catch(() => showToast('Copy failed'));
+  const downloadCsvNow = () => showToast(downloadCsv(liveSection()));
 
   // The actual write + close. CRDT merge handles concurrent edits for code/wysiwyg; LWW
   // types (checklist/diagram) are guarded by the conflict pre-check in saveAndClose.
@@ -547,6 +549,15 @@ function SectionEditorModal({
               >
                 <ClipboardIcon />
                 Copy as Markdown
+              </button>
+            )}
+            {section.type === 'table' && (
+              <button
+                onClick={downloadCsvNow}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
+              >
+                <ClipboardIcon />
+                Download CSV
               </button>
             )}
           </div>

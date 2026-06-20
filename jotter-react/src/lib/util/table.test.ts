@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { getTableCellCount, tableToGrid } from './table';
+import {
+  getTableCellCount,
+  tableToCsv,
+  tableToGrid,
+  tableToHtml,
+  tableToMarkdown,
+  tableToTsv
+} from './table';
 
 function wb(cellData: Record<number, Record<number, { v: unknown }>>): string {
   return JSON.stringify({
@@ -38,5 +45,37 @@ describe('table snapshot helpers', () => {
 
   it('stringifies numbers and booleans', () => {
     expect(tableToGrid(wb({ 0: { 0: { v: 42 }, 1: { v: false } } }))).toEqual([['42', 'false']]);
+  });
+});
+
+describe('table export converters', () => {
+  const grid = wb({
+    0: { 0: { v: 'Region' }, 1: { v: 'Sales' } },
+    1: { 0: { v: 'West' }, 1: { v: 100 } }
+  });
+
+  it('emits tab-separated values', () => {
+    expect(tableToTsv(grid)).toBe('Region\tSales\nWest\t100');
+  });
+
+  it('emits a GFM pipe table with the first row as header', () => {
+    expect(tableToMarkdown(grid)).toBe('| Region | Sales |\n| --- | --- |\n| West | 100 |');
+  });
+
+  it('emits an HTML table for the rich clipboard flavor', () => {
+    expect(tableToHtml(grid)).toBe(
+      '<table><tr><td>Region</td><td>Sales</td></tr><tr><td>West</td><td>100</td></tr></table>'
+    );
+  });
+
+  it('quotes CSV fields containing commas or quotes (RFC 4180)', () => {
+    const csv = tableToCsv(wb({ 0: { 0: { v: 'a,b' }, 1: { v: 'he said "hi"' } } }));
+    expect(csv).toBe('"a,b","he said ""hi"""');
+  });
+
+  it('returns empty strings for an empty workbook', () => {
+    expect(tableToTsv('')).toBe('');
+    expect(tableToMarkdown('')).toBe('');
+    expect(tableToHtml('')).toBe('');
   });
 });

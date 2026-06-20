@@ -83,3 +83,49 @@ export function tableToGrid(content: string, maxRows = 50, maxCols = 50): string
   }
   return grid;
 }
+
+// Export the full used range (not the preview-clamped 50×50).
+const FULL = 1_000_000;
+
+/** Tab-separated values — what spreadsheets expect when pasting plain text. */
+export function tableToTsv(content: string): string {
+  return tableToGrid(content, FULL, FULL)
+    .map((row) => row.join('\t'))
+    .join('\n');
+}
+
+function csvField(s: string): string {
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** RFC 4180 CSV (the download format). */
+export function tableToCsv(content: string): string {
+  return tableToGrid(content, FULL, FULL)
+    .map((row) => row.map(csvField).join(','))
+    .join('\r\n');
+}
+
+function htmlEscape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** An HTML <table> for the rich (text/html) clipboard flavor. */
+export function tableToHtml(content: string): string {
+  const grid = tableToGrid(content, FULL, FULL);
+  if (grid.length === 0) return '';
+  const rows = grid
+    .map((row) => `<tr>${row.map((c) => `<td>${htmlEscape(c)}</td>`).join('')}</tr>`)
+    .join('');
+  return `<table>${rows}</table>`;
+}
+
+/** A GFM pipe table; the first row is used as the header (Markdown requires one). */
+export function tableToMarkdown(content: string): string {
+  const grid = tableToGrid(content, FULL, FULL);
+  if (grid.length === 0) return '';
+  const esc = (s: string) => s.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  const fmt = (row: string[]) => `| ${row.map(esc).join(' | ')} |`;
+  const [header, ...body] = grid;
+  const sep = `| ${header.map(() => '---').join(' | ')} |`;
+  return [fmt(header), sep, ...body.map(fmt)].join('\n');
+}

@@ -106,4 +106,51 @@ test.describe('table section', () => {
       await cleanup(page, tree.collectionId);
     }
   });
+
+  test.describe('clipboard', () => {
+    test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+    const gridSnapshot = JSON.stringify({
+      sheetOrder: ['s1'],
+      sheets: {
+        s1: {
+          id: 's1',
+          name: 'Sheet1',
+          cellData: {
+            0: { 0: { v: 'Region' }, 1: { v: 'Sales' } },
+            1: { 0: { v: 'West' }, 1: { v: 100 } }
+          }
+        }
+      }
+    });
+
+    test('Copy as Markdown produces a GFM table; Copy yields TSV', async ({ page }) => {
+      await gotoAppForSeeding(page);
+      const tree = await seedTree(page, {
+        collectionName: 'e2e-table-clip',
+        sections: [{ type: 'table', content: gridSnapshot, sequence: 10 }]
+      });
+      try {
+        await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+        const openMenu = () =>
+          page.getByTestId('section-card').getByRole('button', { name: 'More actions' }).click();
+
+        await openMenu();
+        await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+        await expect(page.getByText('Copied as Markdown')).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+          '| Region | Sales |\n| --- | --- |\n| West | 100 |'
+        );
+
+        await openMenu();
+        await page.getByRole('button', { name: 'Copy', exact: true }).click();
+        await expect(page.getByText('Copied to clipboard')).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+          'Region\tSales\nWest\t100'
+        );
+      } finally {
+        await cleanup(page, tree.collectionId);
+      }
+    });
+  });
 });
