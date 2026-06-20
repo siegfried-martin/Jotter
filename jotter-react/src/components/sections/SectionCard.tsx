@@ -15,6 +15,7 @@ import '@/components/editors/markdown-preview.css';
 import { showToast } from '@/lib/ui/toast';
 import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { DiagramThumbnail } from './DiagramThumbnail';
+import { TablePreview } from './TablePreview';
 
 // The whole card is the drag activator (no handle): any spot that opens the editor
 // is also grabbable. PointerSensor's distance constraint keeps click-to-open working.
@@ -252,12 +253,7 @@ function SectionPreview({
       );
     }
     case 'table':
-      // SLICE 1 STUB — slice 3 renders a static grid from the workbook snapshot.
-      return section.content?.trim() ? (
-        <p className="text-sm text-slate-500">Table</p>
-      ) : (
-        <p className="text-sm text-slate-400">New table</p>
-      );
+      return <TablePreview content={section.content} />;
     case 'diagram': {
       const count = getDiagramElementCount(section.content);
       if (count === 0) {

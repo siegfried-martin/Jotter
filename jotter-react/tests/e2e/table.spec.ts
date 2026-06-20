@@ -29,6 +29,40 @@ test.describe('table section', () => {
     }
   });
 
+  test('the card preview renders the workbook cells', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-table-preview',
+      sections: [
+        {
+          type: 'table',
+          content: JSON.stringify({
+            sheetOrder: ['s1'],
+            sheets: {
+              s1: {
+                id: 's1',
+                name: 'Sheet1',
+                cellData: { 0: { 0: { v: 'Region' }, 1: { v: 'Sales' } }, 1: { 0: { v: 'West' } } }
+              }
+            }
+          }),
+          sequence: 10
+        }
+      ]
+    });
+    try {
+      await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+      const card = page.getByTestId('section-card');
+      // The preview is a plain HTML table (no Univer) showing the cell values.
+      await expect(card.locator('table')).toBeVisible();
+      await expect(card.getByText('Region', { exact: true })).toBeVisible();
+      await expect(card.getByText('Sales', { exact: true })).toBeVisible();
+      await expect(card.getByText('West', { exact: true })).toBeVisible();
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('edits round-trip through the workbook snapshot on save', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
