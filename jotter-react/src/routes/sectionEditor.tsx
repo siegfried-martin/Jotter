@@ -18,6 +18,12 @@ import { SectionFiling } from '@/components/sections/SectionFiling';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { showToast } from '@/lib/ui/toast';
+import {
+  copyNative,
+  copyAsMarkdown,
+  nativeCopyLabel,
+  hasMarkdownCopy
+} from '@/lib/util/sectionClipboard';
 import { isOnline } from '@/lib/offline/onlineStatus';
 import {
   acquireCrdtText,
@@ -186,6 +192,25 @@ function Backdrop({ children, onClick }: { children: React.ReactNode; onClick: (
   );
 }
 
+function ClipboardIcon() {
+  return (
+    <svg
+      className="h-4 w-4 flex-shrink-0"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
+    </svg>
+  );
+}
+
 function draftKey(id: string) {
   return `draft_${id}`;
 }
@@ -303,6 +328,27 @@ function SectionEditorModal({
     if (handle) updates.ydoc = encodeDocState(handle);
     return updates;
   }
+
+  // A snapshot of the section as it currently looks on screen (including unsaved edits), so
+  // the modal's Copy actions grab what you see — not the last-saved version. Code/markdown
+  // live in the Y.Text; wysiwyg/diagram keep their live value in `content`; checklist in state.
+  function liveSection(): NoteSection {
+    return {
+      ...section,
+      content: isPlainText && handle ? handle.text.toString() : content,
+      checklist_data: section.type === 'checklist' ? checklistData : section.checklist_data,
+      meta: section.type === 'code' ? { ...section.meta, language } : section.meta
+    };
+  }
+
+  const copyNativeNow = () =>
+    copyNative(liveSection())
+      .then(showToast)
+      .catch(() => showToast('Copy failed'));
+  const copyMarkdownNow = () =>
+    copyAsMarkdown(liveSection())
+      .then(showToast)
+      .catch(() => showToast('Copy failed'));
 
   // The actual write + close. CRDT merge handles concurrent edits for code/wysiwyg; LWW
   // types (checklist/diagram) are guarded by the conflict pre-check in saveAndClose.
@@ -478,21 +524,43 @@ function SectionEditorModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
-          <button
-            onClick={() => cancel()}
-            disabled={saving}
-            className="rounded-lg border border-slate-300 px-6 py-2 font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => saveAndClose()}
-            disabled={saving}
-            className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+          {/* Copy actions (teal = alternate), bottom-left. They copy the live on-screen
+              content via the same util as the section cards. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={copyNativeNow}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
+            >
+              <ClipboardIcon />
+              {nativeCopyLabel(section.type)}
+            </button>
+            {hasMarkdownCopy(section.type) && (
+              <button
+                onClick={copyMarkdownNow}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
+              >
+                <ClipboardIcon />
+                Copy as Markdown
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => cancel()}
+              disabled={saving}
+              className="rounded-lg border border-slate-300 px-6 py-2 font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => saveAndClose()}
+              disabled={saving}
+              className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
       </div>
 

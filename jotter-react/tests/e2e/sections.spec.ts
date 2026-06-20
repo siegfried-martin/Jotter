@@ -97,19 +97,88 @@ test.describe('sections', () => {
   test.describe('clipboard', () => {
     test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
-    test('copy to clipboard shows a toast', async ({ page }) => {
+    const readClipboard = (page: import('@playwright/test').Page) =>
+      page.evaluate(() => navigator.clipboard.readText());
+
+    const openCardMenu = (page: import('@playwright/test').Page) =>
+      page.getByTestId('section-card').getByRole('button', { name: 'More actions' }).click();
+
+    test('code: "Copy" puts the raw code on the clipboard', async ({ page }) => {
       await gotoAppForSeeding(page);
       const tree = await seedTree(page, {
         sections: [{ type: 'code', content: 'copy this code', sequence: 10 }]
       });
       try {
         await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
-        await page
-          .getByTestId('section-card')
-          .getByRole('button', { name: 'More actions' })
-          .click();
-        await page.getByRole('button', { name: 'Copy to clipboard' }).click();
+        await openCardMenu(page);
+        // Code has no markdown variant — only the native "Copy".
+        await expect(page.getByRole('button', { name: 'Copy as Markdown' })).toHaveCount(0);
+        await page.getByRole('button', { name: 'Copy', exact: true }).click();
         await expect(page.getByText('Copied to clipboard')).toBeVisible();
+        expect(await readClipboard(page)).toBe('copy this code');
+      } finally {
+        await cleanup(page, tree.collectionId);
+      }
+    });
+
+    test('checklist: "Copy as Markdown" produces a GFM task list', async ({ page }) => {
+      await gotoAppForSeeding(page);
+      const tree = await seedTree(page, {
+        sections: [
+          {
+            type: 'checklist',
+            checklistData: [
+              { text: 'first', checked: true },
+              { text: 'second', checked: false }
+            ],
+            sequence: 10
+          }
+        ]
+      });
+      try {
+        await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+        await openCardMenu(page);
+        await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+        await expect(page.getByText('Copied as Markdown')).toBeVisible();
+        expect(await readClipboard(page)).toBe('- [x] first\n- [ ] second');
+      } finally {
+        await cleanup(page, tree.collectionId);
+      }
+    });
+
+    test('markdown: "Copy as Markdown" copies the raw source', async ({ page }) => {
+      await gotoAppForSeeding(page);
+      const tree = await seedTree(page, {
+        sections: [{ type: 'markdown', content: '# Hi\n\n- a\n- b', sequence: 10 }]
+      });
+      try {
+        await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+        await openCardMenu(page);
+        // Markdown offers both; assert the raw-source ("Copy as Markdown") path.
+        await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+        await expect(page.getByText('Copied as Markdown')).toBeVisible();
+        expect(await readClipboard(page)).toBe('# Hi\n\n- a\n- b');
+      } finally {
+        await cleanup(page, tree.collectionId);
+      }
+    });
+
+    test('editor modal: copy grabs live, unsaved edits', async ({ page }) => {
+      await gotoAppForSeeding(page);
+      const tree = await seedTree(page, {
+        sections: [{ type: 'markdown', content: 'seed', sequence: 10 }]
+      });
+      try {
+        await page.goto(`/app/sections/${tree.sections[0].id}`);
+        await expect(page.locator('.cm-content')).toContainText('seed');
+        // Edit without saving, then copy from the modal footer — it must reflect the
+        // on-screen (live Y.Text) content, not the last-saved version.
+        await page.locator('.cm-content').click();
+        await page.keyboard.press('Control+End');
+        await page.keyboard.type(' EXTRA', { delay: 30 });
+        await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+        await expect(page.getByText('Copied as Markdown')).toBeVisible();
+        expect(await readClipboard(page)).toBe('seed EXTRA');
       } finally {
         await cleanup(page, tree.collectionId);
       }
