@@ -151,6 +151,13 @@ export async function copyNative(section: NoteSection): Promise<string> {
       await writeRich(checklistToHtml(items), checklistToPlain(items));
       return 'Copied to clipboard';
     }
+    case 'table': {
+      // SLICE 1: raw passthrough so the switch stays exhaustive. Slice 4 emits TSV
+      // (text/plain) + an HTML <table> from the workbook snapshot.
+      if (!section.content?.trim()) return 'Nothing to copy';
+      await navigator.clipboard.writeText(section.content);
+      return 'Copied to clipboard';
+    }
   }
 }
 

@@ -44,6 +44,14 @@ export const SECTION_TYPE_META: Record<
     icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9.5 17v-5l2.5 3 2.5-3v5',
     base: 'bg-rose-50 text-rose-700',
     hover: 'hover:bg-rose-100'
+  },
+  table: {
+    typeLabel: 'Table',
+    addLabel: 'Table',
+    // A 3×3 grid: outer rounded rect with one vertical and one horizontal divider.
+    icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z M4 10h16 M4 15h16 M10 4v16',
+    base: 'bg-teal-50 text-teal-700',
+    hover: 'hover:bg-teal-100'
   }
 };
 
@@ -52,6 +60,7 @@ export const SECTION_TYPE_ORDER: SectionType[] = [
   'wysiwyg',
   'code',
   'markdown',
+  'table',
   'diagram',
   'checklist'
 ];

@@ -11,10 +11,13 @@ describe('section track classifier', () => {
     expect(isLwwType('wysiwyg')).toBe(false);
   });
 
-  it('routes checklist and diagram to the LWW track', () => {
+  it('routes checklist, diagram and table to the LWW track', () => {
     expect(trackForType('checklist')).toBe('lww');
     expect(trackForType('diagram')).toBe('lww');
+    expect(trackForType('table')).toBe('lww');
     expect(isLwwType('checklist')).toBe(true);
+    expect(isLwwType('table')).toBe(true);
     expect(isCrdtType('diagram')).toBe(false);
+    expect(isCrdtType('table')).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import { YMarkdownEditor } from '@/components/editors/YMarkdownEditor';
 import { YQuillEditor } from '@/components/editors/YQuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
+import { TableEditor } from '@/components/editors/TableEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
 import { useContainer } from '@/lib/data/useContainers';
@@ -39,7 +40,8 @@ const TYPE_TITLE: Record<NoteSection['type'], string> = {
   wysiwyg: 'Text',
   checklist: 'Checklist',
   diagram: 'Diagram',
-  markdown: 'Markdown'
+  markdown: 'Markdown',
+  table: 'Table'
 };
 
 export function SectionEditorRoute() {
@@ -520,6 +522,9 @@ function SectionEditorModal({
             )}
             {section.type === 'diagram' && (
               <ExcalidrawEditor initial={content} onChange={handleContentChange} />
+            )}
+            {section.type === 'table' && (
+              <TableEditor initial={content} onChange={handleContentChange} />
             )}
           </div>
         </div>

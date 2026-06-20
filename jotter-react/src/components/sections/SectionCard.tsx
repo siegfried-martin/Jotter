@@ -251,6 +251,13 @@ function SectionPreview({
         </ul>
       );
     }
+    case 'table':
+      // SLICE 1 STUB — slice 3 renders a static grid from the workbook snapshot.
+      return section.content?.trim() ? (
+        <p className="text-sm text-slate-500">Table</p>
+      ) : (
+        <p className="text-sm text-slate-400">New table</p>
+      );
     case 'diagram': {
       const count = getDiagramElementCount(section.content);
       if (count === 0) {

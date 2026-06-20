@@ -55,7 +55,7 @@ export async function signInAs(page: Page, email: string, password: string): Pro
 // dev DB. Tests run serially (workers:1) against shared jotter-dev.
 // ---------------------------------------------------------------------------
 
-export type SectionType = 'code' | 'wysiwyg' | 'checklist' | 'diagram' | 'markdown';
+export type SectionType = 'code' | 'wysiwyg' | 'checklist' | 'diagram' | 'markdown' | 'table';
 
 export interface SeededSection {
   id: string;
