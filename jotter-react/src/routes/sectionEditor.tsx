@@ -9,6 +9,7 @@ import { YQuillEditor } from '@/components/editors/YQuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import { TableEditor } from '@/components/editors/TableEditor';
+import { TimelineEditor } from '@/components/editors/TimelineEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
 import { useContainer } from '@/lib/data/useContainers';
@@ -24,7 +25,8 @@ import {
   copyAsMarkdown,
   downloadCsv,
   nativeCopyLabel,
-  hasMarkdownCopy
+  hasMarkdownCopy,
+  hasCsvDownload
 } from '@/lib/util/sectionClipboard';
 import { isOnline } from '@/lib/offline/onlineStatus';
 import {
@@ -42,7 +44,8 @@ const TYPE_TITLE: Record<NoteSection['type'], string> = {
   checklist: 'Checklist',
   diagram: 'Diagram',
   markdown: 'Markdown',
-  table: 'Table'
+  table: 'Table',
+  timeline: 'Timeline'
 };
 
 export function SectionEditorRoute() {
@@ -307,6 +310,10 @@ function SectionEditorModal({
   const baseUpdatedAt = useRef(section.updated_at);
   // The pending updates, stashed while the conflict dialog is open.
   const pendingUpdates = useRef<Partial<CreateNoteSection>>({});
+  // Did this click's mousedown START on the backdrop? Only then is a backdrop-click a real
+  // "click outside" to close. Without this, drag-selecting text and releasing past the modal
+  // edge (mouseup lands on the backdrop) would close the editor — a long-standing annoyance.
+  const downOnBackdrop = useRef(false);
 
   function handleContentChange(next: string) {
     setContent(next);
@@ -379,7 +386,8 @@ function SectionEditorModal({
     const updates = buildUpdates();
     // LWW types: if the section changed under us since we opened it, don't silently
     // overwrite — surface the choice. (CRDT types merge, so they skip this.)
-    const isLww = section.type === 'checklist' || section.type === 'diagram';
+    const isLww =
+      section.type === 'checklist' || section.type === 'diagram' || section.type === 'timeline';
     if (isLww && isOnline()) {
       const current = await SectionService.getSection(section.id).catch(() => null);
       if (current && current.updated_at !== baseUpdatedAt.current) {
@@ -474,8 +482,13 @@ function SectionEditorModal({
 
   return (
     <div
+      onMouseDown={(e) => {
+        downOnBackdrop.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) saveAndClose();
+        // Close only when the whole gesture was on the backdrop (press + release), so a
+        // selection drag that ends outside the modal doesn't dismiss it.
+        if (e.target === e.currentTarget && downOnBackdrop.current) saveAndClose();
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >
@@ -532,6 +545,9 @@ function SectionEditorModal({
             {section.type === 'table' && (
               <TableEditor initial={content} onChange={handleContentChange} />
             )}
+            {section.type === 'timeline' && (
+              <TimelineEditor initial={content} onChange={handleContentChange} />
+            )}
           </div>
         </div>
 
@@ -555,7 +571,7 @@ function SectionEditorModal({
                 Copy as Markdown
               </button>
             )}
-            {section.type === 'table' && (
+            {hasCsvDownload(section.type) && (
               <button
                 onClick={downloadCsvNow}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"

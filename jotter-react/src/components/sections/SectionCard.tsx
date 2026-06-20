@@ -10,13 +10,16 @@ import {
   copyAsMarkdown,
   downloadCsv,
   nativeCopyLabel,
-  hasMarkdownCopy
+  hasMarkdownCopy,
+  hasCsvDownload
 } from '@/lib/util/sectionClipboard';
 import '@/components/editors/markdown-preview.css';
 import { showToast } from '@/lib/ui/toast';
 import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { DiagramThumbnail } from './DiagramThumbnail';
 import { TablePreview } from './TablePreview';
+import { TimelinePreview } from './TimelinePreview';
+import { prefetchTimelineEngine } from '@/components/editors/timelinePrefetch';
 
 // The whole card is the drag activator (no handle): any spot that opens the editor
 // is also grabbable. PointerSensor's distance constraint keeps click-to-open working.
@@ -255,6 +258,8 @@ function SectionPreview({
     }
     case 'table':
       return <TablePreview content={section.content} />;
+    case 'timeline':
+      return <TimelinePreview content={section.content} />;
     case 'diagram': {
       const count = getDiagramElementCount(section.content);
       if (count === 0) {
@@ -311,7 +316,7 @@ export function SectionCard({
           }
         ]
       : []),
-    ...(section.type === 'table'
+    ...(hasCsvDownload(section.type)
       ? [
           {
             label: 'Download CSV',
@@ -339,6 +344,7 @@ export function SectionCard({
       data-section-id={section.id}
       data-testid="section-card"
       onClick={onOpen}
+      onPointerEnter={section.type === 'timeline' ? prefetchTimelineEngine : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY });
