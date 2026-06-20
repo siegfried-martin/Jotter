@@ -1,0 +1,72 @@
+/*
+ * Timeline (vis-timeline) editor styling — softens vis's stark default grid into something
+ * that reads like a roadmap: rounded bars with breathing room, muted gridlines, a readable
+ * lane gutter. Scoped under the editor's test id so it never leaks to other vis instances.
+ */
+
+[data-testid='timeline-editor'] .vis-timeline {
+  border: none;
+  font-family: inherit;
+  background: #fff;
+}
+
+/* Bars: rounded, padded, legible. Color comes from each item's inline style (its tint). */
+[data-testid='timeline-editor'] .vis-item.vis-range {
+  border-radius: 7px;
+  border-width: 1px;
+  min-height: 26px;
+}
+[data-testid='timeline-editor'] .vis-item .vis-item-content {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+[data-testid='timeline-editor'] .vis-item.vis-selected {
+  box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.45);
+}
+[data-testid='timeline-editor'] .vis-item .vis-drag-left,
+[data-testid='timeline-editor'] .vis-item .vis-drag-right {
+  width: 8px;
+}
+
+/* Lane gutter (left) and section-header rows. */
+[data-testid='timeline-editor'] .vis-labelset .vis-label {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+[data-testid='timeline-editor'] .vis-labelset .vis-label.vis-nesting-group {
+  font-weight: 600;
+  color: #0f172a;
+  background: #f8fafc;
+}
+[data-testid='timeline-editor'] .vis-labelset .vis-label .vis-inner {
+  cursor: pointer;
+}
+
+/* Axis + gridlines: quieter than the default solid black. */
+[data-testid='timeline-editor'] .vis-time-axis .vis-text {
+  color: #64748b;
+  font-size: 11px;
+}
+[data-testid='timeline-editor'] .vis-time-axis .vis-grid.vis-minor {
+  border-color: #f1f5f9;
+}
+[data-testid='timeline-editor'] .vis-time-axis .vis-grid.vis-major {
+  border-color: #e2e8f0;
+}
+[data-testid='timeline-editor'] .vis-panel .vis-shadow {
+  box-shadow: none;
+}
+[data-testid='timeline-editor'] .vis-panel.vis-left,
+[data-testid='timeline-editor'] .vis-panel.vis-center,
+[data-testid='timeline-editor'] .vis-panel.vis-top,
+[data-testid='timeline-editor'] .vis-panel.vis-bottom {
+  border-color: #e2e8f0;
+}
+[data-testid='timeline-editor'] .vis-current-time {
+  background-color: #ef4444;
+}

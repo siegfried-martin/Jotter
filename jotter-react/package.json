@@ -50,6 +50,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "turndown": "^7.2.4",
+    "vis-data": "^8.0.4",
+    "vis-timeline": "^8.5.1",
     "y-codemirror.next": "^0.3.5",
     "y-indexeddb": "^9.0.12",
     "y-protocols": "^1.0.7",
