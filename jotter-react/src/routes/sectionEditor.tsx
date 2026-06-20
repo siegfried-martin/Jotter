@@ -310,6 +310,10 @@ function SectionEditorModal({
   const baseUpdatedAt = useRef(section.updated_at);
   // The pending updates, stashed while the conflict dialog is open.
   const pendingUpdates = useRef<Partial<CreateNoteSection>>({});
+  // Did this click's mousedown START on the backdrop? Only then is a backdrop-click a real
+  // "click outside" to close. Without this, drag-selecting text and releasing past the modal
+  // edge (mouseup lands on the backdrop) would close the editor — a long-standing annoyance.
+  const downOnBackdrop = useRef(false);
 
   function handleContentChange(next: string) {
     setContent(next);
@@ -478,8 +482,13 @@ function SectionEditorModal({
 
   return (
     <div
+      onMouseDown={(e) => {
+        downOnBackdrop.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) saveAndClose();
+        // Close only when the whole gesture was on the backdrop (press + release), so a
+        // selection drag that ends outside the modal doesn't dismiss it.
+        if (e.target === e.currentTarget && downOnBackdrop.current) saveAndClose();
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >

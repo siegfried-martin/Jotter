@@ -153,6 +153,9 @@ export function TimelineEditor({
           stack: true,
           stackSubgroups: true,
           orientation: { axis: 'top', item: 'top' },
+          // Fill the container (not just the lane content) so there's empty plot below the
+          // lanes to float annotations into when the lanes don't reach the bottom.
+          height: '100%',
           margin: { item: { horizontal: 6, vertical: 10 }, axis: 14 },
           zoomMin: 1000 * 60 * 60 * 24, // 1 day
           zoomMax: 1000 * 60 * 60 * 24 * 365 * 6, // ~6 years
@@ -617,7 +620,10 @@ function EditPanel({
   }, [editing.kind, editing.id]);
 
   function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') {
+    // Enter commits & closes the panel; Escape closes it. Both are stopped from bubbling so
+    // they don't also reach the section modal (which saves on Escape).
+    if (e.key === 'Escape' || (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'SELECT')) {
+      e.preventDefault();
       e.stopPropagation();
       onClose();
     }
