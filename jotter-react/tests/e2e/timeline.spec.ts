@@ -96,7 +96,7 @@ test.describe('timeline section', () => {
     }
   });
 
-  test('annotations persist and surface as editable chips', async ({ page }) => {
+  test('annotations render as free-floating boxes and persist', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       collectionName: 'e2e-timeline-annot',
@@ -111,14 +111,15 @@ test.describe('timeline section', () => {
         .poll(() => page.evaluate(() => '__TIMELINE_API__' in window), { timeout: 10000 })
         .toBe(true);
 
-      // Add a floating annotation (a labeled band spanning the board) via the facade.
+      // Add a free-floating annotation via the facade; it renders as a draggable overlay box.
       await page.evaluate(() => {
         const api = (window as unknown as { __TIMELINE_API__: any }).__TIMELINE_API__;
         api.addAnnotation({ title: 'Existing 2026 Roadmap', start: '2026-07-01', end: '2027-01-01' });
       });
 
-      // It's not draggable, so it shows up as an editable chip in the toolbar strip.
-      await expect(page.getByRole('button', { name: 'Existing 2026 Roadmap' })).toBeVisible();
+      const box = page.getByTestId('timeline-annotation');
+      await expect(box).toHaveCount(1);
+      await expect(box).toContainText('Existing 2026 Roadmap');
 
       await expect
         .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {

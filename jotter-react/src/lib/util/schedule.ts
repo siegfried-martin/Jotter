@@ -29,15 +29,19 @@ export interface TimelineItem extends ScheduleItem {
 }
 
 /**
- * A floating annotation — a labeled band that spans the whole board over a date range,
- * independent of any lane (a phase marker, a multi-team event, an explanation). Rendered as
- * a vis-timeline `background` item; edited via the panel, not by dragging.
+ * A free-floating annotation — a rounded rectangle that overlays the bars, independent of any
+ * lane (a callout, a phase marker, a multi-team event). Drag/resize freely: horizontally it's
+ * time-anchored (start/end, so it tracks zoom/pan); vertically it's a fraction of the plot
+ * height (topPct/heightPct), so it floats wherever you put it. Rendered by a custom overlay
+ * layer, not by vis-timeline.
  */
 export interface Annotation {
   id: string;
   title: string;
-  start: string; // ISO 8601
-  end: string; // ISO 8601
+  start: string; // ISO 8601 — left edge (time)
+  end: string; // ISO 8601 — right edge (time)
+  topPct?: number; // 0..1 — top position as a fraction of the plot height (default ~0.1)
+  heightPct?: number; // 0..1 — height as a fraction of the plot height (default ~0.3)
   color?: string;
 }
 

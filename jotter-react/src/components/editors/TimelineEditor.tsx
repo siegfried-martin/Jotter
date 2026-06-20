@@ -1,24 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from 'react';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
-import { parseTimeline } from '@/lib/util/schedule';
+import { parseTimeline, type Annotation } from '@/lib/util/schedule';
 import './timeline-editor.css';
 
 /**
- * Timeline (resource-swimlane roadmap) section editor — a code-split vis-timeline instance.
+ * Timeline (resource-swimlane roadmap) section editor — a code-split vis-timeline instance
+ * plus a custom free-floating annotation overlay.
  *
- * Unlike the table/diagram editors (which round-trip a library-opaque blob), vis-timeline
- * only *renders*: we own the data. `note_section.content` holds our own `TimelineDoc`
- * (lanes + bars), synced on the LWW track — no Yjs. See
+ * We own the data: `note_section.content` holds our own `TimelineDoc` (lanes + bars +
+ * annotations), synced on the LWW track — no Yjs. vis-timeline only renders the lanes/bars;
+ * annotations are rounded rectangles we draw and drag/resize ourselves on a layer above the
+ * plot (time-anchored horizontally, free vertically). See
  * docs/initiatives/calendar-timeline-section.md.
  *
  * vis-timeline (+ vis-data + moment) is heavy, so it's loaded via dynamic import() inside the
  * mount effect: it stays out of the main/sectionEditor bundle and only downloads when a
- * Timeline section is opened (the same code-split discipline TableEditor uses for Univer).
+ * Timeline section is opened.
  */
 
-// A small palette of bar tints (fill / border / text), chosen to read at a glance on a
-// roadmap. Each item stores its `color` as the fill hex; the others are derived on render.
+// A small palette of bar/annotation tints (fill / border / text).
 const PALETTE = [
   { name: 'Cyan', fill: '#cffafe', border: '#0891b2', text: '#155e75' },
   { name: 'Blue', fill: '#dbeafe', border: '#2563eb', text: '#1e40af' },
@@ -37,23 +38,6 @@ function styleFor(fill?: string): string {
   return `background-color:${p.fill};border-color:${p.border};color:${p.text};`;
 }
 
-function hexToRgba(hex: string, a: number): string {
-  const m = hex.replace('#', '');
-  const n = m.length === 3
-    ? m.split('').map((c) => c + c).join('')
-    : m;
-  const r = parseInt(n.slice(0, 2), 16);
-  const g = parseInt(n.slice(2, 4), 16);
-  const b = parseInt(n.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-// Annotation bands sit BEHIND the bars and span every lane, so keep them translucent and
-// borderless — a tinted region, not a solid block.
-function annStyleFor(fill?: string): string {
-  return `background-color:${hexToRgba(fill || '#94a3b8', 0.22)};border:none;`;
-}
-
 const uid = () => crypto.randomUUID();
 
 function ymd(d: Date): string {
@@ -62,18 +46,18 @@ function ymd(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-/** Today (+offset days) as YYYY-MM-DD. */
 function today(offsetDays = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return ymd(d);
 }
-/** Coerce any stored date to an <input type="date"> value. */
 function toDateInput(v: string): string {
   if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
   const d = new Date(v);
   return Number.isNaN(+d) ? '' : ymd(d);
 }
+const ms = (v: string) => new Date(v).getTime();
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 type Lane = { id: string; content: string };
 type Editing =
@@ -81,6 +65,12 @@ type Editing =
   | { kind: 'annotation'; id: string }
   | { kind: 'lane'; id: string }
   | null;
+
+// Pixel/time geometry of the vis plot area, refreshed on every redraw so the overlay tracks.
+type Geo = { left: number; top: number; width: number; height: number; winStart: number; winEnd: number };
+
+export type ItemFields = { title: string; start: string; end: string; group: string; color: string };
+export type AnnotationFields = { title: string; start: string; end: string; color: string };
 
 export type TimelineApi = {
   addLane: (name?: string, open?: boolean) => string;
@@ -99,21 +89,6 @@ export type TimelineApi = {
   fit: () => void;
 };
 
-export type ItemFields = {
-  title: string;
-  start: string;
-  end: string;
-  group: string;
-  color: string;
-};
-
-export type AnnotationFields = {
-  title: string;
-  start: string;
-  end: string;
-  color: string;
-};
-
 export function TimelineEditor({
   initial,
   onChange
@@ -126,27 +101,32 @@ export function TimelineEditor({
   const initialRef = useRef(initial);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [editing, setEditing] = useState<Editing>(null);
-  // Bumped on structural changes (lane/item add/remove) so the toolbar + panel re-read.
   const [, setVersion] = useState(0);
   const bump = () => setVersion((v) => v + 1);
+  const [geo, setGeo] = useState<Geo | null>(null);
 
   const apiRef = useRef<TimelineApi | null>(null);
+  const timelineRef = useRef<any>(null);
+  // Annotations live in React (not vis); refs so the effect's serialize() and the overlay
+  // share one source of truth, with a bump to re-render.
+  const annotationsRef = useRef<Annotation[]>([]);
+  const persistRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let disposed = false;
     let timeline: any = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
+    let measureRaf = 0;
 
     (async () => {
       try {
-        // The standalone bundle re-exports Timeline + DataSet at runtime, but its type
-        // subpath mis-resolves to the peer build (no DataSet) — cast to any (this file is
-        // already untyped against vis on purpose).
         const vis: any = await import('vis-timeline/standalone');
         await import('vis-timeline/styles/vis-timeline-graph2d.min.css');
         if (disposed || !containerRef.current) return;
 
         const doc = parseTimeline(initialRef.current);
+        annotationsRef.current = doc.annotations.map((a) => ({ ...a }));
+
         const items = new vis.DataSet(
           doc.items.map((it) => ({
             id: it.id,
@@ -159,21 +139,6 @@ export function TimelineEditor({
             style: styleFor(it.color)
           }))
         );
-        // Floating annotations share the items DataSet as `background` items (span the full
-        // height, render behind the bars). They carry no group → they span every lane.
-        if (doc.annotations.length) {
-          items.add(
-            doc.annotations.map((a) => ({
-              id: a.id,
-              content: a.title,
-              start: a.start,
-              end: a.end,
-              type: 'background',
-              color: a.color,
-              style: annStyleFor(a.color)
-            })) as any
-          );
-        }
         const groups = new vis.DataSet(
           doc.groups.map((g) => ({
             id: g.id,
@@ -191,33 +156,32 @@ export function TimelineEditor({
           margin: { item: { horizontal: 6, vertical: 10 }, axis: 14 },
           zoomMin: 1000 * 60 * 60 * 24, // 1 day
           zoomMax: 1000 * 60 * 60 * 24 * 365 * 6, // ~6 years
-          orientationItem: 'top',
-          tooltip: { followMouse: true }
+          tooltip: { followMouse: true },
+          // Pin the initial window via OPTIONS (not a post-construction setWindow) so vis never
+          // does its deferred auto-fit-to-data over a restored zoom.
+          ...(doc.window ? { start: doc.window.start, end: doc.window.end } : {})
         } as any);
+        timelineRef.current = timeline;
 
-        if (doc.window) {
-          timeline.setWindow(doc.window.start, doc.window.end, { animation: false });
-        } else if (doc.items.length || doc.annotations.length) {
+        // First open of a populated board with no saved zoom → frame it once.
+        if (!doc.window && (doc.items.length || doc.annotations.length)) {
           timeline.fit({ animation: false });
         }
 
-        // ---- serialize / persist (our own JSON, not a vis blob) --------------------------
+        // ---- serialize / persist (our own JSON) ------------------------------------------
         const outDate = (v: any, fallback?: any): string => {
           if (v == null) return fallback == null ? '' : outDate(fallback);
           return typeof v === 'string' ? toDateInput(v) : ymd(new Date(v));
         };
         const serialize = (): string => {
           const win = timeline?.getWindow?.();
-          const all = items.get() as any[];
-          const bars = all.filter((i) => i.type !== 'background');
-          const anns = all.filter((i) => i.type === 'background');
           return JSON.stringify({
             groups: (groups.get() as any[]).map((g) => ({
               id: g.id,
               content: g.content,
               ...(g.nestedGroups ? { nestedGroups: g.nestedGroups } : {})
             })),
-            items: bars.map((i) => ({
+            items: (items.get() as any[]).map((i) => ({
               id: i.id,
               title: i.content,
               start: outDate(i.start),
@@ -225,13 +189,7 @@ export function TimelineEditor({
               group: i.group,
               color: i.color
             })),
-            annotations: anns.map((a) => ({
-              id: a.id,
-              title: a.content,
-              start: outDate(a.start),
-              end: outDate(a.end, a.start),
-              color: a.color
-            })),
+            annotations: annotationsRef.current.map((a) => ({ ...a })),
             window: win
               ? { start: new Date(win.start).toISOString(), end: new Date(win.end).toISOString() }
               : undefined
@@ -241,9 +199,8 @@ export function TimelineEditor({
           if (debounce) clearTimeout(debounce);
           debounce = setTimeout(() => onChangeRef(serialize()), 250);
         };
+        persistRef.current = persist;
 
-        // Drag/resize/move-between-lanes all mutate the DataSets → persist. Structural
-        // changes also re-render React (lane <select>, panel).
         items.on('*', (event: string) => {
           persist();
           if (event === 'add' || event === 'remove') bump();
@@ -252,13 +209,33 @@ export function TimelineEditor({
           persist();
           bump();
         });
-        // Persist the zoom/pan window too, but only when the user drives it — the initial
-        // programmatic fit/setWindow reports byUser:false, so opening a section stays clean.
         timeline.on('rangechanged', (props: any) => {
           if (props?.byUser) persist();
         });
 
-        // ---- imperative API (used by the React toolbar/panel + the e2e hook) -------------
+        // ---- keep the annotation overlay aligned with the plot ----------------------------
+        const measure = () => {
+          if (measureRaf) cancelAnimationFrame(measureRaf);
+          measureRaf = requestAnimationFrame(() => {
+            const cont = containerRef.current;
+            const center = cont?.querySelector('.vis-panel.vis-center') as HTMLElement | null;
+            if (!cont || !center || !timeline) return;
+            const c = center.getBoundingClientRect();
+            const o = cont.getBoundingClientRect();
+            const w = timeline.getWindow();
+            setGeo({
+              left: c.left - o.left,
+              top: c.top - o.top,
+              width: c.width,
+              height: c.height,
+              winStart: +w.start,
+              winEnd: +w.end
+            });
+          });
+        };
+        timeline.on('changed', measure);
+        timeline.on('rangechange', measure);
+
         const api: TimelineApi = {
           addLane(name, open = false) {
             const id = uid();
@@ -267,7 +244,6 @@ export function TimelineEditor({
             return id;
           },
           addItem(partial, open = false) {
-            // Need a lane to hang the bar on — make one if the board is empty.
             let group = partial?.group;
             if (!group) {
               const lanes = groups.get() as any[];
@@ -307,7 +283,6 @@ export function TimelineEditor({
             groups.update({ id, content } as any);
           },
           removeLane(id) {
-            // Drop the lane and any bars sitting in it.
             const orphans = (items.get() as any[]).filter((i) => i.group === id).map((i) => i.id);
             if (orphans.length) items.remove(orphans);
             groups.remove(id);
@@ -317,68 +292,62 @@ export function TimelineEditor({
             if (!i) return null;
             return {
               title: i.content ?? '',
-              start: toDateInput(typeof i.start === 'string' ? i.start : ymd(new Date(i.start))),
-              end: toDateInput(
-                i.end == null
-                  ? typeof i.start === 'string'
-                    ? i.start
-                    : ymd(new Date(i.start))
-                  : typeof i.end === 'string'
-                    ? i.end
-                    : ymd(new Date(i.end))
-              ),
+              start: outDate(i.start),
+              end: outDate(i.end, i.start),
               group: i.group ?? '',
               color: i.color ?? PALETTE[0].fill
             };
           },
           getLanes() {
             return (groups.get() as any[])
-              .filter((g) => !g.nestedGroups) // section headers aren't bar targets
+              .filter((g) => !g.nestedGroups)
               .map((g) => ({ id: g.id, content: g.content }));
           },
           addAnnotation(partial, open = false) {
+            // Default to a box in the middle third of the current view so it lands on screen.
+            const w = timeline.getWindow();
+            const s = +w.start;
+            const span = +w.end - s || 864e5;
             const id = uid();
-            const color = partial?.color ?? '#94a3b8';
-            items.add({
+            const ann: Annotation = {
               id,
-              content: partial?.title ?? 'Annotation',
-              start: partial?.start ?? today(),
-              end: partial?.end ?? today(30),
-              type: 'background',
-              color,
-              style: annStyleFor(color)
-            } as any);
+              title: partial?.title ?? 'Annotation',
+              start: partial?.start ?? new Date(s + span / 3).toISOString(),
+              end: partial?.end ?? new Date(s + (span * 2) / 3).toISOString(),
+              topPct: 0.1,
+              heightPct: 0.3,
+              color: partial?.color ?? '#fde68a'
+            };
+            annotationsRef.current = [...annotationsRef.current, ann];
+            bump();
+            persist();
             if (open) setEditing({ kind: 'annotation', id });
             return id;
           },
           updateAnnotation(id, patch) {
-            const next: any = { id };
-            if (patch.title !== undefined) next.content = patch.title;
-            if (patch.start !== undefined) next.start = patch.start;
-            if (patch.end !== undefined) next.end = patch.end;
-            if (patch.color !== undefined) {
-              next.color = patch.color;
-              next.style = annStyleFor(patch.color);
-            }
-            items.update(next);
+            annotationsRef.current = annotationsRef.current.map((a) =>
+              a.id === id ? { ...a, ...patch } : a
+            );
+            bump();
+            persist();
           },
           removeAnnotation(id) {
-            items.remove(id);
+            annotationsRef.current = annotationsRef.current.filter((a) => a.id !== id);
+            bump();
+            persist();
           },
           getAnnotation(id) {
-            const a = items.get(id) as any;
+            const a = annotationsRef.current.find((x) => x.id === id);
             if (!a) return null;
             return {
-              title: a.content ?? '',
-              start: outDate(a.start),
-              end: outDate(a.end, a.start),
-              color: a.color ?? '#94a3b8'
+              title: a.title ?? '',
+              start: toDateInput(a.start),
+              end: toDateInput(a.end),
+              color: a.color ?? '#fde68a'
             };
           },
           getAnnotations() {
-            return (items.get() as any[])
-              .filter((i) => i.type === 'background')
-              .map((a) => ({ id: a.id, title: a.content ?? '' }));
+            return annotationsRef.current.map((a) => ({ id: a.id, title: a.title ?? '' }));
           },
           fit() {
             timeline?.fit({ animation: true });
@@ -386,8 +355,6 @@ export function TimelineEditor({
         };
         apiRef.current = api;
 
-        // Double-click interactions: a bar → edit it; a lane label → rename it; empty lane
-        // space → add a bar there.
         timeline.on('doubleClick', (props: any) => {
           if (props.item != null) {
             setEditing({ kind: 'item', id: String(props.item) });
@@ -402,6 +369,7 @@ export function TimelineEditor({
 
         setStatus('ready');
         bump();
+        measure();
 
         if (import.meta.env.DEV) {
           (window as unknown as Record<string, unknown>).__TIMELINE_API__ = api;
@@ -417,7 +385,9 @@ export function TimelineEditor({
     return () => {
       disposed = true;
       if (debounce) clearTimeout(debounce);
+      if (measureRaf) cancelAnimationFrame(measureRaf);
       timeline?.destroy();
+      timelineRef.current = null;
       apiRef.current = null;
       if (import.meta.env.DEV) {
         delete (window as unknown as Record<string, unknown>).__TIMELINE_API__;
@@ -427,6 +397,15 @@ export function TimelineEditor({
 
   const api = apiRef.current;
   const ready = status === 'ready';
+
+  // Commit annotation geometry edits (drag/resize) back into the ref + persist.
+  const writeAnnotation = (id: string, patch: Partial<Annotation>) => {
+    annotationsRef.current = annotationsRef.current.map((a) =>
+      a.id === id ? { ...a, ...patch } : a
+    );
+    bump();
+  };
+  const commit = () => persistRef.current();
 
   return (
     <div className="flex h-full w-full flex-col" data-testid="timeline-editor">
@@ -445,30 +424,33 @@ export function TimelineEditor({
         </ToolbarButton>
         <span className="ml-1 text-xs text-slate-400">
           Drag to move or resize · double-click a bar to edit, a lane to rename, empty space to
-          add
+          add · annotations float — drag/resize them anywhere
         </span>
       </div>
 
-      {/* Annotation bands aren't draggable (they span all lanes, behind the bars), so each is
-          editable here via a chip. */}
-      {ready && api && api.getAnnotations().length > 0 && (
-        <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-1.5">
-          <span className="text-xs font-medium text-slate-400">Annotations:</span>
-          {api.getAnnotations().map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => setEditing({ kind: 'annotation', id: a.id })}
-              className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
-            >
-              {a.title || '(untitled)'}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200">
         <div ref={containerRef} className="h-full w-full" />
+
+        {/* Free-floating annotation overlay — sits above the plot, only the boxes catch
+            pointer events so panning/bar-dragging still works in the gaps. */}
+        {geo && api && (
+          <div
+            className="pointer-events-none absolute z-20 overflow-hidden"
+            style={{ left: geo.left, top: geo.top, width: geo.width, height: geo.height }}
+          >
+            {annotationsRef.current.map((a) => (
+              <AnnotationBox
+                key={a.id}
+                ann={a}
+                geo={geo}
+                onEdit={() => setEditing({ kind: 'annotation', id: a.id })}
+                onGeometry={(patch) => writeAnnotation(a.id, patch)}
+                onCommit={commit}
+              />
+            ))}
+          </div>
+        )}
+
         {status === 'loading' && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
             Loading timeline…
@@ -484,6 +466,102 @@ export function TimelineEditor({
       {editing && api && (
         <EditPanel editing={editing} api={api} onClose={() => setEditing(null)} />
       )}
+    </div>
+  );
+}
+
+// ---- annotation overlay box -------------------------------------------------------------
+
+type DragMode = { body?: boolean; left?: boolean; right?: boolean; top?: boolean; bottom?: boolean };
+
+function AnnotationBox({
+  ann,
+  geo,
+  onEdit,
+  onGeometry,
+  onCommit
+}: {
+  ann: Annotation;
+  geo: Geo;
+  onEdit: () => void;
+  onGeometry: (patch: Partial<Annotation>) => void;
+  onCommit: () => void;
+}) {
+  const p = paletteFor(ann.color);
+  const span = geo.winEnd - geo.winStart || 1;
+  const xOf = (t: number) => ((t - geo.winStart) / span) * geo.width;
+  const left = xOf(ms(ann.start));
+  const width = Math.max(xOf(ms(ann.end)) - left, 8);
+  const topPct = ann.topPct ?? 0.1;
+  const heightPct = ann.heightPct ?? 0.3;
+  const top = topPct * geo.height;
+  const height = Math.max(heightPct * geo.height, 20);
+
+  function startDrag(e: React.PointerEvent, mode: DragMode) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const o = { start: ms(ann.start), end: ms(ann.end), topPct, heightPct };
+    const minDur = span * 0.01; // keep at least ~1% of the view wide
+
+    const move = (ev: PointerEvent) => {
+      const dt = ((ev.clientX - startX) / geo.width) * span;
+      const dPct = (ev.clientY - startY) / geo.height;
+      const patch: Partial<Annotation> = {};
+      if (mode.body) {
+        patch.start = new Date(o.start + dt).toISOString();
+        patch.end = new Date(o.end + dt).toISOString();
+        patch.topPct = clamp(o.topPct + dPct, 0, 1 - o.heightPct);
+      }
+      if (mode.left) patch.start = new Date(Math.min(o.start + dt, o.end - minDur)).toISOString();
+      if (mode.right) patch.end = new Date(Math.max(o.end + dt, o.start + minDur)).toISOString();
+      if (mode.top) {
+        const nt = clamp(o.topPct + dPct, 0, o.topPct + o.heightPct - 0.04);
+        patch.topPct = nt;
+        patch.heightPct = o.topPct + o.heightPct - nt;
+      }
+      if (mode.bottom) patch.heightPct = clamp(o.heightPct + dPct, 0.04, 1 - o.topPct);
+      onGeometry(patch);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      onCommit();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  const handle = 'absolute bg-transparent';
+  return (
+    <div
+      data-testid="timeline-annotation"
+      onPointerDown={(e) => startDrag(e, { body: true })}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onEdit();
+      }}
+      title={ann.title}
+      style={{
+        left,
+        top,
+        width,
+        height,
+        backgroundColor: p.fill,
+        borderColor: p.border,
+        color: p.text,
+        opacity: 0.92
+      }}
+      className="pointer-events-auto absolute flex cursor-move items-start overflow-hidden rounded-lg border-2 border-dashed px-2 py-1 text-[11px] font-semibold shadow-sm"
+    >
+      <span className="pointer-events-none truncate">{ann.title}</span>
+      {/* edge + corner resize handles */}
+      <div className={`${handle} left-0 top-0 h-full w-1.5 cursor-ew-resize`} onPointerDown={(e) => startDrag(e, { left: true })} />
+      <div className={`${handle} right-0 top-0 h-full w-1.5 cursor-ew-resize`} onPointerDown={(e) => startDrag(e, { right: true })} />
+      <div className={`${handle} left-0 top-0 h-1.5 w-full cursor-ns-resize`} onPointerDown={(e) => startDrag(e, { top: true })} />
+      <div className={`${handle} bottom-0 left-0 h-1.5 w-full cursor-ns-resize`} onPointerDown={(e) => startDrag(e, { bottom: true })} />
+      <div className={`${handle} bottom-0 right-0 h-2.5 w-2.5 cursor-nwse-resize`} onPointerDown={(e) => startDrag(e, { right: true, bottom: true })} />
     </div>
   );
 }
@@ -510,8 +588,8 @@ function ToolbarButton({
 }
 
 /**
- * Docked editor for the selected bar or lane. Escape closes the panel (and is stopped from
- * bubbling, so it doesn't also close the section modal — the panel owns Escape while open).
+ * Docked editor for the selected bar, annotation, or lane. Escape closes the panel (stopped
+ * from bubbling, so it doesn't also close the section modal — the panel owns Escape).
  */
 function EditPanel({
   editing,
@@ -535,7 +613,6 @@ function EditPanel({
       const lane = api.getLanes().find((l) => l.id === editing.id);
       setLaneName(lane?.content ?? '');
     }
-    // editing.id identifies the target; api is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing.kind, editing.id]);
 
@@ -588,8 +665,6 @@ function EditPanel({
   }
 
   if (!item) return null;
-  // A bar and an annotation share the same form; the annotation just drops the Lane field
-  // and routes to the annotation API.
   const isAnn = editing.kind === 'annotation';
   const upd = (patch: Partial<ItemFields>) =>
     isAnn ? api.updateAnnotation(editing.id, patch) : api.updateItem(editing.id, patch);
@@ -654,18 +729,18 @@ function EditPanel({
       )}
       <Field label="Color">
         <div className="flex items-center gap-1.5 py-0.5">
-          {PALETTE.map((p) => (
+          {PALETTE.map((pp) => (
             <button
-              key={p.fill}
+              key={pp.fill}
               type="button"
-              aria-label={p.name}
+              aria-label={pp.name}
               onClick={() => {
-                setItem({ ...item, color: p.fill });
-                upd({ color: p.fill });
+                setItem({ ...item, color: pp.fill });
+                upd({ color: pp.fill });
               }}
-              style={{ backgroundColor: p.fill, borderColor: p.border }}
+              style={{ backgroundColor: pp.fill, borderColor: pp.border }}
               className={`h-5 w-5 rounded-full border-2 ${
-                item.color === p.fill ? 'ring-2 ring-slate-400 ring-offset-1' : ''
+                item.color === pp.fill ? 'ring-2 ring-slate-400 ring-offset-1' : ''
               }`}
             />
           ))}

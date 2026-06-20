@@ -26,18 +26,6 @@
 [data-testid='timeline-editor'] .vis-item.vis-selected {
   box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.45);
 }
-
-/* Floating annotation bands: full-height tint behind the bars, with a readable label. */
-[data-testid='timeline-editor'] .vis-item.vis-background {
-  border: none;
-}
-[data-testid='timeline-editor'] .vis-item.vis-background .vis-item-content {
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #475569;
-  white-space: nowrap;
-}
 [data-testid='timeline-editor'] .vis-item .vis-drag-left,
 [data-testid='timeline-editor'] .vis-item .vis-drag-right {
   width: 8px;
