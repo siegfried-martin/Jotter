@@ -118,8 +118,25 @@ export function TimelineEditor({
     let timeline: any = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
     let measureRaf = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    let resizeRaf = 0;
+
+    // Resolve once the container is actually laid out (non-zero size). vis caches its
+    // dimensions at construction and only refreshes them via _onResize (window 'resize' or a
+    // 1000ms poll); constructing while the modal's height is still 0 makes it cache 0 and
+    // render an empty grid until the next poll — the ~1s lag. Waiting here means vis sees the
+    // real size on init and draws correctly the first time. Capped so it can never hang.
+    const waitForSize = () =>
+      new Promise<void>((resolve) => {
+        let tries = 0;
+        const check = () => {
+          const el = containerRef.current;
+          if (disposed || tries++ > 90 || (el && el.clientHeight > 0 && el.clientWidth > 0)) {
+            resolve();
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        check();
+      });
 
     (async () => {
       try {
@@ -150,6 +167,10 @@ export function TimelineEditor({
             ...(g.nestedGroups ? { nestedGroups: g.nestedGroups } : {})
           }))
         );
+
+        // Don't construct until the modal has laid the container out (see waitForSize).
+        await waitForSize();
+        if (disposed || !containerRef.current) return;
 
         timeline = new vis.Timeline(containerRef.current, items as any, groups as any, {
           editable: { add: false, remove: false, updateTime: true, updateGroup: true },
@@ -378,28 +399,6 @@ export function TimelineEditor({
         bump();
         measure();
 
-        // vis caches its container dimensions and only refreshes them in `_onResize` — which
-        // fires on a window 'resize' or a 1000ms poll (watchTimer). When the modal's height
-        // resolves a frame AFTER vis initialized (caching height 0), the grid renders empty
-        // and stays that way until the next poll tick — the ~1s lag — while our annotation
-        // overlay (sized from the panel's correct position) already painted. `redraw()` won't
-        // help: it re-renders from the stale cached size. So drive vis's own `_onResize` (it
-        // re-reads offsetWidth/Height and triggers a real redraw) the moment the container
-        // reaches its true size.
-        const remeasure = () => {
-          if (typeof timeline?._onResize === 'function') timeline._onResize();
-          else window.dispatchEvent(new Event('resize')); // fallback if vis renames the handler
-          measure();
-        };
-        requestAnimationFrame(() => {
-          if (!disposed) remeasure();
-        });
-        resizeObserver = new ResizeObserver(() => {
-          if (resizeRaf) cancelAnimationFrame(resizeRaf);
-          resizeRaf = requestAnimationFrame(remeasure);
-        });
-        resizeObserver.observe(containerRef.current);
-
         if (import.meta.env.DEV) {
           (window as unknown as Record<string, unknown>).__TIMELINE_API__ = api;
         }
@@ -415,8 +414,6 @@ export function TimelineEditor({
       disposed = true;
       if (debounce) clearTimeout(debounce);
       if (measureRaf) cancelAnimationFrame(measureRaf);
-      if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      resizeObserver?.disconnect();
       timeline?.destroy();
       timelineRef.current = null;
       apiRef.current = null;
