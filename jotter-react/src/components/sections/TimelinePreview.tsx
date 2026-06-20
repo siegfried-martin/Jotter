@@ -1,12 +1,12 @@
-import { buildTimelinePreview, getScheduleItemCount } from '@/lib/util/schedule';
+import { buildTimelinePreview, getTimelineElementCount } from '@/lib/util/schedule';
 
-// Static, non-interactive preview of a Timeline section — a compact swimlane (lanes × bars)
-// built with plain CSS, no vis-timeline instance (that stays behind the editor's code-split
-// boundary). Mirrors TablePreview's "render our own data, not the library" approach.
+// Static, non-interactive preview of a Timeline section — a compact swimlane (annotation
+// bands + lanes × bars) built with plain CSS, no vis-timeline instance (that stays behind the
+// editor's code-split boundary). Mirrors TablePreview's "render our own data" approach.
 const PREVIEW_LANES = 4;
 
 export function TimelinePreview({ content }: { content: string }) {
-  if (getScheduleItemCount(content) === 0) {
+  if (getTimelineElementCount(content) === 0) {
     return (
       <div className="flex h-32 items-center justify-center rounded bg-slate-50 text-sm text-slate-400">
         {content?.trim() ? 'Empty timeline' : 'New timeline'}
@@ -14,10 +14,28 @@ export function TimelinePreview({ content }: { content: string }) {
     );
   }
 
-  const { lanes, extraLanes } = buildTimelinePreview(content, PREVIEW_LANES);
+  const { lanes, annotations, extraLanes } = buildTimelinePreview(content, PREVIEW_LANES);
 
   return (
     <div className="space-y-1.5">
+      {annotations.length > 0 && (
+        <div className="relative mb-1 h-4">
+          {annotations.map((a, i) => (
+            <div
+              key={i}
+              title={a.title}
+              style={{
+                left: `${a.leftPct}%`,
+                width: `${a.widthPct}%`,
+                backgroundColor: a.color
+              }}
+              className="absolute top-0 h-4 overflow-hidden rounded px-1 text-[9px] leading-4 font-semibold whitespace-nowrap text-slate-600 opacity-70"
+            >
+              {a.title}
+            </div>
+          ))}
+        </div>
+      )}
       {lanes.map((lane, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="w-16 flex-shrink-0 truncate text-[10px] text-slate-500" title={lane.label}>

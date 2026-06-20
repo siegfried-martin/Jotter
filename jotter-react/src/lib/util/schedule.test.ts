@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildTimelinePreview,
   getScheduleItemCount,
+  getTimelineElementCount,
   parseTimeline,
   timelineToCsv,
   timelineToHtml,
@@ -9,8 +10,12 @@ import {
   timelineToTsv
 } from './schedule';
 
-function doc(items: unknown[], groups: unknown[] = [{ id: 'g1', content: 'Team A' }]): string {
-  return JSON.stringify({ groups, items });
+function doc(
+  items: unknown[],
+  groups: unknown[] = [{ id: 'g1', content: 'Team A' }],
+  annotations: unknown[] = []
+): string {
+  return JSON.stringify({ groups, items, annotations });
 }
 
 const sample = doc([
@@ -19,24 +24,51 @@ const sample = doc([
 
 describe('parseTimeline', () => {
   it('returns an empty doc for blank / invalid content', () => {
-    expect(parseTimeline('')).toEqual({ groups: [], items: [], window: undefined });
-    expect(parseTimeline('not json')).toEqual({ groups: [], items: [], window: undefined });
+    expect(parseTimeline('')).toEqual({ groups: [], items: [], annotations: [], window: undefined });
+    expect(parseTimeline('not json')).toEqual({
+      groups: [],
+      items: [],
+      annotations: [],
+      window: undefined
+    });
   });
 
   it('tolerates partial shapes', () => {
     expect(parseTimeline('{"items":[{"id":"x"}]}').groups).toEqual([]);
     expect(parseTimeline('{"groups":[]}').items).toEqual([]);
+    expect(parseTimeline('{"groups":[]}').annotations).toEqual([]);
   });
 
-  it('counts items', () => {
+  it('counts bars vs. all elements (bars + annotations)', () => {
     expect(getScheduleItemCount(sample)).toBe(1);
     expect(getScheduleItemCount('')).toBe(0);
+    const withAnn = doc(
+      [],
+      [{ id: 'g1', content: 'Team A' }],
+      [{ id: 'a1', title: 'Roadmap', start: '2026-01-01', end: '2026-06-01' }]
+    );
+    expect(getScheduleItemCount(withAnn)).toBe(0); // no bars
+    expect(getTimelineElementCount(withAnn)).toBe(1); // but one annotation
   });
 });
 
 describe('buildTimelinePreview', () => {
-  it('returns no lanes when there are no items', () => {
-    expect(buildTimelinePreview(doc([]))).toEqual({ lanes: [], extraLanes: 0 });
+  it('returns nothing when there are no items or annotations', () => {
+    expect(buildTimelinePreview(doc([]))).toEqual({ lanes: [], annotations: [], extraLanes: 0 });
+  });
+
+  it('positions annotation bands across the span', () => {
+    const model = buildTimelinePreview(
+      doc(
+        [{ id: 'i', title: 'A', start: '2026-01-01', end: '2026-12-31', group: 'g1' }],
+        [{ id: 'g1', content: 'Team A' }],
+        [{ id: 'a1', title: 'Roadmap', start: '2026-01-01', end: '2026-07-01', color: '#94a3b8' }]
+      )
+    );
+    expect(model.annotations).toHaveLength(1);
+    expect(model.annotations[0].title).toBe('Roadmap');
+    expect(model.annotations[0].leftPct).toBe(0);
+    expect(model.annotations[0].widthPct).toBeGreaterThan(40);
   });
 
   it('positions a bar across the full span', () => {
@@ -97,6 +129,19 @@ describe('timeline export converters', () => {
       doc([{ id: 'a', title: 'a,b', start: '2026-01-01', end: '2026-01-02', group: 'ghost' }])
     );
     expect(csv).toBe('Title,Lane,Start,End\n"a,b",Unassigned,2026-01-01,2026-01-02');
+  });
+
+  it('exports annotations as rows under an "Annotation" lane', () => {
+    const withAnn = doc(
+      [{ id: 'i', title: 'AK Build', start: '2026-07-01', end: '2026-07-31', group: 'g1' }],
+      [{ id: 'g1', content: 'Team A' }],
+      [{ id: 'a1', title: 'Roadmap', start: '2026-01-01', end: '2026-12-31' }]
+    );
+    expect(timelineToTsv(withAnn)).toBe(
+      'Title\tLane\tStart\tEnd\n' +
+        'AK Build\tTeam A\t2026-07-01\t2026-07-31\n' +
+        'Roadmap\tAnnotation\t2026-01-01\t2026-12-31'
+    );
   });
 
   it('returns empty strings for a doc with no items', () => {

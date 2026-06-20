@@ -96,6 +96,47 @@ test.describe('timeline section', () => {
     }
   });
 
+  test('annotations persist and surface as editable chips', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-timeline-annot',
+      sections: [{ type: 'timeline', content: '', sequence: 10 }]
+    });
+    const sectionId = tree.sections[0].id;
+    try {
+      await page.goto(`/app/sections/${sectionId}`);
+      await expect(page.getByTestId('timeline-editor')).toBeVisible();
+      await expect(page.getByText('Loading timeline…')).toHaveCount(0, { timeout: 15000 });
+      await expect
+        .poll(() => page.evaluate(() => '__TIMELINE_API__' in window), { timeout: 10000 })
+        .toBe(true);
+
+      // Add a floating annotation (a labeled band spanning the board) via the facade.
+      await page.evaluate(() => {
+        const api = (window as unknown as { __TIMELINE_API__: any }).__TIMELINE_API__;
+        api.addAnnotation({ title: 'Existing 2026 Roadmap', start: '2026-07-01', end: '2027-01-01' });
+      });
+
+      // It's not draggable, so it shows up as an editable chip in the toolbar strip.
+      await expect(page.getByRole('button', { name: 'Existing 2026 Roadmap' })).toBeVisible();
+
+      await expect
+        .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {
+          timeout: 10000
+        })
+        .toContain('Existing 2026 Roadmap');
+
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+      await expect
+        .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
+        .toContain('Existing 2026 Roadmap');
+      expect(await fetchSectionContent(page, sectionId)).toContain('"annotations"');
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test.describe('clipboard', () => {
     test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 

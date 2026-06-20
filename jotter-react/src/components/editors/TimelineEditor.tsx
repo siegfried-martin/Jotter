@@ -37,6 +37,23 @@ function styleFor(fill?: string): string {
   return `background-color:${p.fill};border-color:${p.border};color:${p.text};`;
 }
 
+function hexToRgba(hex: string, a: number): string {
+  const m = hex.replace('#', '');
+  const n = m.length === 3
+    ? m.split('').map((c) => c + c).join('')
+    : m;
+  const r = parseInt(n.slice(0, 2), 16);
+  const g = parseInt(n.slice(2, 4), 16);
+  const b = parseInt(n.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Annotation bands sit BEHIND the bars and span every lane, so keep them translucent and
+// borderless — a tinted region, not a solid block.
+function annStyleFor(fill?: string): string {
+  return `background-color:${hexToRgba(fill || '#94a3b8', 0.22)};border:none;`;
+}
+
 const uid = () => crypto.randomUUID();
 
 function ymd(d: Date): string {
@@ -59,7 +76,11 @@ function toDateInput(v: string): string {
 }
 
 type Lane = { id: string; content: string };
-type Editing = { kind: 'item'; id: string } | { kind: 'lane'; id: string } | null;
+type Editing =
+  | { kind: 'item'; id: string }
+  | { kind: 'annotation'; id: string }
+  | { kind: 'lane'; id: string }
+  | null;
 
 export type TimelineApi = {
   addLane: (name?: string, open?: boolean) => string;
@@ -70,6 +91,11 @@ export type TimelineApi = {
   removeLane: (id: string) => void;
   getItem: (id: string) => ItemFields | null;
   getLanes: () => Lane[];
+  addAnnotation: (partial?: Partial<AnnotationFields>, open?: boolean) => string;
+  updateAnnotation: (id: string, patch: Partial<AnnotationFields>) => void;
+  removeAnnotation: (id: string) => void;
+  getAnnotation: (id: string) => AnnotationFields | null;
+  getAnnotations: () => { id: string; title: string }[];
   fit: () => void;
 };
 
@@ -78,6 +104,13 @@ export type ItemFields = {
   start: string;
   end: string;
   group: string;
+  color: string;
+};
+
+export type AnnotationFields = {
+  title: string;
+  start: string;
+  end: string;
   color: string;
 };
 
@@ -126,6 +159,21 @@ export function TimelineEditor({
             style: styleFor(it.color)
           }))
         );
+        // Floating annotations share the items DataSet as `background` items (span the full
+        // height, render behind the bars). They carry no group → they span every lane.
+        if (doc.annotations.length) {
+          items.add(
+            doc.annotations.map((a) => ({
+              id: a.id,
+              content: a.title,
+              start: a.start,
+              end: a.end,
+              type: 'background',
+              color: a.color,
+              style: annStyleFor(a.color)
+            })) as any
+          );
+        }
         const groups = new vis.DataSet(
           doc.groups.map((g) => ({
             id: g.id,
@@ -149,33 +197,44 @@ export function TimelineEditor({
 
         if (doc.window) {
           timeline.setWindow(doc.window.start, doc.window.end, { animation: false });
-        } else if (doc.items.length) {
+        } else if (doc.items.length || doc.annotations.length) {
           timeline.fit({ animation: false });
         }
 
         // ---- serialize / persist (our own JSON, not a vis blob) --------------------------
+        const outDate = (v: any, fallback?: any): string => {
+          if (v == null) return fallback == null ? '' : outDate(fallback);
+          return typeof v === 'string' ? toDateInput(v) : ymd(new Date(v));
+        };
         const serialize = (): string => {
           const win = timeline?.getWindow?.();
+          const all = items.get() as any[];
+          const bars = all.filter((i) => i.type !== 'background');
+          const anns = all.filter((i) => i.type === 'background');
           return JSON.stringify({
             groups: (groups.get() as any[]).map((g) => ({
               id: g.id,
               content: g.content,
               ...(g.nestedGroups ? { nestedGroups: g.nestedGroups } : {})
             })),
-            items: (items.get() as any[]).map((i) => ({
+            items: bars.map((i) => ({
               id: i.id,
               title: i.content,
-              start: typeof i.start === 'string' ? toDateInput(i.start) : ymd(new Date(i.start)),
-              end:
-                i.end == null
-                  ? toDateInput(typeof i.start === 'string' ? i.start : ymd(new Date(i.start)))
-                  : typeof i.end === 'string'
-                    ? toDateInput(i.end)
-                    : ymd(new Date(i.end)),
+              start: outDate(i.start),
+              end: outDate(i.end, i.start),
               group: i.group,
               color: i.color
             })),
-            window: win ? { start: new Date(win.start).toISOString(), end: new Date(win.end).toISOString() } : undefined
+            annotations: anns.map((a) => ({
+              id: a.id,
+              title: a.content,
+              start: outDate(a.start),
+              end: outDate(a.end, a.start),
+              color: a.color
+            })),
+            window: win
+              ? { start: new Date(win.start).toISOString(), end: new Date(win.end).toISOString() }
+              : undefined
           });
         };
         const persist = () => {
@@ -277,6 +336,50 @@ export function TimelineEditor({
               .filter((g) => !g.nestedGroups) // section headers aren't bar targets
               .map((g) => ({ id: g.id, content: g.content }));
           },
+          addAnnotation(partial, open = false) {
+            const id = uid();
+            const color = partial?.color ?? '#94a3b8';
+            items.add({
+              id,
+              content: partial?.title ?? 'Annotation',
+              start: partial?.start ?? today(),
+              end: partial?.end ?? today(30),
+              type: 'background',
+              color,
+              style: annStyleFor(color)
+            } as any);
+            if (open) setEditing({ kind: 'annotation', id });
+            return id;
+          },
+          updateAnnotation(id, patch) {
+            const next: any = { id };
+            if (patch.title !== undefined) next.content = patch.title;
+            if (patch.start !== undefined) next.start = patch.start;
+            if (patch.end !== undefined) next.end = patch.end;
+            if (patch.color !== undefined) {
+              next.color = patch.color;
+              next.style = annStyleFor(patch.color);
+            }
+            items.update(next);
+          },
+          removeAnnotation(id) {
+            items.remove(id);
+          },
+          getAnnotation(id) {
+            const a = items.get(id) as any;
+            if (!a) return null;
+            return {
+              title: a.content ?? '',
+              start: outDate(a.start),
+              end: outDate(a.end, a.start),
+              color: a.color ?? '#94a3b8'
+            };
+          },
+          getAnnotations() {
+            return (items.get() as any[])
+              .filter((i) => i.type === 'background')
+              .map((a) => ({ id: a.id, title: a.content ?? '' }));
+          },
           fit() {
             timeline?.fit({ animation: true });
           }
@@ -334,6 +437,9 @@ export function TimelineEditor({
         <ToolbarButton onClick={() => api?.addItem(undefined, true)} disabled={!ready}>
           + Bar
         </ToolbarButton>
+        <ToolbarButton onClick={() => api?.addAnnotation(undefined, true)} disabled={!ready}>
+          + Annotation
+        </ToolbarButton>
         <ToolbarButton onClick={() => api?.fit()} disabled={!ready}>
           Fit
         </ToolbarButton>
@@ -342,6 +448,24 @@ export function TimelineEditor({
           add
         </span>
       </div>
+
+      {/* Annotation bands aren't draggable (they span all lanes, behind the bars), so each is
+          editable here via a chip. */}
+      {ready && api && api.getAnnotations().length > 0 && (
+        <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-1.5">
+          <span className="text-xs font-medium text-slate-400">Annotations:</span>
+          {api.getAnnotations().map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => setEditing({ kind: 'annotation', id: a.id })}
+              className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
+            >
+              {a.title || '(untitled)'}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200">
         <div ref={containerRef} className="h-full w-full" />
@@ -404,6 +528,9 @@ function EditPanel({
   useEffect(() => {
     if (editing.kind === 'item') {
       setItem(api.getItem(editing.id));
+    } else if (editing.kind === 'annotation') {
+      const a = api.getAnnotation(editing.id);
+      setItem(a ? { ...a, group: '' } : null);
     } else {
       const lane = api.getLanes().find((l) => l.id === editing.id);
       setLaneName(lane?.content ?? '');
@@ -461,6 +588,12 @@ function EditPanel({
   }
 
   if (!item) return null;
+  // A bar and an annotation share the same form; the annotation just drops the Lane field
+  // and routes to the annotation API.
+  const isAnn = editing.kind === 'annotation';
+  const upd = (patch: Partial<ItemFields>) =>
+    isAnn ? api.updateAnnotation(editing.id, patch) : api.updateItem(editing.id, patch);
+  const del = () => (isAnn ? api.removeAnnotation(editing.id) : api.removeItem(editing.id));
   const lanes = api.getLanes();
   return (
     <div
@@ -468,13 +601,13 @@ function EditPanel({
       onKeyDown={onKeyDown}
       className="mt-2 flex flex-shrink-0 flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
     >
-      <Field label="Title">
+      <Field label={isAnn ? 'Annotation' : 'Title'}>
         <input
           autoFocus
           value={item.title}
           onChange={(e) => {
             setItem({ ...item, title: e.target.value });
-            api.updateItem(editing.id, { title: e.target.value });
+            upd({ title: e.target.value });
           }}
           className="w-52 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
         />
@@ -485,7 +618,7 @@ function EditPanel({
           value={item.start}
           onChange={(e) => {
             setItem({ ...item, start: e.target.value });
-            api.updateItem(editing.id, { start: e.target.value });
+            upd({ start: e.target.value });
           }}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
         />
@@ -496,27 +629,29 @@ function EditPanel({
           value={item.end}
           onChange={(e) => {
             setItem({ ...item, end: e.target.value });
-            api.updateItem(editing.id, { end: e.target.value });
+            upd({ end: e.target.value });
           }}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
         />
       </Field>
-      <Field label="Lane">
-        <select
-          value={item.group}
-          onChange={(e) => {
-            setItem({ ...item, group: e.target.value });
-            api.updateItem(editing.id, { group: e.target.value });
-          }}
-          className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
-        >
-          {lanes.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.content}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {!isAnn && (
+        <Field label="Lane">
+          <select
+            value={item.group}
+            onChange={(e) => {
+              setItem({ ...item, group: e.target.value });
+              upd({ group: e.target.value });
+            }}
+            className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+          >
+            {lanes.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.content}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Color">
         <div className="flex items-center gap-1.5 py-0.5">
           {PALETTE.map((p) => (
@@ -526,7 +661,7 @@ function EditPanel({
               aria-label={p.name}
               onClick={() => {
                 setItem({ ...item, color: p.fill });
-                api.updateItem(editing.id, { color: p.fill });
+                upd({ color: p.fill });
               }}
               style={{ backgroundColor: p.fill, borderColor: p.border }}
               className={`h-5 w-5 rounded-full border-2 ${
@@ -540,7 +675,7 @@ function EditPanel({
         <button
           type="button"
           onClick={() => {
-            api.removeItem(editing.id);
+            del();
             onClose();
           }}
           className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"

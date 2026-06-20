@@ -28,15 +28,29 @@ export interface TimelineItem extends ScheduleItem {
   group: string; // which lane (TimelineGroup.id) the bar sits in
 }
 
+/**
+ * A floating annotation — a labeled band that spans the whole board over a date range,
+ * independent of any lane (a phase marker, a multi-team event, an explanation). Rendered as
+ * a vis-timeline `background` item; edited via the panel, not by dragging.
+ */
+export interface Annotation {
+  id: string;
+  title: string;
+  start: string; // ISO 8601
+  end: string; // ISO 8601
+  color?: string;
+}
+
 /** The Timeline section's `content` shape. */
 export interface TimelineDoc {
   groups: TimelineGroup[];
   items: TimelineItem[];
+  annotations: Annotation[];
   /** Initial visible range (zoom); absent ⇒ fit to the items. */
   window?: { start: string; end: string };
 }
 
-const EMPTY_TIMELINE: TimelineDoc = { groups: [], items: [] };
+const EMPTY_TIMELINE: TimelineDoc = { groups: [], items: [], annotations: [] };
 
 /**
  * Parse a Timeline snapshot from `content`; blank/garbage falls back to an empty doc.
@@ -49,6 +63,7 @@ export function parseTimeline(content: string): TimelineDoc {
     return {
       groups: Array.isArray(raw.groups) ? raw.groups : [],
       items: Array.isArray(raw.items) ? raw.items : [],
+      annotations: Array.isArray(raw.annotations) ? raw.annotations : [],
       window: raw.window
     };
   } catch {
@@ -56,9 +71,15 @@ export function parseTimeline(content: string): TimelineDoc {
   }
 }
 
-/** Count of items (bars/events) in a Timeline snapshot — drives the card empty state. */
+/** Count of bars (lane-bound items) — gates the "Nothing to copy" / bar-export checks. */
 export function getScheduleItemCount(content: string): number {
   return parseTimeline(content).items.length;
+}
+
+/** Count of everything drawn (bars + annotation bands) — drives the card empty state. */
+export function getTimelineElementCount(content: string): number {
+  const doc = parseTimeline(content);
+  return doc.items.length + doc.annotations.length;
 }
 
 function toTime(v: string): number {
@@ -76,28 +97,48 @@ export interface PreviewLane {
   label: string;
   bars: PreviewBar[];
 }
+export interface PreviewAnnotation {
+  title: string;
+  leftPct: number;
+  widthPct: number;
+  color: string;
+}
 export interface TimelinePreviewModel {
   lanes: PreviewLane[];
+  annotations: PreviewAnnotation[];
   extraLanes: number;
 }
 
 /**
- * Build a compact, static swimlane model for the card preview — lanes (that actually hold
- * bars) with each bar positioned as a percentage of the doc's overall time span. Pure: no
- * vis-timeline. Lanes beyond `maxLanes` are summarized as `extraLanes`.
+ * Build a compact, static swimlane model for the card preview — annotation bands plus lanes
+ * (that actually hold bars), each positioned as a percentage of the doc's overall time span.
+ * Pure: no vis-timeline. Lanes beyond `maxLanes` are summarized as `extraLanes`.
  */
 export function buildTimelinePreview(content: string, maxLanes = 4): TimelinePreviewModel {
   const doc = parseTimeline(content);
-  if (doc.items.length === 0) return { lanes: [], extraLanes: 0 };
+  if (doc.items.length === 0 && doc.annotations.length === 0) {
+    return { lanes: [], annotations: [], extraLanes: 0 };
+  }
 
-  // Overall span across every bar; guard against a zero-width domain.
+  // Overall span across every bar AND annotation; guard against a zero-width domain.
   let min = Infinity;
   let max = -Infinity;
-  for (const it of doc.items) {
-    min = Math.min(min, toTime(it.start));
-    max = Math.max(max, toTime(it.end), toTime(it.start));
+  for (const el of [...doc.items, ...doc.annotations]) {
+    min = Math.min(min, toTime(el.start));
+    max = Math.max(max, toTime(el.end), toTime(el.start));
   }
   const span = max - min || 1;
+
+  const annotations: PreviewAnnotation[] = doc.annotations.map((a) => {
+    const start = toTime(a.start);
+    const end = Math.max(toTime(a.end), start);
+    return {
+      title: a.title,
+      leftPct: ((start - min) / span) * 100,
+      widthPct: Math.max(((end - start) / span) * 100, 3),
+      color: a.color || '#e2e8f0'
+    };
+  });
 
   // Only flat lanes (section headers own nestedGroups) that contain at least one bar, in
   // declared order. Items whose group is missing fall into an "Unassigned" lane.
@@ -125,7 +166,7 @@ export function buildTimelinePreview(content: string, maxLanes = 4): TimelinePre
     label: key === '__unassigned__' ? 'Unassigned' : (labelById.get(key) ?? ''),
     bars: byLane.get(key)!
   }));
-  return { lanes, extraLanes: Math.max(order.length - maxLanes, 0) };
+  return { lanes, annotations, extraLanes: Math.max(order.length - maxLanes, 0) };
 }
 
 // ---- Export converters (copy / CSV) -------------------------------------------------------
@@ -137,12 +178,20 @@ const EXPORT_HEADERS = ['Title', 'Lane', 'Start', 'End'];
 function timelineRows(content: string): string[][] {
   const doc = parseTimeline(content);
   const labelById = new Map(doc.groups.map((g) => [g.id, g.content]));
-  return doc.items.map((it) => [
+  const bars = doc.items.map((it) => [
     it.title ?? '',
     labelById.get(it.group) ?? 'Unassigned',
     it.start ?? '',
     it.end ?? ''
   ]);
+  // Annotations are lane-less; export them with a sentinel lane so they survive a round-trip.
+  const annotations = doc.annotations.map((a) => [
+    a.title ?? '',
+    'Annotation',
+    a.start ?? '',
+    a.end ?? ''
+  ]);
+  return [...bars, ...annotations];
 }
 
 /** TSV (pastes into Excel/Sheets) with a header row. */

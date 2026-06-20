@@ -4,7 +4,7 @@ import { renderMarkdown } from './renderMarkdown';
 import { getDiagramElementCount } from './diagram';
 import { getTableCellCount, tableToCsv, tableToHtml, tableToMarkdown, tableToTsv } from './table';
 import {
-  getScheduleItemCount,
+  getTimelineElementCount,
   timelineToCsv,
   timelineToHtml,
   timelineToMarkdown,
@@ -184,7 +184,7 @@ export async function copyNative(section: NoteSection): Promise<string> {
     }
     case 'timeline': {
       // TSV (Title/Lane/Start/End, pastes into Excel/Sheets) + an HTML <table> for rich targets.
-      if (getScheduleItemCount(section.content) === 0) return 'Nothing to copy';
+      if (getTimelineElementCount(section.content) === 0) return 'Nothing to copy';
       await writeRich(timelineToHtml(section.content), timelineToTsv(section.content));
       return 'Copied to clipboard';
     }
@@ -195,7 +195,7 @@ export async function copyNative(section: NoteSection): Promise<string> {
 export function downloadCsv(section: NoteSection): string {
   let csv: string;
   if (section.type === 'timeline') {
-    if (getScheduleItemCount(section.content) === 0) return 'Nothing to export';
+    if (getTimelineElementCount(section.content) === 0) return 'Nothing to export';
     csv = timelineToCsv(section.content);
   } else {
     if (getTableCellCount(section.content) === 0) return 'Nothing to export';
