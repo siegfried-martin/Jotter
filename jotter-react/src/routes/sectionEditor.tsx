@@ -9,6 +9,7 @@ import { YQuillEditor } from '@/components/editors/YQuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import { TableEditor } from '@/components/editors/TableEditor';
+import { TimelineEditor } from '@/components/editors/TimelineEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
 import { useContainer } from '@/lib/data/useContainers';
@@ -42,7 +43,8 @@ const TYPE_TITLE: Record<NoteSection['type'], string> = {
   checklist: 'Checklist',
   diagram: 'Diagram',
   markdown: 'Markdown',
-  table: 'Table'
+  table: 'Table',
+  timeline: 'Timeline'
 };
 
 export function SectionEditorRoute() {
@@ -379,7 +381,8 @@ function SectionEditorModal({
     const updates = buildUpdates();
     // LWW types: if the section changed under us since we opened it, don't silently
     // overwrite — surface the choice. (CRDT types merge, so they skip this.)
-    const isLww = section.type === 'checklist' || section.type === 'diagram';
+    const isLww =
+      section.type === 'checklist' || section.type === 'diagram' || section.type === 'timeline';
     if (isLww && isOnline()) {
       const current = await SectionService.getSection(section.id).catch(() => null);
       if (current && current.updated_at !== baseUpdatedAt.current) {
@@ -531,6 +534,9 @@ function SectionEditorModal({
             )}
             {section.type === 'table' && (
               <TableEditor initial={content} onChange={handleContentChange} />
+            )}
+            {section.type === 'timeline' && (
+              <TimelineEditor initial={content} onChange={handleContentChange} />
             )}
           </div>
         </div>

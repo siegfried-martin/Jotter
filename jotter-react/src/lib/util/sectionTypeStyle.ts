@@ -52,6 +52,14 @@ export const SECTION_TYPE_META: Record<
     icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z M4 10h16 M4 15h16 M10 4v16',
     base: 'bg-teal-50 text-teal-700',
     hover: 'hover:bg-teal-100'
+  },
+  timeline: {
+    typeLabel: 'Timeline',
+    addLabel: 'Timeline',
+    // Three swimlane bars of varying start/length — the gantt/roadmap read.
+    icon: 'M3 6h7 M8 12h11 M5 18h9',
+    base: 'bg-cyan-50 text-cyan-700',
+    hover: 'hover:bg-cyan-100'
   }
 };
 
@@ -61,6 +69,7 @@ export const SECTION_TYPE_ORDER: SectionType[] = [
   'code',
   'markdown',
   'table',
+  'timeline',
   'diagram',
   'checklist'
 ];

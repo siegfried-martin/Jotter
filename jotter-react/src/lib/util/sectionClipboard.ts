@@ -162,6 +162,10 @@ export async function copyNative(section: NoteSection): Promise<string> {
       await writeRich(tableToHtml(section.content), tableToTsv(section.content));
       return 'Copied to clipboard';
     }
+    case 'timeline':
+      // Copy/CSV export for timeline lands in its own slice (see the Calendar/Timeline
+      // initiative); keep the switch total until then.
+      return 'Nothing to copy';
   }
 }
 
