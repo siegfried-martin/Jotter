@@ -25,7 +25,8 @@ import {
   copyAsMarkdown,
   downloadCsv,
   nativeCopyLabel,
-  hasMarkdownCopy
+  hasMarkdownCopy,
+  hasCsvDownload
 } from '@/lib/util/sectionClipboard';
 import { isOnline } from '@/lib/offline/onlineStatus';
 import {
@@ -561,7 +562,7 @@ function SectionEditorModal({
                 Copy as Markdown
               </button>
             )}
-            {section.type === 'table' && (
+            {hasCsvDownload(section.type) && (
               <button
                 onClick={downloadCsvNow}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"

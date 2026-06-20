@@ -60,3 +60,132 @@ export function parseTimeline(content: string): TimelineDoc {
 export function getScheduleItemCount(content: string): number {
   return parseTimeline(content).items.length;
 }
+
+function toTime(v: string): number {
+  const t = new Date(v).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+export interface PreviewBar {
+  title: string;
+  leftPct: number;
+  widthPct: number;
+  color: string;
+}
+export interface PreviewLane {
+  label: string;
+  bars: PreviewBar[];
+}
+export interface TimelinePreviewModel {
+  lanes: PreviewLane[];
+  extraLanes: number;
+}
+
+/**
+ * Build a compact, static swimlane model for the card preview — lanes (that actually hold
+ * bars) with each bar positioned as a percentage of the doc's overall time span. Pure: no
+ * vis-timeline. Lanes beyond `maxLanes` are summarized as `extraLanes`.
+ */
+export function buildTimelinePreview(content: string, maxLanes = 4): TimelinePreviewModel {
+  const doc = parseTimeline(content);
+  if (doc.items.length === 0) return { lanes: [], extraLanes: 0 };
+
+  // Overall span across every bar; guard against a zero-width domain.
+  let min = Infinity;
+  let max = -Infinity;
+  for (const it of doc.items) {
+    min = Math.min(min, toTime(it.start));
+    max = Math.max(max, toTime(it.end), toTime(it.start));
+  }
+  const span = max - min || 1;
+
+  // Only flat lanes (section headers own nestedGroups) that contain at least one bar, in
+  // declared order. Items whose group is missing fall into an "Unassigned" lane.
+  const flat = doc.groups.filter((g) => !g.nestedGroups);
+  const labelById = new Map(flat.map((g) => [g.id, g.content]));
+  const order: string[] = [];
+  const byLane = new Map<string, PreviewBar[]>();
+  for (const it of doc.items) {
+    const key = labelById.has(it.group) ? it.group : '__unassigned__';
+    if (!byLane.has(key)) {
+      byLane.set(key, []);
+      order.push(key);
+    }
+    const start = toTime(it.start);
+    const end = Math.max(toTime(it.end), start);
+    byLane.get(key)!.push({
+      title: it.title,
+      leftPct: ((start - min) / span) * 100,
+      widthPct: Math.max(((end - start) / span) * 100, 3),
+      color: it.color || '#cffafe'
+    });
+  }
+
+  const lanes = order.slice(0, maxLanes).map((key) => ({
+    label: key === '__unassigned__' ? 'Unassigned' : (labelById.get(key) ?? ''),
+    bars: byLane.get(key)!
+  }));
+  return { lanes, extraLanes: Math.max(order.length - maxLanes, 0) };
+}
+
+// ---- Export converters (copy / CSV) -------------------------------------------------------
+// A Timeline exports as a flat table of bars: Title | Lane | Start | End. Pure functions over
+// our own JSON, so .ics / image export can be layered on later without touching the editor.
+
+const EXPORT_HEADERS = ['Title', 'Lane', 'Start', 'End'];
+
+function timelineRows(content: string): string[][] {
+  const doc = parseTimeline(content);
+  const labelById = new Map(doc.groups.map((g) => [g.id, g.content]));
+  return doc.items.map((it) => [
+    it.title ?? '',
+    labelById.get(it.group) ?? 'Unassigned',
+    it.start ?? '',
+    it.end ?? ''
+  ]);
+}
+
+/** TSV (pastes into Excel/Sheets) with a header row. */
+export function timelineToTsv(content: string): string {
+  const rows = timelineRows(content);
+  if (rows.length === 0) return '';
+  return [EXPORT_HEADERS, ...rows].map((r) => r.join('\t')).join('\n');
+}
+
+function csvField(s: string): string {
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** RFC 4180 CSV with a header row. */
+export function timelineToCsv(content: string): string {
+  const rows = timelineRows(content);
+  if (rows.length === 0) return '';
+  return [EXPORT_HEADERS, ...rows].map((r) => r.map(csvField).join(',')).join('\n');
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** HTML table (header + rows) for the rich clipboard flavor. */
+export function timelineToHtml(content: string): string {
+  const rows = timelineRows(content);
+  if (rows.length === 0) return '';
+  const head = `<tr>${EXPORT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
+  const body = rows
+    .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
+    .join('');
+  return `<table>${head}${body}</table>`;
+}
+
+/** GFM pipe table with the export headers. */
+export function timelineToMarkdown(content: string): string {
+  const rows = timelineRows(content);
+  if (rows.length === 0) return '';
+  const line = (cells: string[]) => `| ${cells.join(' | ')} |`;
+  return [
+    line(EXPORT_HEADERS),
+    line(EXPORT_HEADERS.map(() => '---')),
+    ...rows.map((r) => line(r))
+  ].join('\n');
+}

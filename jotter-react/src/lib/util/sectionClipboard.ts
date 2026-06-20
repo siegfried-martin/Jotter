@@ -3,6 +3,13 @@ import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { renderMarkdown } from './renderMarkdown';
 import { getDiagramElementCount } from './diagram';
 import { getTableCellCount, tableToCsv, tableToHtml, tableToMarkdown, tableToTsv } from './table';
+import {
+  getScheduleItemCount,
+  timelineToCsv,
+  timelineToHtml,
+  timelineToMarkdown,
+  timelineToTsv
+} from './schedule';
 
 // Clipboard export for section cards (requested-features #3b). Two affordances, offered
 // per type (see SectionCard): a native "Copy" that pastes naturally into other apps, and
@@ -88,6 +95,8 @@ export function sectionToMarkdown(section: NoteSection): string {
         .join('\n');
     case 'table':
       return tableToMarkdown(section.content ?? '');
+    case 'timeline':
+      return timelineToMarkdown(section.content ?? '');
     default:
       // code/diagram have no "Copy as Markdown" affordance, but stay total for safety.
       return section.content ?? '';
@@ -110,7 +119,18 @@ export function nativeCopyLabel(type: NoteSection['type']): string {
 
 /** Whether a type offers the explicit "Copy as Markdown" action. */
 export function hasMarkdownCopy(type: NoteSection['type']): boolean {
-  return type === 'wysiwyg' || type === 'checklist' || type === 'markdown' || type === 'table';
+  return (
+    type === 'wysiwyg' ||
+    type === 'checklist' ||
+    type === 'markdown' ||
+    type === 'table' ||
+    type === 'timeline'
+  );
+}
+
+/** Whether a type offers the "Download CSV" action (tabular exports). */
+export function hasCsvDownload(type: NoteSection['type']): boolean {
+  return type === 'table' || type === 'timeline';
 }
 
 /**
@@ -162,20 +182,28 @@ export async function copyNative(section: NoteSection): Promise<string> {
       await writeRich(tableToHtml(section.content), tableToTsv(section.content));
       return 'Copied to clipboard';
     }
-    case 'timeline':
-      // Copy/CSV export for timeline lands in its own slice (see the Calendar/Timeline
-      // initiative); keep the switch total until then.
-      return 'Nothing to copy';
+    case 'timeline': {
+      // TSV (Title/Lane/Start/End, pastes into Excel/Sheets) + an HTML <table> for rich targets.
+      if (getScheduleItemCount(section.content) === 0) return 'Nothing to copy';
+      await writeRich(timelineToHtml(section.content), timelineToTsv(section.content));
+      return 'Copied to clipboard';
+    }
   }
 }
 
-/** Trigger a CSV file download of a table section. Returns the toast message to show. */
+/** Trigger a CSV file download of a table or timeline section. Returns the toast message. */
 export function downloadCsv(section: NoteSection): string {
-  if (getTableCellCount(section.content) === 0) return 'Nothing to export';
-  const csv = tableToCsv(section.content);
+  let csv: string;
+  if (section.type === 'timeline') {
+    if (getScheduleItemCount(section.content) === 0) return 'Nothing to export';
+    csv = timelineToCsv(section.content);
+  } else {
+    if (getTableCellCount(section.content) === 0) return 'Nothing to export';
+    csv = tableToCsv(section.content);
+  }
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const name = (section.title?.trim() || 'table').replace(/[^\w.-]+/g, '_');
+  const name = (section.title?.trim() || section.type).replace(/[^\w.-]+/g, '_');
   const a = document.createElement('a');
   a.href = url;
   a.download = `${name}.csv`;

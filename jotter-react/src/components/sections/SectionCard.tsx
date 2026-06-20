@@ -10,7 +10,8 @@ import {
   copyAsMarkdown,
   downloadCsv,
   nativeCopyLabel,
-  hasMarkdownCopy
+  hasMarkdownCopy,
+  hasCsvDownload
 } from '@/lib/util/sectionClipboard';
 import '@/components/editors/markdown-preview.css';
 import { showToast } from '@/lib/ui/toast';
@@ -314,7 +315,7 @@ export function SectionCard({
           }
         ]
       : []),
-    ...(section.type === 'table'
+    ...(hasCsvDownload(section.type)
       ? [
           {
             label: 'Download CSV',

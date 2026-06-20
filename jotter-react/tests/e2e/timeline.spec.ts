@@ -35,7 +35,7 @@ test.describe('timeline section', () => {
     }
   });
 
-  test('the card preview reflects the seeded items', async ({ page }) => {
+  test('the card preview renders a static swimlane', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       collectionName: 'e2e-timeline-preview',
@@ -45,7 +45,9 @@ test.describe('timeline section', () => {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
       const card = page.getByTestId('section-card');
       await expect(card).toBeVisible();
-      await expect(card.getByText('1 item', { exact: true })).toBeVisible();
+      // The preview is plain CSS (no vis-timeline): the lane label and the bar title show.
+      await expect(card.getByText('Team A', { exact: true })).toBeVisible();
+      await expect(card.getByText('AK Build', { exact: true })).toBeVisible();
     } finally {
       await cleanup(page, tree.collectionId);
     }
@@ -92,5 +94,39 @@ test.describe('timeline section', () => {
     } finally {
       await cleanup(page, tree.collectionId);
     }
+  });
+
+  test.describe('clipboard', () => {
+    test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+    test('Copy as Markdown produces a GFM table; Copy yields TSV', async ({ page }) => {
+      await gotoAppForSeeding(page);
+      const tree = await seedTree(page, {
+        collectionName: 'e2e-timeline-clip',
+        sections: [{ type: 'timeline', content: timelineDoc('AK Build'), sequence: 10 }]
+      });
+      try {
+        await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+        const openMenu = () =>
+          page.getByTestId('section-card').getByRole('button', { name: 'More actions' }).click();
+
+        await openMenu();
+        await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+        await expect(page.getByText('Copied as Markdown')).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+          '| Title | Lane | Start | End |\n| --- | --- | --- | --- |\n' +
+            '| AK Build | Team A | 2026-07-01 | 2026-07-31 |'
+        );
+
+        await openMenu();
+        await page.getByRole('button', { name: 'Copy', exact: true }).click();
+        await expect(page.getByText('Copied to clipboard')).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+          'Title\tLane\tStart\tEnd\nAK Build\tTeam A\t2026-07-01\t2026-07-31'
+        );
+      } finally {
+        await cleanup(page, tree.collectionId);
+      }
+    });
   });
 });
