@@ -8,6 +8,7 @@ import { YMarkdownEditor } from '@/components/editors/YMarkdownEditor';
 import { YQuillEditor } from '@/components/editors/YQuillEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
+import { TableEditor } from '@/components/editors/TableEditor';
 import type { ChecklistItem, CreateNoteSection, NoteSection } from '@/lib/types';
 import { useDeleteSection, useSection, useUpdateSection } from '@/lib/data/useSections';
 import { useContainer } from '@/lib/data/useContainers';
@@ -21,6 +22,7 @@ import { showToast } from '@/lib/ui/toast';
 import {
   copyNative,
   copyAsMarkdown,
+  downloadCsv,
   nativeCopyLabel,
   hasMarkdownCopy
 } from '@/lib/util/sectionClipboard';
@@ -39,7 +41,8 @@ const TYPE_TITLE: Record<NoteSection['type'], string> = {
   wysiwyg: 'Text',
   checklist: 'Checklist',
   diagram: 'Diagram',
-  markdown: 'Markdown'
+  markdown: 'Markdown',
+  table: 'Table'
 };
 
 export function SectionEditorRoute() {
@@ -349,6 +352,7 @@ function SectionEditorModal({
     copyAsMarkdown(liveSection())
       .then(showToast)
       .catch(() => showToast('Copy failed'));
+  const downloadCsvNow = () => showToast(downloadCsv(liveSection()));
 
   // The actual write + close. CRDT merge handles concurrent edits for code/wysiwyg; LWW
   // types (checklist/diagram) are guarded by the conflict pre-check in saveAndClose.
@@ -456,6 +460,10 @@ function SectionEditorModal({
         e.preventDefault();
         saveAndClose();
       } else if (e.key === 'Escape') {
+        // The spreadsheet editor is complex enough that Escape belongs to it (exit cell
+        // edit, cancel a selection/formula, dismiss its menus) rather than closing the
+        // modal. Let Univer handle it; the user saves explicitly (Save button / Cmd+S).
+        if (section.type === 'table') return;
         e.preventDefault();
         saveAndClose();
       }
@@ -521,6 +529,9 @@ function SectionEditorModal({
             {section.type === 'diagram' && (
               <ExcalidrawEditor initial={content} onChange={handleContentChange} />
             )}
+            {section.type === 'table' && (
+              <TableEditor initial={content} onChange={handleContentChange} />
+            )}
           </div>
         </div>
 
@@ -542,6 +553,15 @@ function SectionEditorModal({
               >
                 <ClipboardIcon />
                 Copy as Markdown
+              </button>
+            )}
+            {section.type === 'table' && (
+              <button
+                onClick={downloadCsvNow}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
+              >
+                <ClipboardIcon />
+                Download CSV
               </button>
             )}
           </div>

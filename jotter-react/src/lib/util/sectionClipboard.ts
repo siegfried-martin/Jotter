@@ -2,6 +2,7 @@ import TurndownService from 'turndown';
 import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { renderMarkdown } from './renderMarkdown';
 import { getDiagramElementCount } from './diagram';
+import { getTableCellCount, tableToCsv, tableToHtml, tableToMarkdown, tableToTsv } from './table';
 
 // Clipboard export for section cards (requested-features #3b). Two affordances, offered
 // per type (see SectionCard): a native "Copy" that pastes naturally into other apps, and
@@ -12,6 +13,8 @@ import { getDiagramElementCount } from './diagram';
 //   Checklist       Copy = rich HTML (struck)   Copy as Markdown = - [ ] / - [x] list
 //   Draw (diagram)  Copy = PNG image            —
 //   Markdown        Copy = rich HTML (rendered) Copy as Markdown = raw source
+//   Table           Copy = TSV + HTML table     Copy as Markdown = GFM pipe table
+//                   (Table also offers a "Download CSV" action — see downloadCsv.)
 
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -83,6 +86,8 @@ export function sectionToMarkdown(section: NoteSection): string {
           (it) => `- [${it.checked ? 'x' : ' '}] ${it.text}${it.date ? ` (due ${it.date})` : ''}`
         )
         .join('\n');
+    case 'table':
+      return tableToMarkdown(section.content ?? '');
     default:
       // code/diagram have no "Copy as Markdown" affordance, but stay total for safety.
       return section.content ?? '';
@@ -105,7 +110,7 @@ export function nativeCopyLabel(type: NoteSection['type']): string {
 
 /** Whether a type offers the explicit "Copy as Markdown" action. */
 export function hasMarkdownCopy(type: NoteSection['type']): boolean {
-  return type === 'wysiwyg' || type === 'checklist' || type === 'markdown';
+  return type === 'wysiwyg' || type === 'checklist' || type === 'markdown' || type === 'table';
 }
 
 /**
@@ -151,7 +156,30 @@ export async function copyNative(section: NoteSection): Promise<string> {
       await writeRich(checklistToHtml(items), checklistToPlain(items));
       return 'Copied to clipboard';
     }
+    case 'table': {
+      // TSV as plain text (pastes into Excel/Sheets) + an HTML <table> for rich targets.
+      if (getTableCellCount(section.content) === 0) return 'Nothing to copy';
+      await writeRich(tableToHtml(section.content), tableToTsv(section.content));
+      return 'Copied to clipboard';
+    }
   }
+}
+
+/** Trigger a CSV file download of a table section. Returns the toast message to show. */
+export function downloadCsv(section: NoteSection): string {
+  if (getTableCellCount(section.content) === 0) return 'Nothing to export';
+  const csv = tableToCsv(section.content);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const name = (section.title?.trim() || 'table').replace(/[^\w.-]+/g, '_');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return 'Downloaded CSV';
 }
 
 /** The "Copy as Markdown" action. Returns the toast message to show. */

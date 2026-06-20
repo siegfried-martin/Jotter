@@ -55,7 +55,7 @@ export async function signInAs(page: Page, email: string, password: string): Pro
 // dev DB. Tests run serially (workers:1) against shared jotter-dev.
 // ---------------------------------------------------------------------------
 
-export type SectionType = 'code' | 'wysiwyg' | 'checklist' | 'diagram' | 'markdown';
+export type SectionType = 'code' | 'wysiwyg' | 'checklist' | 'diagram' | 'markdown' | 'table';
 
 export interface SeededSection {
   id: string;
@@ -254,6 +254,15 @@ export async function fetchSectionTitle(page: Page, sectionId: string): Promise<
     const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
     const { data } = await sb.from('note_section').select('title').eq('id', sid).maybeSingle();
     return (data?.title as string) ?? null;
+  }, sectionId);
+}
+
+/** Raw persisted `content` blob for a section (e.g. a table's workbook snapshot JSON). */
+export async function fetchSectionContent(page: Page, sectionId: string): Promise<string | null> {
+  return page.evaluate(async (sid) => {
+    const sb = (window as unknown as { __SUPABASE_CLIENT__: any }).__SUPABASE_CLIENT__;
+    const { data } = await sb.from('note_section').select('content').eq('id', sid).maybeSingle();
+    return (data?.content as string) ?? null;
   }, sectionId);
 }
 

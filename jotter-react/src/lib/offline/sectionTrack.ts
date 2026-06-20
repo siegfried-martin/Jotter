@@ -4,8 +4,9 @@
 // reconcile:
 //   * CRDT track (code, wysiwyg, markdown) — Yjs document, automatic merge, real-time
 //     collab later.
-//   * LWW  track (checklist, diagram) — mutation outbox + last-write-wins + compare-and-
-//     swap conflict detection.
+//   * LWW  track (checklist, diagram, table) — mutation outbox + last-write-wins +
+//     compare-and-swap conflict detection. The editor owns an opaque JSON blob (Excalidraw
+//     scene / Univer workbook snapshot) mirrored into `content`; no Yjs.
 //
 // This classifier is the single source of that boundary; every offline code path routes
 // through it so the split stays consistent. Text-like editors (markdown joined here) live
