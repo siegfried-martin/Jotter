@@ -118,6 +118,8 @@ export function TimelineEditor({
     let timeline: any = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
     let measureRaf = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeRaf = 0;
 
     (async () => {
       try {
@@ -376,6 +378,25 @@ export function TimelineEditor({
         bump();
         measure();
 
+        // vis only re-checks its container size on a 1s poll (watchTimer) + window 'resize'.
+        // When the modal finishes laying out AFTER vis first drew, the grid would otherwise
+        // sit at the stale size (often empty) for up to a second — while our annotation
+        // overlay, sized from the panel's correct position, already painted. Redraw the
+        // moment the container reaches its real size.
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          timeline?.redraw();
+          measure();
+        });
+        resizeObserver = new ResizeObserver(() => {
+          if (resizeRaf) cancelAnimationFrame(resizeRaf);
+          resizeRaf = requestAnimationFrame(() => {
+            timeline?.redraw();
+            measure();
+          });
+        });
+        resizeObserver.observe(containerRef.current);
+
         if (import.meta.env.DEV) {
           (window as unknown as Record<string, unknown>).__TIMELINE_API__ = api;
         }
@@ -391,6 +412,8 @@ export function TimelineEditor({
       disposed = true;
       if (debounce) clearTimeout(debounce);
       if (measureRaf) cancelAnimationFrame(measureRaf);
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      resizeObserver?.disconnect();
       timeline?.destroy();
       timelineRef.current = null;
       apiRef.current = null;
