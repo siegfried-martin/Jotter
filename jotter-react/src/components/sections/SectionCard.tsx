@@ -5,6 +5,12 @@ import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 import { renderMarkdown } from '@/lib/util/renderMarkdown';
 import { getDiagramElementCount } from '@/lib/util/diagram';
+import {
+  copyNative,
+  copyAsMarkdown,
+  nativeCopyLabel,
+  hasMarkdownCopy
+} from '@/lib/util/sectionClipboard';
 import '@/components/editors/markdown-preview.css';
 import { showToast } from '@/lib/ui/toast';
 import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
@@ -39,45 +45,6 @@ function formatChecklistDate(date?: string): { label: string | null; overdue: bo
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return { label: dt.toLocaleDateString(), overdue: dt.getTime() < today.getTime() };
-}
-
-/** Plain-text representation of a section for "Copy to clipboard". (Copy-as-markdown is a future item.) */
-function sectionToText(section: NoteSection): string {
-  switch (section.type) {
-    case 'code':
-      return section.content;
-    case 'wysiwyg': {
-      const div = document.createElement('div');
-      div.innerHTML = section.content;
-      return div.textContent ?? '';
-    }
-    case 'checklist':
-      return (section.checklist_data ?? [])
-        .map((it) => `- [${it.checked ? 'x' : ' '}] ${it.text}`)
-        .join('\n');
-    default:
-      return section.content;
-  }
-}
-
-/** Copy a section to the clipboard: diagrams as a PNG image, everything else as text.
- *  Returns the toast message to show. */
-async function copySectionToClipboard(section: NoteSection): Promise<string> {
-  if (section.type === 'diagram') {
-    if (getDiagramElementCount(section.content) === 0) return 'Nothing to copy';
-    const data = JSON.parse(section.content);
-    const { exportToBlob } = await import('@excalidraw/excalidraw');
-    const blob = await exportToBlob({
-      elements: data.elements,
-      appState: { ...data.appState, exportBackground: true, exportWithDarkMode: false },
-      files: data.files || {},
-      mimeType: 'image/png'
-    });
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-    return 'Copied image to clipboard';
-  }
-  await navigator.clipboard.writeText(sectionToText(section));
-  return 'Copied to clipboard';
 }
 
 type MenuItem = { label: string; danger?: boolean; onClick: () => void };
@@ -323,12 +290,23 @@ export function SectionCard({
 
   const menuItems: MenuItem[] = [
     {
-      label: 'Copy to clipboard',
+      label: nativeCopyLabel(section.type),
       onClick: () =>
-        copySectionToClipboard(section)
+        copyNative(section)
           .then(showToast)
           .catch(() => showToast('Copy failed'))
     },
+    ...(hasMarkdownCopy(section.type)
+      ? [
+          {
+            label: 'Copy as Markdown',
+            onClick: () =>
+              copyAsMarkdown(section)
+                .then(showToast)
+                .catch(() => showToast('Copy failed'))
+          }
+        ]
+      : []),
     {
       label: 'Copy share link',
       onClick: () =>
