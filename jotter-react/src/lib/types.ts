@@ -54,7 +54,7 @@ export interface NoteSection {
   id: string;
   note_container_id: string | null; // nullable since migration 0001 (unparented sections, #2)
   user_id: string; // creator/provenance (access is via membership since migration 0002)
-  type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
+  type: 'checklist' | 'code' | 'wysiwyg' | 'diagram' | 'markdown';
   title?: string | null; // NEW: Optional title field
   content: string;
   sequence: number;
@@ -73,7 +73,7 @@ export interface CreateNoteContainer {
 
 export interface CreateNoteSection {
   note_container_id: string | null; // nullable since migration 0001 (unparented "quick jot" sections, #2)
-  type: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
+  type: 'checklist' | 'code' | 'wysiwyg' | 'diagram' | 'markdown';
   title?: string | null; // NEW: Optional title field
   content: string;
   sequence?: number; // Optional - will be auto-assigned if not provided
@@ -91,7 +91,7 @@ export interface UpdateNoteContainer {
 
 export interface UpdateNoteSection {
   id: string;
-  type?: 'checklist' | 'code' | 'wysiwyg' | 'diagram';
+  type?: 'checklist' | 'code' | 'wysiwyg' | 'diagram' | 'markdown';
   title?: string | null; // NEW: Optional title field
   content?: string;
   sequence?: number;

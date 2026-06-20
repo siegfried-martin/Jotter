@@ -2,19 +2,20 @@
 //
 // A section's editor type decides how it persists offline and how concurrent edits
 // reconcile:
-//   * CRDT track (code, wysiwyg) — Yjs document, automatic merge, real-time collab later.
+//   * CRDT track (code, wysiwyg, markdown) — Yjs document, automatic merge, real-time
+//     collab later.
 //   * LWW  track (checklist, diagram) — mutation outbox + last-write-wins + compare-and-
 //     swap conflict detection.
 //
 // This classifier is the single source of that boundary; every offline code path routes
-// through it so the split stays consistent. Future text-like editors (e.g. markdown) join
-// the CRDT track by adding their type here.
+// through it so the split stays consistent. Text-like editors (markdown joined here) live
+// on the CRDT track; future ones join by adding their type here.
 
 import type { NoteSection } from '@/lib/types';
 
 type SectionType = NoteSection['type'];
 
-const CRDT_TYPES = new Set<SectionType>(['code', 'wysiwyg']);
+const CRDT_TYPES = new Set<SectionType>(['code', 'wysiwyg', 'markdown']);
 
 export type SectionTrack = 'crdt' | 'lww';
 

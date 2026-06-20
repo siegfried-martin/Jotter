@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { trackForType, isCrdtType, isLwwType } from './sectionTrack';
 
 describe('section track classifier', () => {
-  it('routes code and wysiwyg to the CRDT track', () => {
+  it('routes code, wysiwyg and markdown to the CRDT track', () => {
     expect(trackForType('code')).toBe('crdt');
     expect(trackForType('wysiwyg')).toBe('crdt');
+    expect(trackForType('markdown')).toBe('crdt');
     expect(isCrdtType('code')).toBe(true);
+    expect(isCrdtType('markdown')).toBe(true);
     expect(isLwwType('wysiwyg')).toBe(false);
   });
 
