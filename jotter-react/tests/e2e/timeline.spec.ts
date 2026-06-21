@@ -141,6 +141,96 @@ test.describe('timeline section', () => {
     }
   });
 
+  test('Delete key removes the selected bar', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-timeline-del-bar',
+      sections: [
+        {
+          type: 'timeline',
+          content: JSON.stringify({
+            groups: [{ id: 'laneA', content: 'Team A' }],
+            items: [
+              { id: 'i1', title: 'AK Build', start: '2026-07-01', end: '2026-07-31', group: 'laneA' }
+            ],
+            annotations: []
+          }),
+          sequence: 10
+        }
+      ]
+    });
+    const sectionId = tree.sections[0].id;
+    try {
+      await page.goto(`/app/sections/${sectionId}`);
+      await expect(page.getByText('Loading timeline…')).toHaveCount(0, { timeout: 15000 });
+      await page.locator('.vis-item.vis-range').first().click();
+      await page.keyboard.press('Delete');
+
+      const itemCount = (id: string) =>
+        page.evaluate((sid) => {
+          try {
+            return JSON.parse(localStorage.getItem(`draft_${sid}`) || '{}').items?.length ?? -1;
+          } catch {
+            return -1;
+          }
+        }, id);
+      await expect.poll(() => itemCount(sectionId), { timeout: 10000 }).toBe(0);
+
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect
+        .poll(async () => JSON.parse(await fetchSectionContent(page, sectionId)).items.length)
+        .toBe(0);
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
+  test('deleting a lane that holds bars asks for confirmation', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-timeline-del-lane',
+      sections: [
+        {
+          type: 'timeline',
+          content: JSON.stringify({
+            groups: [{ id: 'laneA', content: 'Team A' }],
+            items: [
+              { id: 'i1', title: 'AK Build', start: '2026-07-01', end: '2026-07-31', group: 'laneA' }
+            ],
+            annotations: []
+          }),
+          sequence: 10
+        }
+      ]
+    });
+    const sectionId = tree.sections[0].id;
+    try {
+      await page.goto(`/app/sections/${sectionId}`);
+      await expect(page.getByText('Loading timeline…')).toHaveCount(0, { timeout: 15000 });
+
+      await page.locator('.vis-label', { hasText: 'Team A' }).first().click(); // select the lane
+      let asked = false;
+      page.once('dialog', (d) => {
+        asked = d.message().toLowerCase().includes('bar');
+        d.accept();
+      });
+      await page.keyboard.press('Delete');
+
+      await expect.poll(() => asked).toBe(true);
+      const groupCount = () =>
+        page.evaluate((sid) => {
+          try {
+            return JSON.parse(localStorage.getItem(`draft_${sid}`) || '{}').groups?.length ?? -1;
+          } catch {
+            return -1;
+          }
+        }, sectionId);
+      await expect.poll(groupCount, { timeout: 10000 }).toBe(0);
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('annotations render as free-floating boxes and persist', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {

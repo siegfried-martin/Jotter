@@ -82,6 +82,7 @@ export type TimelineApi = {
   removeLane: (id: string) => void;
   getItem: (id: string) => ItemFields | null;
   getLanes: () => Lane[];
+  getLaneBarCount: (id: string) => number;
   addAnnotation: (partial?: Partial<AnnotationFields>, open?: boolean) => string;
   updateAnnotation: (id: string, patch: Partial<AnnotationFields>) => void;
   removeAnnotation: (id: string) => void;
@@ -105,6 +106,9 @@ export function TimelineEditor({
   const [, setVersion] = useState(0);
   const bump = () => setVersion((v) => v + 1);
   const [geo, setGeo] = useState<Geo | null>(null);
+  // The annotation currently selected (for the Delete key + ring highlight).
+  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  const selectedAnnotationRef = useRef<string | null>(null);
 
   const apiRef = useRef<TimelineApi | null>(null);
   const timelineRef = useRef<any>(null);
@@ -245,6 +249,8 @@ export function TimelineEditor({
         });
         const selectLane = (id: string | null) => {
           selectedLaneRef.current = id;
+          selectedAnnotationRef.current = null;
+          setSelectedAnnotation(null);
           suppressGroupPersist = true;
           (groups.get() as any[]).forEach((g) => {
             const cls = g.id === id ? 'tl-lane-selected' : '';
@@ -304,7 +310,7 @@ export function TimelineEditor({
               group,
               content: partial?.title ?? 'New item',
               start: partial?.start ?? today(),
-              end: partial?.end ?? today(14),
+              end: partial?.end ?? today(30), // a roughly month-wide default bar
               type: 'range',
               color,
               style: styleFor(color)
@@ -350,6 +356,9 @@ export function TimelineEditor({
             return (groups.get() as any[])
               .filter((g) => !g.nestedGroups)
               .map((g) => ({ id: g.id, content: g.content }));
+          },
+          getLaneBarCount(id) {
+            return (items.get() as any[]).filter((i) => i.group === id).length;
           },
           addAnnotation(partial, open = false) {
             // Default to a box in the middle third of the current view so it lands on screen.
@@ -409,6 +418,11 @@ export function TimelineEditor({
             selectLane(String(props.group));
           }
         });
+        // Selecting a bar clears any annotation selection (so the Delete key targets the bar).
+        timeline.on('select', () => {
+          selectedAnnotationRef.current = null;
+          setSelectedAnnotation(null);
+        });
 
         timeline.on('doubleClick', (props: any) => {
           if (props.item != null) {
@@ -417,7 +431,7 @@ export function TimelineEditor({
             setEditing({ kind: 'lane', id: String(props.group) });
           } else if (props.group != null && props.time) {
             const start = ymd(new Date(props.time));
-            const end = ymd(new Date(new Date(props.time).getTime() + 14 * 864e5));
+            const end = ymd(new Date(new Date(props.time).getTime() + 30 * 864e5));
             api.addItem({ group: String(props.group), start, end }, true);
           }
         });
@@ -461,6 +475,48 @@ export function TimelineEditor({
     bump();
   };
   const commit = () => persistRef.current();
+  const selectAnnotation = (id: string) => {
+    selectedAnnotationRef.current = id;
+    setSelectedAnnotation(id);
+    timelineRef.current?.setSelection?.([]); // clear any bar selection
+  };
+
+  // Delete key removes the selected bar / annotation / lane (lanes warn if they hold bars).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      const a = apiRef.current;
+      const tl = timelineRef.current;
+      if (!a || !tl) return;
+      const bars: unknown[] = tl.getSelection?.() ?? [];
+      if (bars.length) {
+        e.preventDefault();
+        bars.forEach((id) => a.removeItem(String(id)));
+        return;
+      }
+      if (selectedAnnotationRef.current) {
+        e.preventDefault();
+        a.removeAnnotation(selectedAnnotationRef.current);
+        selectedAnnotationRef.current = null;
+        setSelectedAnnotation(null);
+        return;
+      }
+      if (selectedLaneRef.current) {
+        e.preventDefault();
+        const laneId = selectedLaneRef.current;
+        const n = a.getLaneBarCount(laneId);
+        if (n > 0 && !window.confirm(`Delete this lane and its ${n} bar${n === 1 ? '' : 's'}?`)) {
+          return;
+        }
+        a.removeLane(laneId);
+        selectedLaneRef.current = null;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="flex h-full w-full flex-col" data-testid="timeline-editor">
@@ -478,8 +534,8 @@ export function TimelineEditor({
           Fit
         </ToolbarButton>
         <span className="ml-1 text-xs text-slate-400">
-          Click a lane to select it (+ Bar drops there) · drag to move/resize · double-click a
-          bar to edit, a lane to rename, empty space to add · annotations float anywhere
+          Click a lane to select it (+ Bar drops there) · drag to move/resize · double-click to
+          edit · Delete removes the selected bar/annotation/lane · annotations float &amp; wrap
         </span>
       </div>
 
@@ -498,7 +554,15 @@ export function TimelineEditor({
                 key={a.id}
                 ann={a}
                 geo={geo}
-                onEdit={() => setEditing({ kind: 'annotation', id: a.id })}
+                selected={selectedAnnotation === a.id}
+                editing={editing?.kind === 'annotation' && editing.id === a.id}
+                onSelect={() => selectAnnotation(a.id)}
+                onEdit={() => {
+                  selectAnnotation(a.id);
+                  setEditing({ kind: 'annotation', id: a.id });
+                }}
+                onTitle={(title) => api.updateAnnotation(a.id, { title })}
+                onDoneEditing={() => setEditing(null)}
                 onGeometry={(patch) => writeAnnotation(a.id, patch)}
                 onCommit={commit}
               />
@@ -532,13 +596,23 @@ type DragMode = { body?: boolean; left?: boolean; right?: boolean; top?: boolean
 function AnnotationBox({
   ann,
   geo,
+  selected,
+  editing,
+  onSelect,
   onEdit,
+  onTitle,
+  onDoneEditing,
   onGeometry,
   onCommit
 }: {
   ann: Annotation;
   geo: Geo;
+  selected: boolean;
+  editing: boolean;
+  onSelect: () => void;
   onEdit: () => void;
+  onTitle: (title: string) => void;
+  onDoneEditing: () => void;
   onGeometry: (patch: Partial<Annotation>) => void;
   onCommit: () => void;
 }) {
@@ -592,12 +666,15 @@ function AnnotationBox({
   return (
     <div
       data-testid="timeline-annotation"
-      onPointerDown={(e) => startDrag(e, { body: true })}
+      onPointerDown={(e) => {
+        onSelect();
+        if (!editing) startDrag(e, { body: true }); // while editing, let the textarea take input
+      }}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onEdit();
       }}
-      title={ann.title}
+      title={editing ? undefined : ann.title}
       style={{
         left,
         top,
@@ -606,11 +683,40 @@ function AnnotationBox({
         backgroundColor: p.fill,
         borderColor: p.border,
         color: p.text,
-        opacity: 0.92
+        opacity: 0.94
       }}
-      className="pointer-events-auto absolute flex cursor-move items-start overflow-hidden rounded-lg border-2 border-dashed px-2 py-1 text-[11px] font-semibold shadow-sm"
+      className={`pointer-events-auto absolute flex items-start overflow-hidden rounded-lg border-2 border-dashed px-2 py-1 text-[11px] font-semibold shadow-sm ${
+        editing ? 'cursor-text' : 'cursor-move'
+      } ${selected ? 'ring-2 ring-cyan-500 ring-offset-1' : ''}`}
     >
-      <span className="pointer-events-none truncate">{ann.title}</span>
+      {editing ? (
+        <textarea
+          autoFocus
+          value={ann.title}
+          onChange={(e) => onTitle(e.target.value)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation(); // keep Delete/Enter/Escape from the editor's global handlers
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onDoneEditing();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              onDoneEditing();
+            }
+          }}
+          onBlur={(e) => {
+            // Don't close if focus moved into the edit panel (e.g. tweaking color/dates).
+            const next = e.relatedTarget as HTMLElement | null;
+            if (next?.closest('[data-testid="timeline-edit-panel"]')) return;
+            onDoneEditing();
+          }}
+          className="absolute inset-0 h-full w-full resize-none border-0 bg-transparent px-2 py-1 text-[11px] leading-snug font-semibold break-words whitespace-pre-wrap focus:outline-none"
+          style={{ color: p.text }}
+        />
+      ) : (
+        <span className="pointer-events-none break-words whitespace-pre-wrap">{ann.title}</span>
+      )}
       {/* edge + corner resize handles */}
       <div className={`${handle} left-0 top-0 h-full w-1.5 cursor-ew-resize`} onPointerDown={(e) => startDrag(e, { left: true })} />
       <div className={`${handle} right-0 top-0 h-full w-1.5 cursor-ew-resize`} onPointerDown={(e) => startDrag(e, { right: true })} />
@@ -696,13 +802,17 @@ function EditPanel({
               setLaneName(e.target.value);
               api.updateLane(editing.id, e.target.value);
             }}
-            className="w-56 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+            className="w-72 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
           />
         </Field>
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={() => {
+              const n = api.getLaneBarCount(editing.id);
+              if (n > 0 && !window.confirm(`Delete this lane and its ${n} bar${n === 1 ? '' : 's'}?`)) {
+                return;
+              }
               api.removeLane(editing.id);
               onClose();
             }}
@@ -734,17 +844,20 @@ function EditPanel({
       onKeyDown={onKeyDown}
       className="mt-2 flex flex-shrink-0 flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
     >
-      <Field label={isAnn ? 'Annotation' : 'Title'}>
-        <input
-          autoFocus
-          value={item.title}
-          onChange={(e) => {
-            setItem({ ...item, title: e.target.value });
-            upd({ title: e.target.value });
-          }}
-          className="w-52 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
-        />
-      </Field>
+      {/* Annotation titles are edited inline on the box; bars keep a (roomier) title input. */}
+      {!isAnn && (
+        <Field label="Title">
+          <input
+            autoFocus
+            value={item.title}
+            onChange={(e) => {
+              setItem({ ...item, title: e.target.value });
+              upd({ title: e.target.value });
+            }}
+            className="w-72 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+        </Field>
+      )}
       <Field label="Start">
         <input
           type="date"
