@@ -91,6 +91,44 @@ function toTime(v: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+// ---- Timeline drag/resize snapping --------------------------------------------------------
+// Snap granularity follows vis's axis scale (the zoom level): day axis → nearest day; month
+// axis → nearest quarter-month (0/¼/½/¾/1 of the month, rounded to a day); year axis →
+// nearest month boundary.
+function snapDay(t: number): number {
+  const d = new Date(t);
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() + (d.getHours() >= 12 ? 1 : 0)
+  ).getTime();
+}
+function snapMonth(t: number): number {
+  const d = new Date(t);
+  const a = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const b = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+  return t - a < b - t ? a : b;
+}
+function snapQuarterMonth(t: number): number {
+  const d = new Date(t);
+  const a = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const b = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+  const len = b - a;
+  let best = a;
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+    const q = a + f * len;
+    if (Math.abs(q - t) < Math.abs(best - t)) best = q;
+  }
+  return snapDay(best);
+}
+/** Snap a dragged date to the granularity that matches the current axis `scale`. */
+export function snapForScale(date: Date | number, scale: string): Date {
+  const t = +new Date(date);
+  if (scale === 'year') return new Date(snapMonth(t));
+  if (scale === 'month') return new Date(snapQuarterMonth(t));
+  return new Date(snapDay(t));
+}
+
 export interface PreviewBar {
   title: string;
   leftPct: number;

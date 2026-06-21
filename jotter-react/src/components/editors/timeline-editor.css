@@ -43,6 +43,12 @@
   color: #0f172a;
   background: #f8fafc;
 }
+/* The lane currently selected for "+ Bar". */
+[data-testid='timeline-editor'] .vis-labelset .vis-label.tl-lane-selected {
+  background: #ecfeff; /* cyan-50 */
+  box-shadow: inset 3px 0 0 #06b6d4; /* cyan-500 marker */
+  color: #155e75;
+}
 [data-testid='timeline-editor'] .vis-labelset .vis-label .vis-inner {
   cursor: pointer;
 }

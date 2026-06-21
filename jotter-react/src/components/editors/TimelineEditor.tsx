@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from 'react';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
-import { parseTimeline, type Annotation } from '@/lib/util/schedule';
+import { parseTimeline, snapForScale, type Annotation } from '@/lib/util/schedule';
 import { prefetchTimelineEngine } from './timelinePrefetch';
 import './timeline-editor.css';
 
@@ -108,6 +108,8 @@ export function TimelineEditor({
 
   const apiRef = useRef<TimelineApi | null>(null);
   const timelineRef = useRef<any>(null);
+  // The lane the user last clicked — "+ Bar" drops a new bar here (ephemeral UI, not saved).
+  const selectedLaneRef = useRef<string | null>(null);
   // Annotations live in React (not vis); refs so the effect's serialize() and the overlay
   // share one source of truth, with a bump to re-render.
   const annotationsRef = useRef<Annotation[]>([]);
@@ -185,6 +187,7 @@ export function TimelineEditor({
           zoomMin: 1000 * 60 * 60 * 24, // 1 day
           zoomMax: 1000 * 60 * 60 * 24 * 365 * 6, // ~6 years
           tooltip: { followMouse: true },
+          snap: (date: Date | number, scale: string) => snapForScale(date, scale),
           // Pin the initial window via OPTIONS (not a post-construction setWindow) so vis never
           // does its deferred auto-fit-to-data over a restored zoom.
           ...(doc.window ? { start: doc.window.start, end: doc.window.end } : {})
@@ -233,10 +236,22 @@ export function TimelineEditor({
           persist();
           if (event === 'add' || event === 'remove') bump();
         });
+        // Lane-selection highlight is written via the group `className` (not part of our saved
+        // doc), so suppress persist for those internal updates.
+        let suppressGroupPersist = false;
         groups.on('*', () => {
-          persist();
+          if (!suppressGroupPersist) persist();
           bump();
         });
+        const selectLane = (id: string | null) => {
+          selectedLaneRef.current = id;
+          suppressGroupPersist = true;
+          (groups.get() as any[]).forEach((g) => {
+            const cls = g.id === id ? 'tl-lane-selected' : '';
+            if ((g.className ?? '') !== cls) groups.update({ id: g.id, className: cls });
+          });
+          suppressGroupPersist = false;
+        };
         timeline.on('rangechanged', (props: any) => {
           if (props?.byUser) persist();
         });
@@ -274,8 +289,13 @@ export function TimelineEditor({
           addItem(partial, open = false) {
             let group = partial?.group;
             if (!group) {
+              const sel = selectedLaneRef.current;
               const lanes = groups.get() as any[];
-              group = lanes.length ? lanes[0].id : api.addLane('New lane');
+              if (sel && lanes.some((g) => g.id === sel && !g.nestedGroups)) {
+                group = sel; // drop into the lane the user has selected
+              } else {
+                group = lanes.length ? lanes[0].id : api.addLane('New lane');
+              }
             }
             const id = uid();
             const color = partial?.color ?? PALETTE[0].fill;
@@ -383,6 +403,13 @@ export function TimelineEditor({
         };
         apiRef.current = api;
 
+        // Single click on a lane (its label or empty row) selects it for "+ Bar".
+        timeline.on('click', (props: any) => {
+          if (props.group != null && (props.what === 'group-label' || props.what === 'background')) {
+            selectLane(String(props.group));
+          }
+        });
+
         timeline.on('doubleClick', (props: any) => {
           if (props.item != null) {
             setEditing({ kind: 'item', id: String(props.item) });
@@ -451,8 +478,8 @@ export function TimelineEditor({
           Fit
         </ToolbarButton>
         <span className="ml-1 text-xs text-slate-400">
-          Drag to move or resize · double-click a bar to edit, a lane to rename, empty space to
-          add · annotations float — drag/resize them anywhere
+          Click a lane to select it (+ Bar drops there) · drag to move/resize · double-click a
+          bar to edit, a lane to rename, empty space to add · annotations float anywhere
         </span>
       </div>
 
