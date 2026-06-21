@@ -66,6 +66,11 @@ type Editing =
   | { kind: 'annotation'; id: string }
   | { kind: 'lane'; id: string }
   | null;
+// A transient title/name input laid over a bar or lane-label DOM rect (vis renders them as
+// real DOM, so we can position over them). Lives from double-click until Enter/blur.
+type InlineEdit =
+  | { kind: 'item' | 'lane'; id: string; left: number; top: number; width: number; height: number }
+  | null;
 
 // Pixel/time geometry of the vis plot area, refreshed on every redraw so the overlay tracks.
 type Geo = { left: number; top: number; width: number; height: number; winStart: number; winEnd: number };
@@ -103,6 +108,7 @@ export function TimelineEditor({
   const initialRef = useRef(initial);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [editing, setEditing] = useState<Editing>(null);
+  const [inlineEdit, setInlineEdit] = useState<InlineEdit>(null);
   const [, setVersion] = useState(0);
   const bump = () => setVersion((v) => v + 1);
   const [geo, setGeo] = useState<Geo | null>(null);
@@ -424,11 +430,28 @@ export function TimelineEditor({
           setSelectedAnnotation(null);
         });
 
+        // The on-screen rect (relative to our container) of the vis DOM element under the
+        // double-click — used to lay a transient title input over a bar or lane label.
+        const rectFor = (props: any, selector: string): Omit<NonNullable<InlineEdit>, 'kind' | 'id'> | null => {
+          const cont = containerRef.current;
+          const el = (props.event?.target as HTMLElement | undefined)?.closest?.(selector);
+          if (!el || !cont) return null;
+          const r = el.getBoundingClientRect();
+          const c = cont.getBoundingClientRect();
+          return { left: r.left - c.left, top: r.top - c.top, width: r.width, height: r.height };
+        };
+
         timeline.on('doubleClick', (props: any) => {
           if (props.item != null) {
-            setEditing({ kind: 'item', id: String(props.item) });
+            const id = String(props.item);
+            setEditing({ kind: 'item', id }); // panel keeps dates/lane/color/delete
+            const rect = rectFor(props, '.vis-item');
+            if (rect) setInlineEdit({ kind: 'item', id, ...rect });
           } else if (props.what === 'group-label' && props.group != null) {
-            setEditing({ kind: 'lane', id: String(props.group) });
+            const id = String(props.group);
+            setEditing({ kind: 'lane', id }); // panel keeps the Delete action
+            const rect = rectFor(props, '.vis-label');
+            if (rect) setInlineEdit({ kind: 'lane', id, ...rect });
           } else if (props.group != null && props.time) {
             const start = ymd(new Date(props.time));
             const end = ymd(new Date(new Date(props.time).getTime() + 30 * 864e5));
@@ -568,6 +591,25 @@ export function TimelineEditor({
               />
             ))}
           </div>
+        )}
+
+        {/* Transient inline title/name input laid over the bar or lane label. */}
+        {inlineEdit && api && (
+          <InlineEditor
+            key={inlineEdit.id}
+            rect={inlineEdit}
+            initial={
+              inlineEdit.kind === 'item'
+                ? (api.getItem(inlineEdit.id)?.title ?? '')
+                : (api.getLanes().find((l) => l.id === inlineEdit.id)?.content ?? '')
+            }
+            onChange={(val) =>
+              inlineEdit.kind === 'item'
+                ? api.updateItem(inlineEdit.id, { title: val })
+                : api.updateLane(inlineEdit.id, val)
+            }
+            onClose={() => setInlineEdit(null)}
+          />
         )}
 
         {status === 'loading' && (
@@ -727,6 +769,50 @@ function AnnotationBox({
   );
 }
 
+// Transient single-line editor positioned over a bar/lane-label rect. Commits live; closes on
+// Enter/Escape/blur. Doesn't need a pixel-perfect fit — it only exists while editing.
+function InlineEditor({
+  rect,
+  initial,
+  onChange,
+  onClose
+}: {
+  rect: { left: number; top: number; width: number; height: number };
+  initial: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+}) {
+  const [v, setV] = useState(initial);
+  return (
+    <input
+      data-testid="timeline-inline-edit"
+      autoFocus
+      value={v}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        setV(e.target.value);
+        onChange(e.target.value);
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+      onBlur={onClose}
+      style={{
+        left: rect.left,
+        top: rect.top,
+        width: Math.max(rect.width, 90),
+        minHeight: Math.max(rect.height, 24)
+      }}
+      className="absolute z-30 rounded border-2 border-cyan-500 bg-white px-1.5 py-0.5 text-[12px] font-medium text-slate-800 shadow focus:outline-none"
+    />
+  );
+}
+
 function ToolbarButton({
   children,
   onClick,
@@ -792,19 +878,12 @@ function EditPanel({
       <div
         data-testid="timeline-edit-panel"
         onKeyDown={onKeyDown}
-        className="mt-2 flex flex-shrink-0 flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
+        className="mt-2 flex flex-shrink-0 flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
       >
-        <Field label="Lane name">
-          <input
-            autoFocus
-            value={laneName}
-            onChange={(e) => {
-              setLaneName(e.target.value);
-              api.updateLane(editing.id, e.target.value);
-            }}
-            className="w-72 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          />
-        </Field>
+        <span className="text-sm text-slate-500">
+          Lane <span className="font-medium text-slate-700">“{laneName}”</span> — rename it on the
+          label
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
@@ -844,20 +923,7 @@ function EditPanel({
       onKeyDown={onKeyDown}
       className="mt-2 flex flex-shrink-0 flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
     >
-      {/* Annotation titles are edited inline on the box; bars keep a (roomier) title input. */}
-      {!isAnn && (
-        <Field label="Title">
-          <input
-            autoFocus
-            value={item.title}
-            onChange={(e) => {
-              setItem({ ...item, title: e.target.value });
-              upd({ title: e.target.value });
-            }}
-            className="w-72 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          />
-        </Field>
-      )}
+      {/* Titles are edited inline (over the bar, or on the annotation box), not here. */}
       <Field label="Start">
         <input
           type="date"

@@ -141,6 +141,53 @@ test.describe('timeline section', () => {
     }
   });
 
+  test('double-click a bar edits its title inline', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-timeline-inline',
+      sections: [
+        {
+          type: 'timeline',
+          content: JSON.stringify({
+            groups: [{ id: 'laneA', content: 'Team A' }],
+            items: [
+              { id: 'i1', title: 'Old Title', start: '2026-07-01', end: '2026-07-31', group: 'laneA' }
+            ],
+            annotations: []
+          }),
+          sequence: 10
+        }
+      ]
+    });
+    const sectionId = tree.sections[0].id;
+    try {
+      await page.goto(`/app/sections/${sectionId}`);
+      await expect(page.getByText('Loading timeline…')).toHaveCount(0, { timeout: 15000 });
+
+      await page.locator('.vis-item.vis-range').first().dblclick();
+      const inline = page.getByTestId('timeline-inline-edit');
+      await expect(inline).toBeVisible();
+      await inline.fill('Renamed Bar');
+      await inline.press('Enter');
+      await expect(inline).toHaveCount(0); // closed on Enter
+
+      await expect
+        .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {
+          timeout: 10000
+        })
+        .toContain('Renamed Bar');
+
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect
+        .poll(async () => JSON.parse(await fetchSectionContent(page, sectionId)).items[0].title, {
+          timeout: 10000
+        })
+        .toBe('Renamed Bar');
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('Delete key removes the selected bar', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
