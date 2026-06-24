@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildTimelinePreview,
+  calendarToCsv,
+  calendarToHtml,
+  calendarToMarkdown,
+  calendarToTsv,
   getCalendarEventCount,
   getScheduleItemCount,
   getTimelineElementCount,
@@ -180,6 +184,49 @@ describe('parseCalendar', () => {
     });
     expect(getCalendarEventCount(cal)).toBe(2);
     expect(getCalendarEventCount('')).toBe(0);
+  });
+});
+
+describe('calendar export converters', () => {
+  const cal = JSON.stringify({
+    events: [
+      { id: 'e1', title: 'Sprint 14', start: '2026-07-06', end: '2026-07-20', allDay: true },
+      { id: 'e2', title: 'Demo, live', start: '2026-07-21T09:00', end: '2026-07-21T10:00', allDay: false }
+    ]
+  });
+
+  it('emits TSV; all-day end is the inclusive last day', () => {
+    expect(calendarToTsv(cal)).toBe(
+      'Title\tStart\tEnd\tAll day\n' +
+        'Sprint 14\t2026-07-06\t2026-07-19\tYes\n' +
+        'Demo, live\t2026-07-21T09:00\t2026-07-21T10:00\tNo'
+    );
+  });
+
+  it('quotes CSV fields with commas', () => {
+    expect(calendarToCsv(cal)).toBe(
+      'Title,Start,End,All day\n' +
+        'Sprint 14,2026-07-06,2026-07-19,Yes\n' +
+        '"Demo, live",2026-07-21T09:00,2026-07-21T10:00,No'
+    );
+  });
+
+  it('emits a GFM pipe table and an HTML table', () => {
+    expect(calendarToMarkdown(cal)).toBe(
+      '| Title | Start | End | All day |\n' +
+        '| --- | --- | --- | --- |\n' +
+        '| Sprint 14 | 2026-07-06 | 2026-07-19 | Yes |\n' +
+        '| Demo, live | 2026-07-21T09:00 | 2026-07-21T10:00 | No |'
+    );
+    expect(calendarToHtml(cal)).toContain('<th>All day</th>');
+    expect(calendarToHtml(cal)).toContain('<td>2026-07-19</td>');
+  });
+
+  it('returns empty strings for a doc with no events', () => {
+    expect(calendarToTsv('')).toBe('');
+    expect(calendarToCsv('')).toBe('');
+    expect(calendarToMarkdown('')).toBe('');
+    expect(calendarToHtml('')).toBe('');
   });
 });
 

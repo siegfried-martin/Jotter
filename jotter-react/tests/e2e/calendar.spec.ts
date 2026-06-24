@@ -30,18 +30,19 @@ test.describe('calendar section', () => {
     }
   });
 
-  test('the card preview lists upcoming events', async ({ page }) => {
+  test('the card preview shows a mini-month for the earliest event', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       collectionName: 'e2e-calendar-preview',
+      // Seeded event starts 2026-07-06 → the preview lands on July 2026.
       sections: [{ type: 'calendar', content: calendarDoc('Roadmap kickoff'), sequence: 10 }]
     });
     try {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
       const card = page.getByTestId('section-card');
       await expect(card).toBeVisible();
-      // The preview is plain HTML (no FullCalendar instance): the event title shows.
-      await expect(card.getByText('Roadmap kickoff', { exact: true })).toBeVisible();
+      // The preview is a plain static mini-month (no FullCalendar instance).
+      await expect(card.getByText('July 2026', { exact: true })).toBeVisible();
     } finally {
       await cleanup(page, tree.collectionId);
     }
@@ -173,6 +174,41 @@ test.describe('calendar section', () => {
     } finally {
       await cleanup(page, tree.collectionId);
     }
+  });
+
+  test.describe('clipboard', () => {
+    test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+    test('Copy as Markdown produces a GFM table; Copy yields TSV', async ({ page }) => {
+      await gotoAppForSeeding(page);
+      const tree = await seedTree(page, {
+        collectionName: 'e2e-calendar-clip',
+        sections: [{ type: 'calendar', content: calendarDoc('Roadmap kickoff'), sequence: 10 }]
+      });
+      try {
+        await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+        const openMenu = () =>
+          page.getByTestId('section-card').getByRole('button', { name: 'More actions' }).click();
+
+        await openMenu();
+        await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+        await expect(page.getByText('Copied as Markdown')).toBeVisible();
+        // All-day end is the inclusive last day (seeded 07-10 exclusive → 07-09).
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+          '| Title | Start | End | All day |\n| --- | --- | --- | --- |\n' +
+            '| Roadmap kickoff | 2026-07-06 | 2026-07-09 | Yes |'
+        );
+
+        await openMenu();
+        await page.getByRole('button', { name: 'Copy', exact: true }).click();
+        await expect(page.getByText('Copied to clipboard')).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+          'Title\tStart\tEnd\tAll day\nRoadmap kickoff\t2026-07-06\t2026-07-09\tYes'
+        );
+      } finally {
+        await cleanup(page, tree.collectionId);
+      }
+    });
   });
 
   test('the calendar view is persisted', async ({ page }) => {
