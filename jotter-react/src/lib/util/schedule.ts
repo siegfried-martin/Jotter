@@ -60,8 +60,13 @@ export interface CalendarEvent extends ScheduleItem {
   allDay: boolean;
 }
 
-/** The calendar's view modes: single month, two months (pages by one), or hourly week. */
-export type CalendarView = 'month' | 'twoMonth' | 'week';
+/**
+ * The calendar's view modes:
+ *  - `month`    — two months side by side (pages by one month),
+ *  - `fiveWeek` — a rolling five-week window (scroll-wheel pages by one week; buttons by five),
+ *  - `week`     — an hourly week.
+ */
+export type CalendarView = 'month' | 'fiveWeek' | 'week';
 
 /** The Calendar section's `content` shape. */
 export interface CalendarDoc {
@@ -111,11 +116,11 @@ export function parseCalendar(content: string): CalendarDoc {
   if (!content?.trim()) return { ...EMPTY_CALENDAR };
   try {
     const raw = JSON.parse(content) as Partial<CalendarDoc>;
-    const view = raw.defaultView;
+    // Legacy 'twoMonth' is now just 'month'; the old single-month 'month' keeps its key.
+    const view = (raw.defaultView as string) === 'twoMonth' ? 'month' : raw.defaultView;
     return {
       events: Array.isArray(raw.events) ? raw.events : [],
-      defaultView:
-        view === 'week' || view === 'month' || view === 'twoMonth' ? view : undefined
+      defaultView: view === 'week' || view === 'month' || view === 'fiveWeek' ? view : undefined
     };
   } catch {
     return { ...EMPTY_CALENDAR };

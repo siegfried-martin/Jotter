@@ -38,22 +38,29 @@ export interface CalendarCanvasProps {
 }
 
 const VIEW_NAME: Record<CalendarView, string> = {
-  month: 'dayGridMonth',
-  twoMonth: 'twoMonth',
+  month: 'monthMulti',
+  fiveWeek: 'fiveWeek',
   week: 'timeGridWeek'
 };
 
-// A custom view: two side-by-side month grids that page forward by ONE month, so an event
-// that wraps a month boundary stays visible across both. (They're separate grids, so a
-// drag-select can't cross the gap — cross-month spans are set via the form's date fields,
-// which re-draw the highlight across both months.)
 const VIEWS = {
-  twoMonth: {
+  // "Month": two side-by-side month grids, paging by one month — both visible so a
+  // month-wrapping event reads across them. (Separate grids ⇒ no drag across the gap.)
+  monthMulti: {
     type: 'multiMonth',
     duration: { months: 2 },
     dateIncrement: { months: 1 },
     multiMonthMaxColumns: 2,
     multiMonthMinWidth: 300
+  },
+  // "5 Week": one continuous rolling five-week grid. The < > buttons page by five weeks; the
+  // scroll wheel nudges by one week (handled below). One grid ⇒ drag-select runs across week
+  // AND month boundaries freely.
+  fiveWeek: {
+    type: 'dayGrid',
+    duration: { weeks: 5 },
+    dateAlignment: 'week',
+    dateIncrement: { weeks: 5 }
   }
 };
 
@@ -66,11 +73,34 @@ export default function CalendarCanvas({
   onApiReady
 }: CalendarCanvasProps) {
   const ref = useRef<FullCalendar>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   // View is owned by CalendarEditor's toolbar; drive FullCalendar imperatively so switching
   // keeps the current date rather than remounting.
   useEffect(() => {
     ref.current?.getApi().changeView(VIEW_NAME[view]);
+  }, [view]);
+
+  // In the rolling five-week view, the scroll wheel nudges the window by one week. Accumulate
+  // wheel delta and step once per threshold crossing (so a notch ≈ a week, a flick a few),
+  // preventing the page from scrolling. Only while this view is active.
+  useEffect(() => {
+    if (view !== 'fiveWeek') return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    const STEP = 100;
+    let acc = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      acc += e.deltaY;
+      if (Math.abs(acc) >= STEP) {
+        const weeks = acc > 0 ? 1 : -1;
+        acc = 0;
+        ref.current?.getApi().incrementDate({ weeks });
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
   }, [view]);
 
   // Expose the highlight controls so the editor can set the range (from manual date edits) or
@@ -86,11 +116,11 @@ export default function CalendarCanvas({
   }, [onApiReady]);
 
   // The two-month grid sizes to its content (compact, both months visible, the wrapper
-  // scrolls if events pile up). Single month and the hourly week fill the modal.
-  const height = view === 'twoMonth' ? 'auto' : '100%';
+  // scrolls if events pile up). The five-week and hourly-week views fill the modal.
+  const height = view === 'month' ? 'auto' : '100%';
 
   return (
-    <div className="h-full overflow-auto" data-testid="calendar-canvas">
+    <div ref={wrapperRef} className="h-full overflow-auto" data-testid="calendar-canvas">
       <FullCalendar
         ref={ref}
         plugins={[dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin]}

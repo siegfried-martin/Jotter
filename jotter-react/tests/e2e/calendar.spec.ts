@@ -186,7 +186,15 @@ test.describe('calendar section', () => {
       await page.goto(`/app/sections/${sectionId}`);
       await expect(page.getByTestId('calendar-canvas')).toBeVisible();
 
-      // Switch to the week view via the toolbar toggle.
+      // The rolling five-week view persists under its own key…
+      await page.getByRole('button', { name: '5 Week', exact: true }).click();
+      await expect
+        .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {
+          timeout: 10000
+        })
+        .toContain('"defaultView":"fiveWeek"');
+
+      // …and switching to the week view persists too.
       await page.getByRole('button', { name: 'Week', exact: true }).click();
       await expect
         .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {

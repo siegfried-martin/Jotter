@@ -35,7 +35,7 @@ const DEFAULT_COLOR = PALETTE[0].hex;
 
 const VIEWS: { key: CalendarView; label: string }[] = [
   { key: 'month', label: 'Month' },
-  { key: 'twoMonth', label: '2 Months' },
+  { key: 'fiveWeek', label: '5 Week' },
   { key: 'week', label: 'Week' }
 ];
 
