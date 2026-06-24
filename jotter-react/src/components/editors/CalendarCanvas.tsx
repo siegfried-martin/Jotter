@@ -3,8 +3,10 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import multiMonthPlugin from '@fullcalendar/multimonth';
 import type { EventInput } from '@fullcalendar/core';
 import type { CalendarView } from '@/lib/util/schedule';
+import './calendar-editor.css';
 
 /**
  * The heavy half of the Calendar editor: a FullCalendar instance with the daygrid (month /
@@ -41,15 +43,17 @@ const VIEW_NAME: Record<CalendarView, string> = {
   week: 'timeGridWeek'
 };
 
-// A custom view: a single CONTINUOUS day-grid spanning two months (aligned to month starts,
-// paging forward by ONE month). One grid — not two separate tables — so a drag-select can run
-// straight across the month boundary, and a month-wrapping event reads naturally.
+// A custom view: two side-by-side month grids that page forward by ONE month, so an event
+// that wraps a month boundary stays visible across both. (They're separate grids, so a
+// drag-select can't cross the gap — cross-month spans are set via the form's date fields,
+// which re-draw the highlight across both months.)
 const VIEWS = {
   twoMonth: {
-    type: 'dayGrid',
+    type: 'multiMonth',
     duration: { months: 2 },
-    dateAlignment: 'month',
-    dateIncrement: { months: 1 }
+    dateIncrement: { months: 1 },
+    multiMonthMaxColumns: 2,
+    multiMonthMinWidth: 300
   }
 };
 
@@ -81,20 +85,19 @@ export default function CalendarCanvas({
     }
   }, [onApiReady]);
 
-  // Month / two-month grids size to their content (compact when empty, growing — and the
-  // wrapper scrolls — as events stack). The hourly week keeps its own full-height scroller.
-  const height = view === 'week' ? '100%' : 'auto';
+  // The two-month grid sizes to its content (compact, both months visible, the wrapper
+  // scrolls if events pile up). Single month and the hourly week fill the modal.
+  const height = view === 'twoMonth' ? 'auto' : '100%';
 
   return (
     <div className="h-full overflow-auto" data-testid="calendar-canvas">
       <FullCalendar
         ref={ref}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        plugins={[dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin]}
         initialView={VIEW_NAME[view]}
         views={VIEWS}
         headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
         height={height}
-        expandRows={false}
         editable
         selectable
         selectMirror

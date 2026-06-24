@@ -1,0 +1,28 @@
+/*
+ * Calendar (FullCalendar) overrides. FullCalendar v6 injects its own base CSS; these rules,
+ * scoped under the canvas test id, just keep the month / two-month day cells COMPACT so an
+ * empty grid fits on screen (cells still grow to fit events, and the canvas scrolls). Without
+ * this, FullCalendar's aspect-ratio sizing makes empty cells enormous.
+ */
+
+[data-testid='calendar-canvas'] .fc {
+  font-size: 13px;
+}
+
+/* Single-month grid: a sensible floor (it otherwise stretches to fill the modal). */
+[data-testid='calendar-canvas'] .fc-daygrid-day-frame {
+  min-height: 4rem;
+}
+
+/* Two-month (multiMonth) grid sizes to content — keep its cells tight so both months fit. */
+[data-testid='calendar-canvas'] .fc-multimonth {
+  border: none;
+}
+[data-testid='calendar-canvas'] .fc-multimonth-daygrid .fc-daygrid-day-frame {
+  min-height: 2.75rem;
+}
+[data-testid='calendar-canvas'] .fc-multimonth-title {
+  padding: 0.35rem 0;
+  font-size: 14px;
+  font-weight: 600;
+}
