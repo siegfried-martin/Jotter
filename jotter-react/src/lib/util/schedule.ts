@@ -60,11 +60,14 @@ export interface CalendarEvent extends ScheduleItem {
   allDay: boolean;
 }
 
+/** The calendar's view modes: single month, two months (pages by one), or hourly week. */
+export type CalendarView = 'month' | 'twoMonth' | 'week';
+
 /** The Calendar section's `content` shape. */
 export interface CalendarDoc {
   events: CalendarEvent[];
   /** Which view opens first; absent ⇒ month. */
-  defaultView?: 'month' | 'week';
+  defaultView?: CalendarView;
 }
 
 const EMPTY_TIMELINE: TimelineDoc = { groups: [], items: [], annotations: [] };
@@ -108,9 +111,11 @@ export function parseCalendar(content: string): CalendarDoc {
   if (!content?.trim()) return { ...EMPTY_CALENDAR };
   try {
     const raw = JSON.parse(content) as Partial<CalendarDoc>;
+    const view = raw.defaultView;
     return {
       events: Array.isArray(raw.events) ? raw.events : [],
-      defaultView: raw.defaultView === 'week' || raw.defaultView === 'month' ? raw.defaultView : undefined
+      defaultView:
+        view === 'week' || view === 'month' || view === 'twoMonth' ? view : undefined
     };
   } catch {
     return { ...EMPTY_CALENDAR };

@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
-import { parseCalendar, type CalendarEvent } from '@/lib/util/schedule';
+import { parseCalendar, type CalendarEvent, type CalendarView } from '@/lib/util/schedule';
 import type { CalendarCanvasProps } from './CalendarCanvas';
 
 const CalendarCanvas = lazy(() => import('./CalendarCanvas'));
 
 /**
- * Calendar (month / week date grid) section editor.
+ * Calendar (month / two-month / hourly-week date grid) section editor.
  *
  * Like Timeline, the library only RENDERS — WE own the data: `note_section.content` holds our
  * own `CalendarDoc` (events with an all-day flag + the last view), synced on the LWW track —
@@ -15,9 +15,10 @@ const CalendarCanvas = lazy(() => import('./CalendarCanvas'));
  * it stays out of the main bundle and only downloads when a Calendar section is opened.
  * See docs/initiatives/calendar-timeline-section.md.
  *
- * Data flow: events/view live in refs here (the source of truth); the canvas renders them and
- * reports gestures (select → create, click → edit, drag/resize → re-span) back up. Every
- * mutation re-serializes the doc and calls onChange.
+ * UX: selecting days only HIGHLIGHTS them (the canvas keeps the selection). Turning a
+ * highlight into an event is a separate, deliberate step — the create form (name + color,
+ * with the date range at the bottom for the rare out-of-view span). Clicking an event opens
+ * the same form, prefilled, in edit mode (no add button; a delete instead).
  */
 
 // A small palette of event tints (indigo-led, to match the Calendar type color).
@@ -31,6 +32,12 @@ const PALETTE = [
   { name: 'Slate', hex: '#64748b' }
 ];
 const DEFAULT_COLOR = PALETTE[0].hex;
+
+const VIEWS: { key: CalendarView; label: string }[] = [
+  { key: 'month', label: 'Month' },
+  { key: 'twoMonth', label: '2 Months' },
+  { key: 'week', label: 'Week' }
+];
 
 const uid = () => crypto.randomUUID();
 
@@ -49,6 +56,34 @@ function toDateTimeInput(v: string): string {
   if (Number.isNaN(+d)) return '';
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+/** Shift a YYYY-MM-DD value by `n` days (used to bridge FullCalendar's exclusive all-day end). */
+function shiftDay(ymd: string, n: number): string {
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(+d)) return ymd;
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+// All-day spans are stored with an EXCLUSIVE end (FullCalendar's convention: a Jul 6–8 event
+// ends Jul 9). The End field shows the inclusive last day, converting on the way in and out.
+function allDayEndToDisplay(end: string, start: string): string {
+  const inclusive = shiftDay(toDateInput(end), -1);
+  return inclusive < toDateInput(start) ? toDateInput(start) : inclusive;
+}
+function allDayEndFromDisplay(display: string): string {
+  return shiftDay(display, 1);
+}
+
+/** The mutable fields a create-draft / event edit share. */
+type EventFields = {
+  title: string;
+  color: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+};
+
+// The docked form is either creating a new event from a highlighted range, or editing one.
+type Panel = { mode: 'create'; draft: EventFields } | { mode: 'edit'; id: string } | null;
 
 export type CalendarApi = {
   addEvent: (partial?: Partial<CalendarEvent>, open?: boolean) => string;
@@ -56,7 +91,9 @@ export type CalendarApi = {
   removeEvent: (id: string) => void;
   getEvent: (id: string) => CalendarEvent | null;
   getEvents: () => { id: string; title: string }[];
-  setView: (view: 'month' | 'week') => void;
+  setView: (view: CalendarView) => void;
+  /** Open the create form for a range (the highlight path, exposed for e2e). */
+  openCreate: (sel: { start: string; end: string; allDay: boolean }) => void;
 };
 
 export function CalendarEditor({
@@ -71,13 +108,16 @@ export function CalendarEditor({
   // Source of truth lives in refs; a version bump drives re-render (mirrors TimelineEditor).
   const parsed = useRef(parseCalendar(initial));
   const eventsRef = useRef<CalendarEvent[]>(parsed.current.events);
-  const viewRef = useRef<'month' | 'week'>(parsed.current.defaultView ?? 'month');
+  const viewRef = useRef<CalendarView>(parsed.current.defaultView ?? 'month');
   const [, setVersion] = useState(0);
   const bump = () => setVersion((v) => v + 1);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const editingIdRef = useRef<string | null>(null);
-  editingIdRef.current = editingId;
+  const [panel, setPanel] = useState<Panel>(null);
+  const panelRef = useRef<Panel>(null);
+  panelRef.current = panel;
+
+  // The canvas hands us a way to clear its day-highlight.
+  const unselectRef = useRef<() => void>(() => {});
 
   function persist() {
     onChangeRef(JSON.stringify({ events: eventsRef.current, defaultView: viewRef.current }));
@@ -88,7 +128,7 @@ export function CalendarEditor({
     const todayStr = toDateInput(new Date().toISOString());
     const ev: CalendarEvent = {
       id,
-      title: partial?.title ?? 'New event',
+      title: partial?.title?.trim() || 'New event',
       start: partial?.start ?? todayStr,
       end: partial?.end ?? partial?.start ?? todayStr,
       allDay: partial?.allDay ?? true,
@@ -97,7 +137,7 @@ export function CalendarEditor({
     eventsRef.current = [...eventsRef.current, ev];
     persist();
     bump();
-    if (open) setEditingId(id);
+    if (open) setPanel({ mode: 'edit', id });
     return id;
   });
 
@@ -109,19 +149,31 @@ export function CalendarEditor({
 
   const removeEvent = useCallbackRef((id: string) => {
     eventsRef.current = eventsRef.current.filter((e) => e.id !== id);
-    if (editingIdRef.current === id) setEditingId(null);
     persist();
     bump();
   });
 
-  const setView = useCallbackRef((view: 'month' | 'week') => {
+  const setView = useCallbackRef((view: CalendarView) => {
     if (viewRef.current === view) return;
     viewRef.current = view;
     persist();
     bump();
   });
 
-  // DEV-only facade for e2e — arrange events without clicking through FullCalendar.
+  // Open the create form for a highlighted range (keeps the highlight; commit creates).
+  const openCreate = useCallbackRef((sel: { start: string; end: string; allDay: boolean }) => {
+    setPanel({
+      mode: 'create',
+      draft: { title: '', color: DEFAULT_COLOR, start: sel.start, end: sel.end, allDay: sel.allDay }
+    });
+  });
+
+  const closePanel = useCallbackRef(() => {
+    setPanel(null);
+    unselectRef.current();
+  });
+
+  // DEV-only facade for e2e — arrange events / drive the form without real FullCalendar drags.
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const api: CalendarApi = {
@@ -130,22 +182,24 @@ export function CalendarEditor({
       removeEvent,
       getEvent: (id) => eventsRef.current.find((e) => e.id === id) ?? null,
       getEvents: () => eventsRef.current.map((e) => ({ id: e.id, title: e.title })),
-      setView
+      setView,
+      openCreate
     };
     (window as any).__CALENDAR_API__ = api;
     return () => {
       delete (window as any).__CALENDAR_API__;
     };
-  }, [addEvent, updateEvent, removeEvent, setView]);
+  }, [addEvent, updateEvent, removeEvent, setView, openCreate]);
 
-  // Escape closes the edit panel first (rather than the section modal). Capture phase +
+  // Escape closes the form first (rather than the section modal). Capture phase +
   // stopImmediatePropagation pre-empts sectionEditor's window keydown handler.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && editingIdRef.current) {
+      if (e.key === 'Escape' && panelRef.current) {
         e.stopImmediatePropagation();
         e.preventDefault();
-        setEditingId(null);
+        setPanel(null);
+        unselectRef.current();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -163,26 +217,29 @@ export function CalendarEditor({
       borderColor: e.color || DEFAULT_COLOR
     })),
     view: viewRef.current,
-    onSelect: (sel) => addEvent({ ...sel, title: 'New event' }, true),
-    onEventClick: (id) => setEditingId(id),
-    onEventChange: (id, patch) => updateEvent(id, patch)
+    onSelect: (sel) => openCreate(sel),
+    onEventClick: (id) => {
+      unselectRef.current();
+      setPanel({ mode: 'edit', id });
+    },
+    onEventChange: (id, patch) => updateEvent(id, patch),
+    onApiReady: (api) => {
+      unselectRef.current = api.unselect;
+    }
   };
 
-  const editing = editingId
-    ? (eventsRef.current.find((e) => e.id === editingId) ?? null)
-    : null;
+  const editing =
+    panel?.mode === 'edit'
+      ? (eventsRef.current.find((e) => e.id === panel.id) ?? null)
+      : null;
 
   return (
     <div data-testid="calendar-editor" className="relative flex h-full flex-col">
       <div className="mb-3 flex flex-shrink-0 items-center gap-2">
         <ViewToggle view={viewRef.current} onChange={setView} />
-        <button
-          type="button"
-          onClick={() => addEvent({ title: 'New event' }, true)}
-          className="ml-auto rounded-md bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-        >
-          + Event
-        </button>
+        <span className="ml-auto text-xs text-slate-400">
+          Select day(s), then add an event
+        </span>
       </div>
 
       <div className="min-h-0 flex-1">
@@ -197,13 +254,40 @@ export function CalendarEditor({
         </Suspense>
       </div>
 
+      {panel?.mode === 'create' && (
+        <EventForm
+          mode="create"
+          values={panel.draft}
+          onField={(patch) =>
+            setPanel((p) =>
+              p?.mode === 'create' ? { mode: 'create', draft: { ...p.draft, ...patch } } : p
+            )
+          }
+          onCommit={() => {
+            addEvent(panel.draft);
+            closePanel();
+          }}
+          onCancel={closePanel}
+        />
+      )}
+
       {editing && (
-        <EventPanel
+        <EventForm
           key={editing.id}
-          event={editing}
-          onChange={(patch) => updateEvent(editing.id, patch)}
-          onDelete={() => removeEvent(editing.id)}
-          onClose={() => setEditingId(null)}
+          mode="edit"
+          values={{
+            title: editing.title,
+            color: editing.color || DEFAULT_COLOR,
+            start: editing.start,
+            end: editing.end,
+            allDay: editing.allDay
+          }}
+          onField={(patch) => updateEvent(editing.id, patch)}
+          onDelete={() => {
+            removeEvent(editing.id);
+            closePanel();
+          }}
+          onCancel={() => setPanel(null)}
         />
       )}
     </div>
@@ -214,38 +298,47 @@ function ViewToggle({
   view,
   onChange
 }: {
-  view: 'month' | 'week';
-  onChange: (v: 'month' | 'week') => void;
+  view: CalendarView;
+  onChange: (v: CalendarView) => void;
 }) {
   return (
     <div className="inline-flex overflow-hidden rounded-md border border-slate-200 text-sm">
-      {(['month', 'week'] as const).map((v) => (
+      {VIEWS.map((v) => (
         <button
-          key={v}
+          key={v.key}
           type="button"
-          onClick={() => onChange(v)}
-          className={`px-3 py-1.5 font-medium capitalize transition ${
-            view === v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+          onClick={() => onChange(v.key)}
+          className={`px-3 py-1.5 font-medium transition ${
+            view === v.key ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
-          {v}
+          {v.label}
         </button>
       ))}
     </div>
   );
 }
 
-/** A docked panel (top-right of the plot) to edit the clicked/created event. */
-function EventPanel({
-  event,
-  onChange,
+/**
+ * The docked event form (top-right of the plot). In `create` mode it commits a highlighted
+ * range as a new event via the "+ Event" button; in `edit` mode it edits a clicked event
+ * live (no add button — a Delete instead). The date range sits at the bottom: usually implied
+ * by the highlight, but editable for the rare span that isn't in the current view.
+ */
+function EventForm({
+  mode,
+  values,
+  onField,
+  onCommit,
   onDelete,
-  onClose
+  onCancel
 }: {
-  event: CalendarEvent;
-  onChange: (patch: Partial<CalendarEvent>) => void;
-  onDelete: () => void;
-  onClose: () => void;
+  mode: 'create' | 'edit';
+  values: EventFields;
+  onField: (patch: Partial<EventFields>) => void;
+  onCommit?: () => void;
+  onDelete?: () => void;
+  onCancel: () => void;
 }) {
   return (
     <div
@@ -253,10 +346,12 @@ function EventPanel({
       className="absolute top-12 right-2 z-10 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Event</span>
+        <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+          {mode === 'create' ? 'New event' : 'Event'}
+        </span>
         <button
           type="button"
-          onClick={onClose}
+          onClick={onCancel}
           className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           aria-label="Close"
         >
@@ -265,55 +360,25 @@ function EventPanel({
       </div>
 
       <label className="mb-2 block">
-        <span className="mb-1 block text-xs text-slate-500">Title</span>
+        <span className="mb-1 block text-xs text-slate-500">Name</span>
         <input
+          data-testid="calendar-event-title"
           autoFocus
-          value={event.title}
-          onChange={(e) => onChange({ title: e.target.value })}
+          value={values.title}
+          onChange={(e) => onField({ title: e.target.value })}
           onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && mode === 'create' && onCommit) {
+              e.preventDefault();
+              onCommit();
+            }
+          }}
+          placeholder="Event name"
           className="w-full rounded border border-slate-300 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
         />
       </label>
 
-      <label className="mb-2 flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={event.allDay}
-          onChange={(e) => {
-            const allDay = e.target.checked;
-            // Keep the dates coherent across the all-day ↔ timed switch.
-            onChange({
-              allDay,
-              start: allDay ? toDateInput(event.start) : `${toDateInput(event.start)}T09:00`,
-              end: allDay ? toDateInput(event.end) : `${toDateInput(event.end)}T10:00`
-            });
-          }}
-        />
-        All day
-      </label>
-
-      <div className="mb-2 grid grid-cols-2 gap-2">
-        <label className="block">
-          <span className="mb-1 block text-xs text-slate-500">Start</span>
-          <input
-            type={event.allDay ? 'date' : 'datetime-local'}
-            value={event.allDay ? toDateInput(event.start) : toDateTimeInput(event.start)}
-            onChange={(e) => onChange({ start: e.target.value })}
-            className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs focus:border-indigo-400 focus:outline-none"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs text-slate-500">End</span>
-          <input
-            type={event.allDay ? 'date' : 'datetime-local'}
-            value={event.allDay ? toDateInput(event.end) : toDateTimeInput(event.end)}
-            onChange={(e) => onChange({ end: e.target.value })}
-            className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs focus:border-indigo-400 focus:outline-none"
-          />
-        </label>
-      </div>
-
-      <div className="mb-3">
+      <div className="mb-2">
         <span className="mb-1 block text-xs text-slate-500">Color</span>
         <div className="flex flex-wrap gap-1.5">
           {PALETTE.map((p) => (
@@ -321,23 +386,89 @@ function EventPanel({
               key={p.hex}
               type="button"
               title={p.name}
-              onClick={() => onChange({ color: p.hex })}
+              onClick={() => onField({ color: p.hex })}
               style={{ backgroundColor: p.hex }}
               className={`h-5 w-5 rounded-full ring-offset-1 ${
-                (event.color || DEFAULT_COLOR) === p.hex ? 'ring-2 ring-slate-500' : ''
+                values.color === p.hex ? 'ring-2 ring-slate-500' : ''
               }`}
             />
           ))}
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onDelete}
-        className="w-full rounded border border-rose-200 px-2 py-1 text-sm font-medium text-rose-600 hover:bg-rose-50"
-      >
-        Delete event
-      </button>
+      <label className="mb-2 flex items-center gap-2 text-sm text-slate-600">
+        <input
+          type="checkbox"
+          checked={values.allDay}
+          onChange={(e) => {
+            const allDay = e.target.checked;
+            const day = toDateInput(values.start);
+            // Reshape to a sane default span on switch: a 1-day all-day block, or a 09:00–10:00
+            // slot. (The exact span is then editable below.)
+            onField(
+              allDay
+                ? { allDay: true, start: day, end: shiftDay(day, 1) }
+                : { allDay: false, start: `${day}T09:00`, end: `${day}T10:00` }
+            );
+          }}
+        />
+        All day
+      </label>
+
+      {/* Date range last: implied by the highlight, here for the rare out-of-view span. */}
+      <div className="mb-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">Start</span>
+          <input
+            type={values.allDay ? 'date' : 'datetime-local'}
+            value={values.allDay ? toDateInput(values.start) : toDateTimeInput(values.start)}
+            onChange={(e) => onField({ start: e.target.value })}
+            className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs focus:border-indigo-400 focus:outline-none"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">End</span>
+          <input
+            type={values.allDay ? 'date' : 'datetime-local'}
+            value={
+              values.allDay
+                ? allDayEndToDisplay(values.end, values.start)
+                : toDateTimeInput(values.end)
+            }
+            onChange={(e) =>
+              onField({ end: values.allDay ? allDayEndFromDisplay(e.target.value) : e.target.value })
+            }
+            className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs focus:border-indigo-400 focus:outline-none"
+          />
+        </label>
+      </div>
+
+      {mode === 'create' ? (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCommit}
+            className="flex-1 rounded bg-indigo-600 px-2 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            + Event
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="w-full rounded border border-rose-200 px-2 py-1 text-sm font-medium text-rose-600 hover:bg-rose-50"
+        >
+          Delete event
+        </button>
+      )}
     </div>
   );
 }

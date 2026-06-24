@@ -91,7 +91,50 @@ test.describe('calendar section', () => {
     }
   });
 
-  test('the month/week view is persisted', async ({ page }) => {
+  test('highlighting days then naming creates an event (deliberate add)', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-calendar-create-flow',
+      sections: [{ type: 'calendar', content: '', sequence: 10 }]
+    });
+    const sectionId = tree.sections[0].id;
+    try {
+      await page.goto(`/app/sections/${sectionId}`);
+      await expect(page.getByTestId('calendar-canvas')).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => '__CALENDAR_API__' in window), { timeout: 10000 })
+        .toBe(true);
+
+      // Highlight a range (the click/drag path) — this only opens the form, no event yet.
+      await page.evaluate(() => {
+        const api = (window as unknown as { __CALENDAR_API__: any }).__CALENDAR_API__;
+        api.openCreate({ start: '2026-07-06', end: '2026-07-09', allDay: true });
+      });
+      const panel = page.getByTestId('calendar-edit-panel');
+      await expect(panel).toBeVisible();
+      // No event exists until the deliberate "+ Event".
+      expect(await page.evaluate(() => (window as any).__CALENDAR_API__.getEvents().length)).toBe(0);
+
+      await panel.getByTestId('calendar-event-title').fill('Launch week');
+      await panel.getByRole('button', { name: '+ Event' }).click();
+      await expect(panel).toHaveCount(0); // form closes after commit
+
+      await expect
+        .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {
+          timeout: 10000
+        })
+        .toContain('Launch week');
+
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect
+        .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
+        .toContain('Launch week');
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
+  test('the calendar view is persisted', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       collectionName: 'e2e-calendar-view',
@@ -103,7 +146,7 @@ test.describe('calendar section', () => {
       await expect(page.getByTestId('calendar-canvas')).toBeVisible();
 
       // Switch to the week view via the toolbar toggle.
-      await page.getByRole('button', { name: 'week', exact: true }).click();
+      await page.getByRole('button', { name: 'Week', exact: true }).click();
       await expect
         .poll(() => page.evaluate((id) => localStorage.getItem(`draft_${id}`) ?? '', sectionId), {
           timeout: 10000
