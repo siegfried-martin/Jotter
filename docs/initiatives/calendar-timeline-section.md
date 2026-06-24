@@ -274,7 +274,14 @@ diverged from the original month/week sketch after owner UX feedback:
   while the form is open, selection echoes are ignored so typed dates stay authoritative.
 - **All-day ends are stored exclusively** (FullCalendar convention); the form's End field and
   the exports show the **inclusive** last day.
-- Preview = static **mini-month** (earliest event's month, a colored dot per covered day).
+- **Card preview = a status agenda** (`CalendarPreview.tsx`): events in time order, color-coded
+  so the card reads at a glance — **past** events muted grey at the top, **currently-happening**
+  highlighted with a "now" tag, **future** in normal text; trims to the most-recent past +
+  current + upcoming with "+N earlier / +N more". The idea: the small card is the agenda ("what's
+  happening now / next"), open the section for the detailed grid.
+  - A second preview style — a **mini-month with spanning event bars** — is implemented and
+    **retained unused** in `CalendarMiniMonthPreview.tsx` for a planned **"preview style" user
+    preference** (agenda ↔ mini-month). Wire a per-user/per-section toggle when picked up.
 - Export columns: **Title | Start | End | All day**.
 
 `.ics` export and richer recurrence remain follow-ups. Migration **0012** applied to dev;

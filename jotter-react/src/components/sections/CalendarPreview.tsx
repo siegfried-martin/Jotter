@@ -1,38 +1,38 @@
 import { parseCalendar, getCalendarEventCount, type CalendarEvent } from '@/lib/util/schedule';
 
-// Static, non-interactive preview of a Calendar section — a compact mini-month grid with a
-// colored dot on each day that has an event (no FullCalendar instance; that stays behind the
-// editor's code-split boundary). Shows the month of the earliest event, so the card always
-// lands on something populated. Mirrors TablePreview/TimelinePreview's "render our own data".
+// Static, non-interactive preview of a Calendar section — a compact AGENDA: events in time
+// order, color-coded by status so the card reads at a glance. Past events are muted grey at the
+// top, currently-happening events are highlighted (with a "now" tag), future events are normal.
+// The detailed grid lives in the editor; this small view is the agenda. (An alternative
+// mini-month bar preview is kept in CalendarMiniMonthPreview.tsx for a future user preference.)
 const DEFAULT_COLOR = '#6366f1';
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const MAX_ROWS = 8;
 
-function startOfDay(v: string): number {
+/** Local ms for an ISO date/date-time; date-only strings parse as LOCAL midnight (not UTC). */
+function timeOf(v: string): number {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return new Date(+v.slice(0, 4), +v.slice(5, 7) - 1, +v.slice(8, 10)).getTime();
+  }
   const d = new Date(v);
-  if (Number.isNaN(+d)) return NaN;
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  return Number.isNaN(+d) ? NaN : d.getTime();
 }
 
-/** Map day-of-month → event color for every day the events cover in [year, month]. */
-function colorByDay(events: CalendarEvent[], year: number, month: number): Map<number, string> {
-  const monthStart = new Date(year, month, 1).getTime();
-  const monthEnd = new Date(year, month + 1, 0).getTime(); // last day, 00:00
-  const byDay = new Map<number, string>();
-  const DAY = 86_400_000;
-  for (const e of events) {
-    const s = startOfDay(e.start);
-    let end = startOfDay(e.end);
-    if (Number.isNaN(s)) continue;
-    if (Number.isNaN(end)) end = s;
-    // All-day ends are exclusive (the day after) — step back to the inclusive last day.
-    if (e.allDay && end > s) end -= DAY;
-    for (let t = Math.max(s, monthStart); t <= Math.min(end, monthEnd); t += DAY) {
-      const day = new Date(t).getDate();
-      if (!byDay.has(day)) byDay.set(day, e.color || DEFAULT_COLOR);
-    }
-  }
-  return byDay;
+type Status = 'past' | 'current' | 'future';
+type Row = { title: string; color: string; start: number; date: string; status: Status };
+
+function fmtDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function toRow(e: CalendarEvent, now: number): Row | null {
+  const start = timeOf(e.start);
+  if (Number.isNaN(start)) return null;
+  let end = timeOf(e.end);
+  if (Number.isNaN(end)) end = start;
+  // Ends are exclusive for all-day (and effectively so for "still happening" on timed events):
+  // active while now < end.
+  const status: Status = now >= end ? 'past' : now < start ? 'future' : 'current';
+  return { title: e.title || '(untitled)', color: e.color || DEFAULT_COLOR, start, date: fmtDate(start), status };
 }
 
 export function CalendarPreview({ content }: { content: string }) {
@@ -44,50 +44,66 @@ export function CalendarPreview({ content }: { content: string }) {
     );
   }
 
-  const events = parseCalendar(content).events;
-  const earliest = events.reduce(
-    (min, e) => Math.min(min, startOfDay(e.start) || Infinity),
-    Infinity
-  );
-  const ref = new Date(Number.isFinite(earliest) ? earliest : Date.now());
-  const year = ref.getFullYear();
-  const month = ref.getMonth();
+  const now = Date.now();
+  const rows = parseCalendar(content)
+    .events.map((e) => toRow(e, now))
+    .filter((r): r is Row => r !== null)
+    .sort((a, b) => a.start - b.start);
 
-  const dots = colorByDay(events, year, month);
-  const firstWeekday = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (number | null)[] = [
-    ...Array.from({ length: firstWeekday }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  ];
-  const caption = new Date(year, month, 1).toLocaleString(undefined, {
-    month: 'long',
-    year: 'numeric'
-  });
+  // Keep current + future when trimming; fill the rest with the most-recent past.
+  const past = rows.filter((r) => r.status === 'past');
+  const rest = rows.filter((r) => r.status !== 'past');
+  let earlierHidden = 0;
+  let laterHidden = 0;
+  let shown: Row[];
+  if (rest.length >= MAX_ROWS) {
+    earlierHidden = past.length;
+    laterHidden = rest.length - MAX_ROWS;
+    shown = rest.slice(0, MAX_ROWS);
+  } else {
+    const room = MAX_ROWS - rest.length;
+    const shownPast = past.slice(past.length - room);
+    earlierHidden = past.length - shownPast.length;
+    shown = [...shownPast, ...rest];
+  }
 
   return (
-    <div className="select-none">
-      <div className="mb-1 text-center text-xs font-semibold text-slate-500">{caption}</div>
-      <div className="grid grid-cols-7 gap-y-0.5 text-center">
-        {WEEKDAYS.map((d, i) => (
-          <span key={`h${i}`} className="text-[9px] font-medium text-slate-400">
-            {d}
-          </span>
-        ))}
-        {cells.map((day, i) => (
-          <div key={i} className="flex h-5 flex-col items-center justify-center">
-            {day !== null && (
-              <>
-                <span className="text-[10px] leading-none text-slate-600">{day}</span>
-                <span
-                  className="mt-0.5 h-1 w-1 rounded-full"
-                  style={{ backgroundColor: dots.get(day) ?? 'transparent' }}
-                />
-              </>
+    <ul className="space-y-0.5 text-sm">
+      {earlierHidden > 0 && (
+        <li className="text-[10px] text-slate-300">
+          +{earlierHidden} earlier {earlierHidden === 1 ? 'event' : 'events'}
+        </li>
+      )}
+      {shown.map((r, i) => {
+        const rowClass =
+          r.status === 'current'
+            ? 'rounded bg-indigo-50 font-semibold text-slate-800'
+            : r.status === 'past'
+              ? 'text-slate-300'
+              : 'text-slate-700';
+        return (
+          <li key={i} className={`flex items-center gap-2 px-1 ${rowClass}`}>
+            <span
+              className="h-2 w-2 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: r.color, opacity: r.status === 'past' ? 0.4 : 1 }}
+            />
+            <span className="w-12 flex-shrink-0 text-xs opacity-70">{r.date}</span>
+            <span className="flex-1 truncate" title={r.title}>
+              {r.title}
+            </span>
+            {r.status === 'current' && (
+              <span className="flex-shrink-0 text-[9px] font-semibold tracking-wide text-indigo-500 uppercase">
+                now
+              </span>
             )}
-          </div>
-        ))}
-      </div>
-    </div>
+          </li>
+        );
+      })}
+      {laterHidden > 0 && (
+        <li className="text-[10px] text-slate-400">
+          +{laterHidden} more {laterHidden === 1 ? 'event' : 'events'}
+        </li>
+      )}
+    </ul>
   );
 }

@@ -30,19 +30,18 @@ test.describe('calendar section', () => {
     }
   });
 
-  test('the card preview shows a mini-month for the earliest event', async ({ page }) => {
+  test('the card preview shows an agenda of events', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       collectionName: 'e2e-calendar-preview',
-      // Seeded event starts 2026-07-06 → the preview lands on July 2026.
       sections: [{ type: 'calendar', content: calendarDoc('Roadmap kickoff'), sequence: 10 }]
     });
     try {
       await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
       const card = page.getByTestId('section-card');
       await expect(card).toBeVisible();
-      // The preview is a plain static mini-month (no FullCalendar instance).
-      await expect(card.getByText('July 2026', { exact: true })).toBeVisible();
+      // The preview is a plain static agenda (no FullCalendar instance): the event title shows.
+      await expect(card.getByText('Roadmap kickoff', { exact: true })).toBeVisible();
     } finally {
       await cleanup(page, tree.collectionId);
     }
