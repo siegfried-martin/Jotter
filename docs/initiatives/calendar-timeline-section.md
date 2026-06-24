@@ -255,6 +255,31 @@ deferrals**, not v1 — the schema being ours makes both cheap to add later.
 `.ics` export, Timeline image export, capacity/budget numeric rollups, and any mobile-
 specific UX are explicit follow-ups, not v1.
 
+## Calendar — as built (2026-06-24, branch `feat/calendar-section`)
+
+The Calendar shipped on **FullCalendar v6 (MIT)**, code-split into `CalendarCanvas` via
+`React.lazy` (+ hover prefetch), with `CalendarEditor` owning the `CalendarDoc` data. It
+diverged from the original month/week sketch after owner UX feedback:
+
+- **Views (persisted per section):** **Month** = two months side by side (`multiMonth`, pages
+  by one month); **5 Week** = a rolling five-week `dayGrid` window where the **scroll wheel
+  pages by one week** and the `< >` buttons by five — being one continuous grid, drag-select
+  runs across week *and* month boundaries (the cross-month drag the two-month view couldn't
+  give); **Week** = hourly `timeGridWeek`. `CalendarView = 'month' | 'fiveWeek' | 'week'`
+  (legacy `'twoMonth'` parses to `'month'`).
+- **Create is deliberate, not implicit:** selecting days only *highlights* them
+  (`unselectAuto: false`); a separate form (Name + Color, date range at the bottom) commits via
+  **+ Event**. Clicking an event opens the same form prefilled (Delete, no add). New events
+  default to the **last-used color**. Editing Start/End re-draws the highlight (spans months);
+  while the form is open, selection echoes are ignored so typed dates stay authoritative.
+- **All-day ends are stored exclusively** (FullCalendar convention); the form's End field and
+  the exports show the **inclusive** last day.
+- Preview = static **mini-month** (earliest event's month, a colored dot per covered day).
+- Export columns: **Title | Start | End | All day**.
+
+`.ics` export and richer recurrence remain follow-ups. Migration **0012** applied to dev;
+**prod still owes 0011 + 0012** at the next deploy.
+
 ## Open questions for sign-off
 
 1. **Two section types** (Timeline + Calendar) sharing a schema, vs. one — recommend two
