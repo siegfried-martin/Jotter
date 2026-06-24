@@ -60,6 +60,14 @@ export const SECTION_TYPE_META: Record<
     icon: 'M3 6h7 M8 12h11 M5 18h9',
     base: 'bg-cyan-50 text-cyan-700',
     hover: 'hover:bg-cyan-100'
+  },
+  calendar: {
+    typeLabel: 'Calendar',
+    addLabel: 'Calendar',
+    // A month grid: rounded rect with a header bar (two hanging "rings") and one inner divider.
+    icon: 'M4 6a1 1 0 011-1h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6z M4 10h16 M8 3v4 M16 3v4',
+    base: 'bg-indigo-50 text-indigo-700',
+    hover: 'hover:bg-indigo-100'
   }
 };
 
@@ -70,6 +78,7 @@ export const SECTION_TYPE_ORDER: SectionType[] = [
   'markdown',
   'table',
   'timeline',
+  'calendar',
   'diagram',
   'checklist'
 ];

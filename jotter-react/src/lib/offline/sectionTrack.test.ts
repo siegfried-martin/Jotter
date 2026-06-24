@@ -11,16 +11,19 @@ describe('section track classifier', () => {
     expect(isLwwType('wysiwyg')).toBe(false);
   });
 
-  it('routes checklist, diagram, table and timeline to the LWW track', () => {
+  it('routes checklist, diagram, table, timeline and calendar to the LWW track', () => {
     expect(trackForType('checklist')).toBe('lww');
     expect(trackForType('diagram')).toBe('lww');
     expect(trackForType('table')).toBe('lww');
     expect(trackForType('timeline')).toBe('lww');
+    expect(trackForType('calendar')).toBe('lww');
     expect(isLwwType('checklist')).toBe(true);
     expect(isLwwType('table')).toBe(true);
     expect(isLwwType('timeline')).toBe(true);
+    expect(isLwwType('calendar')).toBe(true);
     expect(isCrdtType('diagram')).toBe(false);
     expect(isCrdtType('table')).toBe(false);
     expect(isCrdtType('timeline')).toBe(false);
+    expect(isCrdtType('calendar')).toBe(false);
   });
 });

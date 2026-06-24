@@ -62,7 +62,8 @@ export type SectionType =
   | 'diagram'
   | 'markdown'
   | 'table'
-  | 'timeline';
+  | 'timeline'
+  | 'calendar';
 
 export interface SeededSection {
   id: string;

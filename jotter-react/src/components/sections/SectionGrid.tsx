@@ -13,8 +13,16 @@ import { SECTION_TYPE_META, SECTION_TYPE_ORDER } from '@/lib/util/sectionTypeSty
 import { SectionCard } from './SectionCard';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
 import { prefetchTimelineEngine } from '@/components/editors/timelinePrefetch';
+import { prefetchCalendarEngine } from '@/components/editors/calendarPrefetch';
 
 type SectionType = NoteSection['type'];
+
+/** Warm the code-split editor chunk for types that have one, on hover/focus. */
+function prefetchForType(type: SectionType): (() => void) | undefined {
+  if (type === 'timeline') return prefetchTimelineEngine;
+  if (type === 'calendar') return prefetchCalendarEngine;
+  return undefined;
+}
 
 /** A section card wired as a dnd-kit sortable (drag handle, transform, drop ordering). */
 function SortableSection({
@@ -112,7 +120,7 @@ export function SectionGrid({
             <button
               key={type}
               onClick={() => addSection(type)}
-              onPointerEnter={type === 'timeline' ? prefetchTimelineEngine : undefined}
+              onPointerEnter={prefetchForType(type)}
               disabled={createSection.isPending}
               title={`${meta.addLabel} section`}
               className={`group flex min-h-[2.25rem] items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${meta.base} ${meta.hover}`}

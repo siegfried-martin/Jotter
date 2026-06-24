@@ -54,7 +54,29 @@ export interface TimelineDoc {
   window?: { start: string; end: string };
 }
 
+/** A Calendar event — a ScheduleItem placed on a date grid. */
+export interface CalendarEvent extends ScheduleItem {
+  /** All-day ⇒ a multi-day spanning bar in month view; timed ⇒ an hourly block in week view. */
+  allDay: boolean;
+}
+
+/**
+ * The calendar's view modes:
+ *  - `month`    — two months side by side (pages by one month),
+ *  - `fiveWeek` — a rolling five-week window (scroll-wheel pages by one week; buttons by five),
+ *  - `week`     — an hourly week.
+ */
+export type CalendarView = 'month' | 'fiveWeek' | 'week';
+
+/** The Calendar section's `content` shape. */
+export interface CalendarDoc {
+  events: CalendarEvent[];
+  /** Which view opens first; absent ⇒ month. */
+  defaultView?: CalendarView;
+}
+
 const EMPTY_TIMELINE: TimelineDoc = { groups: [], items: [], annotations: [] };
+const EMPTY_CALENDAR: CalendarDoc = { events: [] };
 
 /**
  * Parse a Timeline snapshot from `content`; blank/garbage falls back to an empty doc.
@@ -84,6 +106,30 @@ export function getScheduleItemCount(content: string): number {
 export function getTimelineElementCount(content: string): number {
   const doc = parseTimeline(content);
   return doc.items.length + doc.annotations.length;
+}
+
+/**
+ * Parse a Calendar snapshot from `content`; blank/garbage falls back to an empty doc.
+ * Tolerant of partial shapes so a hand-edited or older blob never throws.
+ */
+export function parseCalendar(content: string): CalendarDoc {
+  if (!content?.trim()) return { ...EMPTY_CALENDAR };
+  try {
+    const raw = JSON.parse(content) as Partial<CalendarDoc>;
+    // Legacy 'twoMonth' is now just 'month'; the old single-month 'month' keeps its key.
+    const view = (raw.defaultView as string) === 'twoMonth' ? 'month' : raw.defaultView;
+    return {
+      events: Array.isArray(raw.events) ? raw.events : [],
+      defaultView: view === 'week' || view === 'month' || view === 'fiveWeek' ? view : undefined
+    };
+  } catch {
+    return { ...EMPTY_CALENDAR };
+  }
+}
+
+/** Count of events — drives the Calendar card empty state and "Nothing to copy" checks. */
+export function getCalendarEventCount(content: string): number {
+  return parseCalendar(content).events.length;
 }
 
 function toTime(v: string): number {
@@ -277,6 +323,77 @@ export function timelineToMarkdown(content: string): string {
   return [
     line(EXPORT_HEADERS),
     line(EXPORT_HEADERS.map(() => '---')),
+    ...rows.map((r) => line(r))
+  ].join('\n');
+}
+
+// ---- Calendar export converters -----------------------------------------------------------
+// A Calendar exports as a flat table of events: Title | Start | End | All day. All-day ends
+// are stored exclusively (FullCalendar convention); export the inclusive last day so the table
+// reads naturally.
+
+const CALENDAR_HEADERS = ['Title', 'Start', 'End', 'All day'];
+
+function dateOnly(v: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : v;
+}
+function shiftYmd(v: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if (!m) return v;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function calendarRows(content: string): string[][] {
+  const doc = parseCalendar(content);
+  return doc.events.map((e) => {
+    const start = e.allDay ? dateOnly(e.start ?? '') : (e.start ?? '');
+    let end: string;
+    if (!e.allDay) {
+      end = e.end ?? '';
+    } else {
+      const s = dateOnly(e.start ?? '');
+      const exclusiveEnd = dateOnly(e.end ?? '');
+      end = exclusiveEnd > s ? shiftYmd(exclusiveEnd, -1) : s;
+    }
+    return [e.title ?? '', start, end, e.allDay ? 'Yes' : 'No'];
+  });
+}
+
+/** TSV (pastes into Excel/Sheets) with a header row. */
+export function calendarToTsv(content: string): string {
+  const rows = calendarRows(content);
+  if (rows.length === 0) return '';
+  return [CALENDAR_HEADERS, ...rows].map((r) => r.join('\t')).join('\n');
+}
+
+/** RFC 4180 CSV with a header row. */
+export function calendarToCsv(content: string): string {
+  const rows = calendarRows(content);
+  if (rows.length === 0) return '';
+  return [CALENDAR_HEADERS, ...rows].map((r) => r.map(csvField).join(',')).join('\n');
+}
+
+/** HTML table (header + rows) for the rich clipboard flavor. */
+export function calendarToHtml(content: string): string {
+  const rows = calendarRows(content);
+  if (rows.length === 0) return '';
+  const head = `<tr>${CALENDAR_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
+  const body = rows
+    .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
+    .join('');
+  return `<table>${head}${body}</table>`;
+}
+
+/** GFM pipe table with the export headers. */
+export function calendarToMarkdown(content: string): string {
+  const rows = calendarRows(content);
+  if (rows.length === 0) return '';
+  const line = (cells: string[]) => `| ${cells.join(' | ')} |`;
+  return [
+    line(CALENDAR_HEADERS),
+    line(CALENDAR_HEADERS.map(() => '---')),
     ...rows.map((r) => line(r))
   ].join('\n');
 }

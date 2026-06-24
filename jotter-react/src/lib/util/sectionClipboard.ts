@@ -8,7 +8,12 @@ import {
   timelineToCsv,
   timelineToHtml,
   timelineToMarkdown,
-  timelineToTsv
+  timelineToTsv,
+  getCalendarEventCount,
+  calendarToCsv,
+  calendarToHtml,
+  calendarToMarkdown,
+  calendarToTsv
 } from './schedule';
 
 // Clipboard export for section cards (requested-features #3b). Two affordances, offered
@@ -97,6 +102,8 @@ export function sectionToMarkdown(section: NoteSection): string {
       return tableToMarkdown(section.content ?? '');
     case 'timeline':
       return timelineToMarkdown(section.content ?? '');
+    case 'calendar':
+      return calendarToMarkdown(section.content ?? '');
     default:
       // code/diagram have no "Copy as Markdown" affordance, but stay total for safety.
       return section.content ?? '';
@@ -124,13 +131,14 @@ export function hasMarkdownCopy(type: NoteSection['type']): boolean {
     type === 'checklist' ||
     type === 'markdown' ||
     type === 'table' ||
-    type === 'timeline'
+    type === 'timeline' ||
+    type === 'calendar'
   );
 }
 
 /** Whether a type offers the "Download CSV" action (tabular exports). */
 export function hasCsvDownload(type: NoteSection['type']): boolean {
-  return type === 'table' || type === 'timeline';
+  return type === 'table' || type === 'timeline' || type === 'calendar';
 }
 
 /**
@@ -188,6 +196,12 @@ export async function copyNative(section: NoteSection): Promise<string> {
       await writeRich(timelineToHtml(section.content), timelineToTsv(section.content));
       return 'Copied to clipboard';
     }
+    case 'calendar': {
+      // TSV (Title/Start/End/All day, pastes into Excel/Sheets) + an HTML <table> for rich targets.
+      if (getCalendarEventCount(section.content) === 0) return 'Nothing to copy';
+      await writeRich(calendarToHtml(section.content), calendarToTsv(section.content));
+      return 'Copied to clipboard';
+    }
   }
 }
 
@@ -197,6 +211,9 @@ export function downloadCsv(section: NoteSection): string {
   if (section.type === 'timeline') {
     if (getTimelineElementCount(section.content) === 0) return 'Nothing to export';
     csv = timelineToCsv(section.content);
+  } else if (section.type === 'calendar') {
+    if (getCalendarEventCount(section.content) === 0) return 'Nothing to export';
+    csv = calendarToCsv(section.content);
   } else {
     if (getTableCellCount(section.content) === 0) return 'Nothing to export';
     csv = tableToCsv(section.content);
