@@ -121,15 +121,13 @@ export function CalendarEditor({
     unselect: () => void;
     select: (r: { start: string; end: string; allDay: boolean }) => void;
   }>({ unselect: () => {}, select: () => {} });
-  // While we drive the highlight ourselves (from manual date edits), ignore the select
-  // callback it fires back so it doesn't reopen/reset the form.
-  const suppressSelectRef = useRef(false);
   // Most-recently used color — new events default to it while you keep adding.
   const lastColorRef = useRef<string>(DEFAULT_COLOR);
 
   // Reflect a date range as the canvas highlight (covers cross-month / out-of-view spans).
+  // The select-callback echo this triggers is ignored downstream (the form is open), so the
+  // typed dates stay the source of truth.
   function applyHighlight(range: { start: string; end: string; allDay: boolean }) {
-    suppressSelectRef.current = true;
     canvasApiRef.current.select(range);
   }
 
@@ -252,11 +250,10 @@ export function CalendarEditor({
     })),
     view: viewRef.current,
     onSelect: (sel) => {
-      // Ignore the echo from a highlight we set ourselves (manual date edit).
-      if (suppressSelectRef.current) {
-        suppressSelectRef.current = false;
-        return;
-      }
+      // Only a fresh highlight (no form open) starts a new event. While the form is open we
+      // ignore selection events — both our own highlight echoes and stray re-selects — so the
+      // typed Start/End stay authoritative. (Re-pick a range by cancelling first.)
+      if (panelRef.current) return;
       openCreate(sel);
     },
     onEventClick: (id) => {

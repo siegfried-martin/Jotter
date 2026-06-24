@@ -3,7 +3,6 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import multiMonthPlugin from '@fullcalendar/multimonth';
 import type { EventInput } from '@fullcalendar/core';
 import type { CalendarView } from '@/lib/util/schedule';
 
@@ -42,14 +41,15 @@ const VIEW_NAME: Record<CalendarView, string> = {
   week: 'timeGridWeek'
 };
 
-// A custom view: two side-by-side month grids that page forward by ONE month, so an event
-// that wraps a month boundary is always visible in at least one of them.
+// A custom view: a single CONTINUOUS day-grid spanning two months (aligned to month starts,
+// paging forward by ONE month). One grid — not two separate tables — so a drag-select can run
+// straight across the month boundary, and a month-wrapping event reads naturally.
 const VIEWS = {
   twoMonth: {
-    type: 'multiMonth',
+    type: 'dayGrid',
     duration: { months: 2 },
-    dateIncrement: { months: 1 },
-    multiMonthMaxColumns: 2
+    dateAlignment: 'month',
+    dateIncrement: { months: 1 }
   }
 };
 
@@ -89,7 +89,7 @@ export default function CalendarCanvas({
     <div className="h-full overflow-auto" data-testid="calendar-canvas">
       <FullCalendar
         ref={ref}
-        plugins={[dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin]}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView={VIEW_NAME[view]}
         views={VIEWS}
         headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}

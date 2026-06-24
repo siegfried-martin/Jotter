@@ -134,6 +134,47 @@ test.describe('calendar section', () => {
     }
   });
 
+  test('editing the end date does not snap back to the start', async ({ page }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-calendar-enddate',
+      sections: [{ type: 'calendar', content: '', sequence: 10 }]
+    });
+    const sectionId = tree.sections[0].id;
+    try {
+      await page.goto(`/app/sections/${sectionId}`);
+      await expect(page.getByTestId('calendar-canvas')).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => '__CALENDAR_API__' in window), { timeout: 10000 })
+        .toBe(true);
+
+      // Open the create form for a single all-day day (stored end is exclusive: +1 day).
+      await page.evaluate(() => {
+        const api = (window as unknown as { __CALENDAR_API__: any }).__CALENDAR_API__;
+        api.openCreate({ start: '2026-07-06', end: '2026-07-07', allDay: true });
+      });
+      const panel = page.getByTestId('calendar-edit-panel');
+      await expect(panel).toBeVisible();
+
+      // Extend the End date (inclusive display) — it must stick, not jump back to the start.
+      const endInput = panel.locator('input[type="date"]').nth(1);
+      await endInput.fill('2026-07-15');
+      await expect(endInput).toHaveValue('2026-07-15');
+
+      await panel.getByTestId('calendar-event-title').fill('Spanning');
+      await panel.getByRole('button', { name: '+ Event' }).click();
+
+      // Persisted exclusive end is the day after the inclusive 07-15 → 07-16 (not 07-07).
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect
+        .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
+        .toContain('2026-07-16');
+      expect(await fetchSectionContent(page, sectionId)).toContain('Spanning');
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('the calendar view is persisted', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
