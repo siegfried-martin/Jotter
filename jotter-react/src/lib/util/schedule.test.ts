@@ -4,11 +4,15 @@ import {
   getScheduleItemCount,
   getTimelineElementCount,
   parseTimeline,
+  snapForScale,
   timelineToCsv,
   timelineToHtml,
   timelineToMarkdown,
   timelineToTsv
 } from './schedule';
+
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function doc(
   items: unknown[],
@@ -149,5 +153,24 @@ describe('timeline export converters', () => {
     expect(timelineToMarkdown('')).toBe('');
     expect(timelineToHtml('')).toBe('');
     expect(timelineToCsv('')).toBe('');
+  });
+});
+
+describe('snapForScale (drag snapping by zoom)', () => {
+  it('snaps to the nearest day on a day axis', () => {
+    expect(ymd(snapForScale(new Date(2026, 2, 10, 18), 'day'))).toBe('2026-03-11'); // ≥noon → up
+    expect(ymd(snapForScale(new Date(2026, 2, 10, 9), 'day'))).toBe('2026-03-10');
+  });
+
+  it('snaps to the nearest month boundary on a year axis', () => {
+    expect(ymd(snapForScale(new Date(2026, 2, 10), 'year'))).toBe('2026-03-01'); // early → this month
+    expect(ymd(snapForScale(new Date(2026, 2, 25), 'year'))).toBe('2026-04-01'); // late → next month
+  });
+
+  it('snaps to the nearest quarter-month on a month axis', () => {
+    expect(ymd(snapForScale(new Date(2026, 2, 1), 'month'))).toBe('2026-03-01'); // ¼·0
+    expect(ymd(snapForScale(new Date(2026, 2, 9), 'month'))).toBe('2026-03-09'); // ≈¼
+    expect(ymd(snapForScale(new Date(2026, 2, 24), 'month'))).toBe('2026-03-24'); // ≈¾
+    expect(ymd(snapForScale(new Date(2026, 2, 31), 'month'))).toBe('2026-04-01'); // ≈end → next start
   });
 });
