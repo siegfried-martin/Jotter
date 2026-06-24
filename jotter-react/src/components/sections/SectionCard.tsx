@@ -19,6 +19,7 @@ import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { DiagramThumbnail } from './DiagramThumbnail';
 import { TablePreview } from './TablePreview';
 import { TimelinePreview } from './TimelinePreview';
+import { CalendarPreview } from './CalendarPreview';
 import { prefetchTimelineEngine } from '@/components/editors/timelinePrefetch';
 
 // The whole card is the drag activator (no handle): any spot that opens the editor
@@ -260,6 +261,8 @@ function SectionPreview({
       return <TablePreview content={section.content} />;
     case 'timeline':
       return <TimelinePreview content={section.content} />;
+    case 'calendar':
+      return <CalendarPreview content={section.content} />;
     case 'diagram': {
       const count = getDiagramElementCount(section.content);
       if (count === 0) {

@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildTimelinePreview,
+  getCalendarEventCount,
   getScheduleItemCount,
   getTimelineElementCount,
+  parseCalendar,
   parseTimeline,
   snapForScale,
   timelineToCsv,
@@ -153,6 +155,31 @@ describe('timeline export converters', () => {
     expect(timelineToMarkdown('')).toBe('');
     expect(timelineToHtml('')).toBe('');
     expect(timelineToCsv('')).toBe('');
+  });
+});
+
+describe('parseCalendar', () => {
+  it('returns an empty doc for blank / invalid content', () => {
+    expect(parseCalendar('')).toEqual({ events: [], defaultView: undefined });
+    expect(parseCalendar('not json')).toEqual({ events: [], defaultView: undefined });
+  });
+
+  it('tolerates partial shapes and only keeps a known defaultView', () => {
+    expect(parseCalendar('{"defaultView":"week"}').events).toEqual([]);
+    expect(parseCalendar('{"defaultView":"week"}').defaultView).toBe('week');
+    expect(parseCalendar('{"defaultView":"bogus"}').defaultView).toBeUndefined();
+    expect(parseCalendar('{"events":"nope"}').events).toEqual([]);
+  });
+
+  it('counts events', () => {
+    const cal = JSON.stringify({
+      events: [
+        { id: 'e1', title: 'Sprint 1', start: '2026-07-01', end: '2026-07-14', allDay: true },
+        { id: 'e2', title: 'Standup', start: '2026-07-02T09:00', end: '2026-07-02T09:15', allDay: false }
+      ]
+    });
+    expect(getCalendarEventCount(cal)).toBe(2);
+    expect(getCalendarEventCount('')).toBe(0);
   });
 });
 

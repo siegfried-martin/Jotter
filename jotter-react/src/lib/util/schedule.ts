@@ -54,7 +54,21 @@ export interface TimelineDoc {
   window?: { start: string; end: string };
 }
 
+/** A Calendar event — a ScheduleItem placed on a date grid. */
+export interface CalendarEvent extends ScheduleItem {
+  /** All-day ⇒ a multi-day spanning bar in month view; timed ⇒ an hourly block in week view. */
+  allDay: boolean;
+}
+
+/** The Calendar section's `content` shape. */
+export interface CalendarDoc {
+  events: CalendarEvent[];
+  /** Which view opens first; absent ⇒ month. */
+  defaultView?: 'month' | 'week';
+}
+
 const EMPTY_TIMELINE: TimelineDoc = { groups: [], items: [], annotations: [] };
+const EMPTY_CALENDAR: CalendarDoc = { events: [] };
 
 /**
  * Parse a Timeline snapshot from `content`; blank/garbage falls back to an empty doc.
@@ -84,6 +98,28 @@ export function getScheduleItemCount(content: string): number {
 export function getTimelineElementCount(content: string): number {
   const doc = parseTimeline(content);
   return doc.items.length + doc.annotations.length;
+}
+
+/**
+ * Parse a Calendar snapshot from `content`; blank/garbage falls back to an empty doc.
+ * Tolerant of partial shapes so a hand-edited or older blob never throws.
+ */
+export function parseCalendar(content: string): CalendarDoc {
+  if (!content?.trim()) return { ...EMPTY_CALENDAR };
+  try {
+    const raw = JSON.parse(content) as Partial<CalendarDoc>;
+    return {
+      events: Array.isArray(raw.events) ? raw.events : [],
+      defaultView: raw.defaultView === 'week' || raw.defaultView === 'month' ? raw.defaultView : undefined
+    };
+  } catch {
+    return { ...EMPTY_CALENDAR };
+  }
+}
+
+/** Count of events — drives the Calendar card empty state and "Nothing to copy" checks. */
+export function getCalendarEventCount(content: string): number {
+  return parseCalendar(content).events.length;
 }
 
 function toTime(v: string): number {

@@ -53,7 +53,7 @@ test.describe('sections', () => {
     }
   });
 
-  for (const label of ['Text', 'Code', 'Draw', 'Tasks', 'Table', 'Timeline']) {
+  for (const label of ['Text', 'Code', 'Draw', 'Tasks', 'Table', 'Timeline', 'Calendar']) {
     test(`create a ${label} section opens the editor and persists a card`, async ({ page }) => {
       await gotoAppForSeeding(page);
       const tree = await seedTree(page);
