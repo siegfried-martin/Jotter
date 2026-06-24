@@ -29,8 +29,11 @@ export interface CalendarCanvasProps {
   onEventClick: (id: string) => void;
   /** An event was dragged or resized → persist its new span. */
   onEventChange: (id: string, patch: { start: string; end: string; allDay: boolean }) => void;
-  /** Hand the parent a way to clear the highlight (on commit/cancel/edit). */
-  onApiReady?: (api: { unselect: () => void }) => void;
+  /** Hand the parent the highlight controls: set a range, or clear it. */
+  onApiReady?: (api: {
+    unselect: () => void;
+    select: (range: { start: string; end: string; allDay: boolean }) => void;
+  }) => void;
 }
 
 const VIEW_NAME: Record<CalendarView, string> = {
@@ -66,26 +69,36 @@ export default function CalendarCanvas({
     ref.current?.getApi().changeView(VIEW_NAME[view]);
   }, [view]);
 
-  // Expose unselect() so the editor can clear the highlight when the form commits/cancels.
+  // Expose the highlight controls so the editor can set the range (from manual date edits) or
+  // clear it (on commit/cancel/edit).
   useEffect(() => {
     const api = ref.current?.getApi();
-    if (api && onApiReady) onApiReady({ unselect: () => api.unselect() });
+    if (api && onApiReady) {
+      onApiReady({
+        unselect: () => api.unselect(),
+        select: (range) => api.select({ start: range.start, end: range.end, allDay: range.allDay })
+      });
+    }
   }, [onApiReady]);
 
+  // Month / two-month grids size to their content (compact when empty, growing — and the
+  // wrapper scrolls — as events stack). The hourly week keeps its own full-height scroller.
+  const height = view === 'week' ? '100%' : 'auto';
+
   return (
-    <div className="h-full" data-testid="calendar-canvas">
+    <div className="h-full overflow-auto" data-testid="calendar-canvas">
       <FullCalendar
         ref={ref}
         plugins={[dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin]}
         initialView={VIEW_NAME[view]}
         views={VIEWS}
         headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
-        height="100%"
+        height={height}
+        expandRows={false}
         editable
         selectable
         selectMirror
         unselectAuto={false}
-        dayMaxEvents
         nowIndicator
         events={events}
         // A plain click highlights that single day (deliberate select, no event yet).

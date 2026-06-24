@@ -116,8 +116,22 @@ export function CalendarEditor({
   const panelRef = useRef<Panel>(null);
   panelRef.current = panel;
 
-  // The canvas hands us a way to clear its day-highlight.
-  const unselectRef = useRef<() => void>(() => {});
+  // The canvas hands us its highlight controls (set a range / clear it).
+  const canvasApiRef = useRef<{
+    unselect: () => void;
+    select: (r: { start: string; end: string; allDay: boolean }) => void;
+  }>({ unselect: () => {}, select: () => {} });
+  // While we drive the highlight ourselves (from manual date edits), ignore the select
+  // callback it fires back so it doesn't reopen/reset the form.
+  const suppressSelectRef = useRef(false);
+  // Most-recently used color — new events default to it while you keep adding.
+  const lastColorRef = useRef<string>(DEFAULT_COLOR);
+
+  // Reflect a date range as the canvas highlight (covers cross-month / out-of-view spans).
+  function applyHighlight(range: { start: string; end: string; allDay: boolean }) {
+    suppressSelectRef.current = true;
+    canvasApiRef.current.select(range);
+  }
 
   function persist() {
     onChangeRef(JSON.stringify({ events: eventsRef.current, defaultView: viewRef.current }));
@@ -160,17 +174,37 @@ export function CalendarEditor({
     bump();
   });
 
-  // Open the create form for a highlighted range (keeps the highlight; commit creates).
+  // Open the create form for a highlighted range (keeps the highlight; commit creates). New
+  // events default to the last color used this session.
   const openCreate = useCallbackRef((sel: { start: string; end: string; allDay: boolean }) => {
     setPanel({
       mode: 'create',
-      draft: { title: '', color: DEFAULT_COLOR, start: sel.start, end: sel.end, allDay: sel.allDay }
+      draft: {
+        title: '',
+        color: lastColorRef.current,
+        start: sel.start,
+        end: sel.end,
+        allDay: sel.allDay
+      }
     });
+  });
+
+  // A field changed in the create form: update the draft, track color, and re-highlight when
+  // the dates move (so manual Start/End edits show on the grid, even across months).
+  const createField = useCallbackRef((patch: Partial<EventFields>) => {
+    const cur = panelRef.current;
+    if (cur?.mode !== 'create') return;
+    const draft = { ...cur.draft, ...patch };
+    if (patch.color) lastColorRef.current = draft.color;
+    setPanel({ mode: 'create', draft });
+    if ('start' in patch || 'end' in patch || 'allDay' in patch) {
+      applyHighlight({ start: draft.start, end: draft.end, allDay: draft.allDay });
+    }
   });
 
   const closePanel = useCallbackRef(() => {
     setPanel(null);
-    unselectRef.current();
+    canvasApiRef.current.unselect();
   });
 
   // DEV-only facade for e2e — arrange events / drive the form without real FullCalendar drags.
@@ -199,7 +233,7 @@ export function CalendarEditor({
         e.stopImmediatePropagation();
         e.preventDefault();
         setPanel(null);
-        unselectRef.current();
+        canvasApiRef.current.unselect();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -217,14 +251,21 @@ export function CalendarEditor({
       borderColor: e.color || DEFAULT_COLOR
     })),
     view: viewRef.current,
-    onSelect: (sel) => openCreate(sel),
+    onSelect: (sel) => {
+      // Ignore the echo from a highlight we set ourselves (manual date edit).
+      if (suppressSelectRef.current) {
+        suppressSelectRef.current = false;
+        return;
+      }
+      openCreate(sel);
+    },
     onEventClick: (id) => {
-      unselectRef.current();
+      canvasApiRef.current.unselect();
       setPanel({ mode: 'edit', id });
     },
     onEventChange: (id, patch) => updateEvent(id, patch),
     onApiReady: (api) => {
-      unselectRef.current = api.unselect;
+      canvasApiRef.current = api;
     }
   };
 
@@ -258,12 +299,9 @@ export function CalendarEditor({
         <EventForm
           mode="create"
           values={panel.draft}
-          onField={(patch) =>
-            setPanel((p) =>
-              p?.mode === 'create' ? { mode: 'create', draft: { ...p.draft, ...patch } } : p
-            )
-          }
+          onField={createField}
           onCommit={() => {
+            lastColorRef.current = panel.draft.color;
             addEvent(panel.draft);
             closePanel();
           }}
@@ -282,7 +320,10 @@ export function CalendarEditor({
             end: editing.end,
             allDay: editing.allDay
           }}
-          onField={(patch) => updateEvent(editing.id, patch)}
+          onField={(patch) => {
+            if (patch.color) lastColorRef.current = patch.color;
+            updateEvent(editing.id, patch);
+          }}
           onDelete={() => {
             removeEvent(editing.id);
             closePanel();
