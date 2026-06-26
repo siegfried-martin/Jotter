@@ -28,3 +28,6 @@ playwright/.auth/
 playwright-report/
 test-results/
 /tsconfig.tsbuildinfo
+
+# Local scratch / profiling artifacts
+temp/
