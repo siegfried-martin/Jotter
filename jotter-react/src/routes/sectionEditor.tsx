@@ -223,7 +223,7 @@ function ClipboardIcon() {
 function ExpandIcon() {
   return (
     <svg
-      className="h-4 w-4"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -242,7 +242,7 @@ function ExpandIcon() {
 function CollapseIcon() {
   return (
     <svg
-      className="h-4 w-4"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -630,9 +630,10 @@ function SectionEditorModal({
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               onClick={toggleFullscreen}
-              className="flex-shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-800"
             >
               {isFullscreen ? <CollapseIcon /> : <ExpandIcon />}
+              <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
             </button>
           )}
           {/* Tab rides the header's bottom edge: at the screen top when the chrome is hidden,
@@ -643,7 +644,7 @@ function SectionEditorModal({
               data-testid="chrome-tab-top"
               aria-label={chromeVisible ? 'Hide toolbar' : 'Show toolbar'}
               onClick={() => setChromeVisible((v) => !v)}
-              className="pointer-events-auto absolute left-1/2 top-full z-30 flex -translate-x-1/2 items-center justify-center rounded-b-md bg-slate-700/70 px-8 py-1 text-white shadow transition-colors hover:bg-slate-600"
+              className="pointer-events-auto absolute left-1/2 top-full z-30 flex -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
             >
               {chromeVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </button>
@@ -773,7 +774,7 @@ function SectionEditorModal({
               data-testid="chrome-tab-bottom"
               aria-label={chromeVisible ? 'Hide actions' : 'Show actions'}
               onClick={() => setChromeVisible((v) => !v)}
-              className="pointer-events-auto absolute bottom-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-t-md bg-slate-700/70 px-8 py-1 text-white shadow transition-colors hover:bg-slate-600"
+              className="pointer-events-auto absolute bottom-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-t-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
             >
               {chromeVisible ? <ChevronDownIcon /> : <ChevronUpIcon />}
             </button>
