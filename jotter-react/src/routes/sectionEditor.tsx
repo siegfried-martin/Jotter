@@ -20,6 +20,7 @@ import { SectionService } from '@/lib/services/sectionService';
 import { SectionFiling } from '@/components/sections/SectionFiling';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
+import { useIsDesktop } from '@/lib/util/useMediaQuery';
 import { showToast } from '@/lib/ui/toast';
 import {
   copyNative,
@@ -219,6 +220,72 @@ function ClipboardIcon() {
   );
 }
 
+function ExpandIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+      />
+    </svg>
+  );
+}
+
+function CollapseIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 9V5m0 4H5m4 0L4 4m11 5h4m-4 0V5m0 4l5-5M9 15v4m0-4H5m4 0l-5 5m11-5h4m-4 0v4m0-4l5 5"
+      />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+    </svg>
+  );
+}
+
 function draftKey(id: string) {
   return `draft_${id}`;
 }
@@ -316,6 +383,24 @@ function SectionEditorModal({
   // "click outside" to close. Without this, drag-selecting text and releasing past the modal
   // edge (mouseup lands on the backdrop) would close the editor — a long-standing annoyance.
   const downOnBackdrop = useRef(false);
+
+  // Desktop-only fullscreen / focus mode. `isFullscreen` expands the modal to the viewport and
+  // collapses the header+footer into a single auto-hiding "chrome" overlay; `chromeVisible`
+  // toggles that overlay (revealed by the edge tabs, dismissed by a body click or Escape).
+  const isDesktop = useIsDesktop();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [chromeVisible, setChromeVisible] = useState(false);
+  const toggleFullscreen = () => {
+    setChromeVisible(false);
+    setIsFullscreen((v) => !v);
+  };
+  // Shrinking below desktop drops out of fullscreen (the toggle is hidden there too).
+  useEffect(() => {
+    if (!isDesktop && isFullscreen) {
+      setIsFullscreen(false);
+      setChromeVisible(false);
+    }
+  }, [isDesktop, isFullscreen]);
 
   function handleContentChange(next: string) {
     setContent(next);
@@ -473,17 +558,30 @@ function SectionEditorModal({
         e.preventDefault();
         saveAndClose();
       } else if (e.key === 'Escape') {
+        // In fullscreen, Escape steps down one level at a time. Closing the open chrome wins
+        // even over a table, so the toolbar is always dismissable.
+        if (isFullscreen && chromeVisible) {
+          e.preventDefault();
+          setChromeVisible(false);
+          return;
+        }
         // The spreadsheet editor is complex enough that Escape belongs to it (exit cell
         // edit, cancel a selection/formula, dismiss its menus) rather than closing the
         // modal. Let Univer handle it; the user saves explicitly (Save button / Cmd+S).
         if (section.type === 'table') return;
+        // Next step down: leave fullscreen back to the windowed modal before closing.
+        if (isFullscreen) {
+          e.preventDefault();
+          setIsFullscreen(false);
+          return;
+        }
         e.preventDefault();
         saveAndClose();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [saveAndClose]);
+  }, [saveAndClose, isFullscreen, chromeVisible, section.type]);
 
   return (
     <div
@@ -498,68 +596,129 @@ function SectionEditorModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >
       <div
-        className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
-        style={{ width: '95vw', height: '90vh' }}
+        data-fullscreen={isFullscreen ? 'true' : undefined}
+        data-chrome={isFullscreen ? (chromeVisible ? 'open' : 'closed') : undefined}
+        className={`relative flex w-full flex-col overflow-hidden bg-white shadow-2xl ${
+          isFullscreen ? '' : 'rounded-xl border border-slate-200'
+        }`}
+        style={
+          isFullscreen ? { width: '100vw', height: '100vh' } : { width: '95vw', height: '90vh' }
+        }
       >
-        <div className="flex flex-1 flex-col overflow-hidden p-6">
-          <div className="mb-4 flex flex-shrink-0 items-center gap-4 border-b border-slate-200 pb-2">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Untitled section"
-              className="min-w-0 flex-1 bg-transparent text-lg font-semibold text-slate-800 focus:outline-none"
-            />
-            <SectionFiling section={section} />
-          </div>
-          <div className="min-h-0 flex-1">
-            {section.type === 'code' &&
-              (crdtReady && handle ? (
-                <YCodeEditor
-                  text={handle.text}
-                  awareness={handle.awareness}
-                  language={language}
-                  onLanguageChange={setLanguage}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                  Loading…
-                </div>
-              ))}
-            {section.type === 'markdown' &&
-              (crdtReady && handle ? (
-                <YMarkdownEditor text={handle.text} awareness={handle.awareness} />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                  Loading…
-                </div>
-              ))}
-            {section.type === 'wysiwyg' &&
-              (crdtReady && handle ? (
-                <YQuillEditor text={handle.text} initial={content} onChange={handleContentChange} />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                  Loading…
-                </div>
-              ))}
-            {section.type === 'checklist' && (
-              <ChecklistEditor value={checklistData} onChange={setChecklistData} />
-            )}
-            {section.type === 'diagram' && (
-              <ExcalidrawEditor initial={content} onChange={handleContentChange} />
-            )}
-            {section.type === 'table' && (
-              <TableEditor initial={content} onChange={handleContentChange} />
-            )}
-            {section.type === 'timeline' && (
-              <TimelineEditor initial={content} onChange={handleContentChange} />
-            )}
-            {section.type === 'calendar' && (
-              <CalendarEditor initial={content} onChange={handleContentChange} />
-            )}
-          </div>
+        {/* Header. In fullscreen it becomes an auto-hiding overlay band (translated off the
+            top until the chrome is revealed); windowed, it sits inline above the body. */}
+        <div
+          className={
+            isFullscreen
+              ? `absolute inset-x-0 top-0 z-20 flex items-center gap-4 border-b border-slate-200 bg-white px-6 py-3 shadow-sm transition-transform duration-200 ${
+                  chromeVisible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'
+                }`
+              : 'mb-4 flex flex-shrink-0 items-center gap-4 border-b border-slate-200 px-6 pt-6 pb-2'
+          }
+        >
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled section"
+            className="min-w-0 flex-1 bg-transparent text-lg font-semibold text-slate-800 focus:outline-none"
+          />
+          <SectionFiling section={section} />
+          {isDesktop && (
+            <button
+              type="button"
+              data-testid="fullscreen-toggle"
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              onClick={toggleFullscreen}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-800"
+            >
+              {isFullscreen ? <CollapseIcon /> : <ExpandIcon />}
+              <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
+            </button>
+          )}
+          {/* Tab rides the header's bottom edge: at the screen top when the chrome is hidden,
+              sticking out below the band when it's open. Click toggles; chevron flips. */}
+          {isFullscreen && (
+            <button
+              type="button"
+              data-testid="chrome-tab-top"
+              aria-label={chromeVisible ? 'Hide toolbar' : 'Show toolbar'}
+              onClick={() => setChromeVisible((v) => !v)}
+              className="pointer-events-auto absolute left-1/2 top-full z-30 flex -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
+            >
+              {chromeVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            </button>
+          )}
+        </div>
+        {/* Body. Clicking it while the chrome overlay is open dismisses the overlay. */}
+        <div
+          data-testid="editor-body"
+          onMouseDown={() => {
+            if (isFullscreen && chromeVisible) setChromeVisible(false);
+          }}
+          className={
+            isFullscreen
+              ? 'min-h-0 flex-1 overflow-hidden px-6 py-4'
+              : 'min-h-0 flex-1 overflow-hidden px-6 pb-6'
+          }
+        >
+          {section.type === 'code' &&
+            (crdtReady && handle ? (
+              <YCodeEditor
+                text={handle.text}
+                awareness={handle.awareness}
+                language={language}
+                onLanguageChange={setLanguage}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                Loading…
+              </div>
+            ))}
+          {section.type === 'markdown' &&
+            (crdtReady && handle ? (
+              <YMarkdownEditor text={handle.text} awareness={handle.awareness} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                Loading…
+              </div>
+            ))}
+          {section.type === 'wysiwyg' &&
+            (crdtReady && handle ? (
+              <YQuillEditor text={handle.text} initial={content} onChange={handleContentChange} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                Loading…
+              </div>
+            ))}
+          {section.type === 'checklist' && (
+            <ChecklistEditor value={checklistData} onChange={setChecklistData} />
+          )}
+          {section.type === 'diagram' && (
+            <ExcalidrawEditor initial={content} onChange={handleContentChange} />
+          )}
+          {section.type === 'table' && (
+            <TableEditor initial={content} onChange={handleContentChange} />
+          )}
+          {section.type === 'timeline' && (
+            <TimelineEditor initial={content} onChange={handleContentChange} />
+          )}
+          {section.type === 'calendar' && (
+            <CalendarEditor initial={content} onChange={handleContentChange} />
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+        {/* Footer. Mirrors the header: an auto-hiding overlay band in fullscreen (so Save is
+            reachable the moment the chrome is revealed), inline otherwise. */}
+        <div
+          className={
+            isFullscreen
+              ? `absolute inset-x-0 bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 transition-transform duration-200 ${
+                  chromeVisible ? 'translate-y-0' : 'pointer-events-none translate-y-full'
+                }`
+              : 'flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4'
+          }
+        >
           {/* Copy actions (teal = alternate), bottom-left. They copy the live on-screen
               content via the same util as the section cards. */}
           <div className="flex flex-wrap items-center gap-2">
@@ -605,6 +764,21 @@ function SectionEditorModal({
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
+          {/* Tab rides the footer's top edge: at the screen bottom when the chrome is hidden,
+              sticking out above the band when it's open. Click toggles; chevron flips. The
+              footer's own click target also covers the table case, where Univer swallows the
+              body click that would otherwise dismiss the chrome. */}
+          {isFullscreen && (
+            <button
+              type="button"
+              data-testid="chrome-tab-bottom"
+              aria-label={chromeVisible ? 'Hide actions' : 'Show actions'}
+              onClick={() => setChromeVisible((v) => !v)}
+              className="pointer-events-auto absolute bottom-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-t-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
+            >
+              {chromeVisible ? <ChevronDownIcon /> : <ChevronUpIcon />}
+            </button>
+          )}
         </div>
       </div>
 
