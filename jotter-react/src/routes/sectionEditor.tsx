@@ -597,6 +597,7 @@ function SectionEditorModal({
     >
       <div
         data-fullscreen={isFullscreen ? 'true' : undefined}
+        data-chrome={isFullscreen ? (chromeVisible ? 'open' : 'closed') : undefined}
         className={`relative flex w-full flex-col overflow-hidden bg-white shadow-2xl ${
           isFullscreen ? '' : 'rounded-xl border border-slate-200'
         }`}
@@ -632,6 +633,19 @@ function SectionEditorModal({
               className="flex-shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             >
               {isFullscreen ? <CollapseIcon /> : <ExpandIcon />}
+            </button>
+          )}
+          {/* Tab rides the header's bottom edge: at the screen top when the chrome is hidden,
+              sticking out below the band when it's open. Click toggles; chevron flips. */}
+          {isFullscreen && (
+            <button
+              type="button"
+              data-testid="chrome-tab-top"
+              aria-label={chromeVisible ? 'Hide toolbar' : 'Show toolbar'}
+              onClick={() => setChromeVisible((v) => !v)}
+              className="pointer-events-auto absolute left-1/2 top-full z-30 flex -translate-x-1/2 items-center justify-center rounded-b-md bg-slate-700/70 px-8 py-1 text-white shadow transition-colors hover:bg-slate-600"
+            >
+              {chromeVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </button>
           )}
         </div>
@@ -749,34 +763,22 @@ function SectionEditorModal({
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
-        </div>
-
-        {/* Edge tabs (fullscreen, chrome hidden): hover/click to reveal the chrome overlay.
-            CRD-style — a faint nub at the top and bottom center, either reveals both bands. */}
-        {isFullscreen && !chromeVisible && (
-          <>
-            <button
-              type="button"
-              data-testid="chrome-tab-top"
-              aria-label="Show toolbar"
-              onClick={() => setChromeVisible(true)}
-              onMouseEnter={() => setChromeVisible(true)}
-              className="absolute top-0 left-1/2 z-30 flex -translate-x-1/2 items-center rounded-b-md bg-slate-700/60 px-5 py-1 text-white shadow transition-colors hover:bg-slate-700"
-            >
-              <ChevronDownIcon />
-            </button>
+          {/* Tab rides the footer's top edge: at the screen bottom when the chrome is hidden,
+              sticking out above the band when it's open. Click toggles; chevron flips. The
+              footer's own click target also covers the table case, where Univer swallows the
+              body click that would otherwise dismiss the chrome. */}
+          {isFullscreen && (
             <button
               type="button"
               data-testid="chrome-tab-bottom"
-              aria-label="Show actions"
-              onClick={() => setChromeVisible(true)}
-              onMouseEnter={() => setChromeVisible(true)}
-              className="absolute bottom-0 left-1/2 z-30 flex -translate-x-1/2 items-center rounded-t-md bg-slate-700/60 px-5 py-1 text-white shadow transition-colors hover:bg-slate-700"
+              aria-label={chromeVisible ? 'Hide actions' : 'Show actions'}
+              onClick={() => setChromeVisible((v) => !v)}
+              className="pointer-events-auto absolute bottom-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-t-md bg-slate-700/70 px-8 py-1 text-white shadow transition-colors hover:bg-slate-600"
             >
-              <ChevronUpIcon />
+              {chromeVisible ? <ChevronDownIcon /> : <ChevronUpIcon />}
             </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {conflict && (

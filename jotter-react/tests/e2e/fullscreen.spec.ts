@@ -19,7 +19,7 @@ test.describe('fullscreen focus mode', () => {
     return tree;
   }
 
-  test('toggling enters fullscreen with chrome hidden; edge tabs reveal it', async ({ page }) => {
+  test('the persistent tab toggles the chrome; body click also dismisses it', async ({ page }) => {
     const tree = await openSection(page);
     try {
       // Windowed by default — no fullscreen box, no edge tabs.
@@ -28,20 +28,27 @@ test.describe('fullscreen focus mode', () => {
 
       await page.getByTestId('fullscreen-toggle').click();
 
-      // Fullscreen on, chrome auto-hidden → both edge tabs show.
-      await expect(page.locator('[data-fullscreen="true"]')).toBeVisible();
+      // Fullscreen on, chrome auto-hidden → both tabs show and stay shown.
+      await expect(page.locator('[data-chrome="closed"]')).toBeVisible();
       await expect(page.getByTestId('chrome-tab-top')).toBeVisible();
       await expect(page.getByTestId('chrome-tab-bottom')).toBeVisible();
 
-      // Reveal the chrome via the top tab → tabs disappear and the title is editable again.
+      // The top tab opens the chrome (tabs remain) and the title becomes editable.
       await page.getByTestId('chrome-tab-top').click();
-      await expect(page.getByTestId('chrome-tab-top')).toHaveCount(0);
+      await expect(page.locator('[data-chrome="open"]')).toBeVisible();
+      await expect(page.getByTestId('chrome-tab-top')).toBeVisible();
       await page.getByPlaceholder('Untitled section').fill('Renamed');
       await expect(page.getByPlaceholder('Untitled section')).toHaveValue('Renamed');
 
-      // Clicking back on the body dismisses the chrome → the tabs return.
+      // Pressing the same tab again closes it (toggle).
+      await page.getByTestId('chrome-tab-top').click();
+      await expect(page.locator('[data-chrome="closed"]')).toBeVisible();
+
+      // And clicking back on the body dismisses an open chrome too.
+      await page.getByTestId('chrome-tab-bottom').click();
+      await expect(page.locator('[data-chrome="open"]')).toBeVisible();
       await page.getByTestId('editor-body').click();
-      await expect(page.getByTestId('chrome-tab-top')).toBeVisible();
+      await expect(page.locator('[data-chrome="closed"]')).toBeVisible();
     } finally {
       await cleanup(page, tree.collectionId);
     }
@@ -52,11 +59,11 @@ test.describe('fullscreen focus mode', () => {
     try {
       await page.getByTestId('fullscreen-toggle').click();
       await page.getByTestId('chrome-tab-top').click(); // reveal chrome
-      await expect(page.getByTestId('chrome-tab-top')).toHaveCount(0);
+      await expect(page.locator('[data-chrome="open"]')).toBeVisible();
 
       // First Escape only hides the chrome (still fullscreen).
       await page.keyboard.press('Escape');
-      await expect(page.getByTestId('chrome-tab-top')).toBeVisible();
+      await expect(page.locator('[data-chrome="closed"]')).toBeVisible();
       await expect(page.locator('[data-fullscreen="true"]')).toBeVisible();
 
       // Second Escape exits fullscreen back to the windowed modal (still open).
@@ -76,7 +83,7 @@ test.describe('fullscreen focus mode', () => {
     const tree = await openSection(page);
     try {
       await page.getByTestId('fullscreen-toggle').click();
-      await expect(page.getByTestId('chrome-tab-top')).toBeVisible(); // chrome hidden
+      await expect(page.locator('[data-chrome="closed"]')).toBeVisible(); // chrome hidden
 
       await page.keyboard.press('Control+s');
       await expect(page.getByTestId('editor-body')).toHaveCount(0); // modal closed
