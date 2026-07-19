@@ -96,7 +96,7 @@ export class SectionService {
   /** Keyword search over sections the user can access — same membership scoping as the
    *  recent feed. Matches title (all types) plus content for the plain-text types;
    *  structured/JSON types match on title only (see migration 0013). */
-  static async searchSections(query: string, limit = 30): Promise<NoteSection[]> {
+  static async searchSections(query: string, limit = 20): Promise<NoteSection[]> {
     if (isDemoMode()) return [];
 
     const { data, error } = await supabase.rpc('search_sections', {

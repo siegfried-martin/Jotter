@@ -11,7 +11,7 @@
 -- Long-term shape: a materialized search_text column extracted per type at write time
 -- (the copy-as-markdown extractors), collapsing this predicate to one ILIKE.
 
-create or replace function public.search_sections(p_query text, p_limit int default 30)
+create or replace function public.search_sections(p_query text, p_limit int default 20)
 returns setof public.note_section
 language sql stable security definer set search_path = public as $$
   with q as (
