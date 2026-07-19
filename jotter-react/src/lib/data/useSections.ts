@@ -34,6 +34,18 @@ export function useRecentSections(limit = 30) {
   });
 }
 
+/** Keyword search over accessible sections. Pass an already-debounced query; disabled
+ *  while the query is empty. Previous results are kept while a new query loads so the
+ *  results grid doesn't flicker on every keystroke. */
+export function useSearchSections(query: string) {
+  return useQuery({
+    queryKey: queryKeys.searchSections(query),
+    queryFn: () => SectionService.searchSections(query),
+    enabled: query.trim().length > 0,
+    placeholderData: (prev) => prev
+  });
+}
+
 /** Create an unparented "quick jot" section (no container) from the home page. */
 export function useCreateUnparentedSection() {
   const qc = useQueryClient();

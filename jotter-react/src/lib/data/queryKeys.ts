@@ -9,5 +9,6 @@ export const queryKeys = {
   sections: (containerId: string) => ['sections', containerId] as const,
   section: (sectionId: string) => ['section', sectionId] as const,
   recentSections: () => ['recentSections'] as const,
+  searchSections: (query: string) => ['searchSections', query] as const,
   userPreferences: () => ['userPreferences'] as const
 };
