@@ -159,8 +159,13 @@ function EditableTypeTitle({
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => e.target.select()}
         onClick={(e) => e.stopPropagation()}
+        // The card root carries dnd-kit's drag listeners (keyboard activator fires on
+        // Space/Enter, pointer activator on an 8px move). Keystrokes and pointer-drags
+        // inside the rename input must not bubble up and start a card drag.
+        onPointerDown={(e) => e.stopPropagation()}
         onBlur={commit}
         onKeyDown={(e) => {
+          e.stopPropagation();
           if (e.key === 'Enter') {
             e.preventDefault();
             commit();

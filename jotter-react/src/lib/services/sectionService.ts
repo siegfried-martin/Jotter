@@ -93,6 +93,23 @@ export class SectionService {
     return (data as NoteSection[]) ?? [];
   }
 
+  /** Keyword search over sections the user can access — same membership scoping as the
+   *  recent feed. Matches title (all types) plus content for the plain-text types;
+   *  structured/JSON types match on title only (see migration 0013). */
+  static async searchSections(query: string, limit = 20): Promise<NoteSection[]> {
+    if (isDemoMode()) return [];
+
+    const { data, error } = await supabase.rpc('search_sections', {
+      p_query: query,
+      p_limit: limit
+    });
+    if (error) {
+      console.error('Error searching sections:', error);
+      throw error;
+    }
+    return (data as NoteSection[]) ?? [];
+  }
+
   /** Opening a section you can't already access joins you to it (it becomes unfiled for
    *  you). No-op if you already have access. Returns true if you were newly added. */
   static async openSharedSection(sectionId: string): Promise<boolean> {
