@@ -103,6 +103,37 @@ test.describe('drag-and-drop', () => {
     }
   });
 
+  test('typing Space while renaming a section card does not start a drag', async ({ page }) => {
+    // Regression: the card root carries dnd-kit's listeners, so Space in the inline
+    // rename input used to bubble to the KeyboardSensor activator and pick the card up.
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      sections: [
+        { type: 'code', content: 'one', title: 'first', sequence: 10 },
+        { type: 'code', content: 'two', title: 'second', sequence: 20 }
+      ]
+    });
+    const [s1, s2] = tree.sections.map((s) => s.id);
+    try {
+      await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+      await expect(page.getByTestId('section-card')).toHaveCount(2);
+
+      // Open the rename input on the first card and type a title containing spaces.
+      await page.getByText('first', { exact: true }).click();
+      const input = page.getByTestId('section-card').first().locator('input');
+      await expect(input).toBeVisible();
+      await input.pressSequentially('my new title', { delay: 20 });
+      await input.press('Enter');
+
+      // The rename stuck (spaces included) and the card order never changed.
+      await expect(page.getByText('my new title', { exact: true })).toBeVisible();
+      await expect.poll(() => readDomOrder(page, 'data-section-id')).toEqual([s1, s2]);
+      await expect.poll(() => fetchSectionOrder(page, tree.containerId)).toEqual([s1, s2]);
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('containers reorder in the sidebar via keyboard', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, { containerTitle: 'e2e-c1', containerSequence: 10 });
