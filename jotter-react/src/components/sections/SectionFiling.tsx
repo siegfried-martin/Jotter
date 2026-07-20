@@ -65,22 +65,22 @@ export function SectionFiling({ section }: { section: NoteSection }) {
   const recentContainers = [...(containersInCollection ?? [])].sort(byRecent).slice(0, 10);
 
   return (
-    <div ref={ref} className="relative flex flex-shrink-0 items-center gap-1 text-xs">
+    <div ref={ref} className="relative flex min-w-0 items-center gap-1 text-xs">
       <button
         data-testid="filing-collection"
         onClick={() => setMenu(menu === 'collection' ? null : 'collection')}
-        className={`rounded px-1.5 py-0.5 hover:bg-slate-100 ${
+        className={`max-w-[8rem] min-w-0 truncate rounded px-1.5 py-0.5 hover:bg-slate-100 sm:max-w-[14rem] ${
           collection ? 'text-slate-700' : 'text-slate-400 italic'
         }`}
       >
         {collection?.name ?? 'Collection'} ▾
       </button>
-      <span className="text-slate-300">/</span>
+      <span className="flex-shrink-0 text-slate-300">/</span>
       <button
         data-testid="filing-note"
         onClick={() => collectionId && setMenu(menu === 'container' ? null : 'container')}
         disabled={!collectionId}
-        className={`rounded px-1.5 py-0.5 hover:bg-slate-100 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
+        className={`max-w-[8rem] min-w-0 truncate rounded px-1.5 py-0.5 hover:bg-slate-100 disabled:cursor-not-allowed disabled:hover:bg-transparent sm:max-w-[14rem] ${
           container ? 'text-slate-700' : 'text-slate-400 italic'
         }`}
       >

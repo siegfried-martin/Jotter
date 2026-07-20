@@ -3,8 +3,13 @@ import type { NoteSection } from '@/lib/types';
 type SectionType = NoteSection['type'];
 
 // Shared per-type identity used by the section "Add" buttons and the card title pill,
-// so both color-code by type consistently: a muted tint at rest, a darker tint on
-// hover. Class strings are spelled out (not interpolated) so Tailwind keeps them.
+// so both color-code by type consistently. Class strings are spelled out (not
+// interpolated) so Tailwind keeps them.
+//
+// Colors vary in VALUE (lightness), not just hue: hue-adjacent types were
+// indistinguishable under red-green colorblindness ({blue/indigo/purple},
+// {green/slate}, {teal/cyan}), so each such group spans different tiers — light
+// tint (*-50/700), mid tint (*-200/900), and solid (*-600/white).
 export const SECTION_TYPE_META: Record<
   SectionType,
   { typeLabel: string; addLabel: string; icon: string; base: string; hover: string }
@@ -34,16 +39,18 @@ export const SECTION_TYPE_META: Record<
     typeLabel: 'Checklist',
     addLabel: 'Tasks',
     icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-    base: 'bg-purple-50 text-purple-700',
-    hover: 'hover:bg-purple-100'
+    base: 'bg-purple-200 text-purple-900',
+    hover: 'hover:bg-purple-300'
   },
   markdown: {
     typeLabel: 'Markdown',
     addLabel: 'Markdown',
     // Document with a folded corner and a centered "M" — reads clearly at icon size.
     icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9.5 17v-5l2.5 3 2.5-3v5',
-    base: 'bg-rose-50 text-rose-700',
-    hover: 'hover:bg-rose-100'
+    // Solid slate, not red: markdown's classic dark-gray identity — a solid red
+    // button read as an error/destructive action.
+    base: 'bg-slate-600 text-white',
+    hover: 'hover:bg-slate-700'
   },
   table: {
     typeLabel: 'Table',
@@ -58,16 +65,16 @@ export const SECTION_TYPE_META: Record<
     addLabel: 'Timeline',
     // Three swimlane bars of varying start/length — the gantt/roadmap read.
     icon: 'M3 6h7 M8 12h11 M5 18h9',
-    base: 'bg-cyan-50 text-cyan-700',
-    hover: 'hover:bg-cyan-100'
+    base: 'bg-cyan-600 text-white',
+    hover: 'hover:bg-cyan-700'
   },
   calendar: {
     typeLabel: 'Calendar',
     addLabel: 'Calendar',
     // A month grid: rounded rect with a header bar (two hanging "rings") and one inner divider.
     icon: 'M4 6a1 1 0 011-1h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6z M4 10h16 M8 3v4 M16 3v4',
-    base: 'bg-indigo-50 text-indigo-700',
-    hover: 'hover:bg-indigo-100'
+    base: 'bg-indigo-600 text-white',
+    hover: 'hover:bg-indigo-700'
   }
 };
 
@@ -76,9 +83,9 @@ export const SECTION_TYPE_ORDER: SectionType[] = [
   'wysiwyg',
   'code',
   'markdown',
+  'checklist',
   'table',
   'timeline',
   'calendar',
-  'diagram',
-  'checklist'
+  'diagram'
 ];

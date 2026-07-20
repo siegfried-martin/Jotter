@@ -230,7 +230,7 @@ function ContainerPage() {
             activeType={activeType}
           />
 
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-6">
             {isPending ? (
               <p className="text-sm text-slate-400">Loading…</p>
             ) : !containers || containers.length === 0 ? (

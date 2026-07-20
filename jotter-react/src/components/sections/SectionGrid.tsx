@@ -9,20 +9,12 @@ import {
   useUpdateSection
 } from '@/lib/data/useSections';
 import { useDndEnabled } from '@/lib/util/useDndEnabled';
-import { SECTION_TYPE_META, SECTION_TYPE_ORDER } from '@/lib/util/sectionTypeStyle';
+import { SECTION_TYPE_META } from '@/lib/util/sectionTypeStyle';
 import { SectionCard } from './SectionCard';
+import { AddSectionBar } from './AddSectionBar';
 import { isSectionEmpty } from '@/lib/util/sectionContent';
-import { prefetchTimelineEngine } from '@/components/editors/timelinePrefetch';
-import { prefetchCalendarEngine } from '@/components/editors/calendarPrefetch';
 
 type SectionType = NoteSection['type'];
-
-/** Warm the code-split editor chunk for types that have one, on hover/focus. */
-function prefetchForType(type: SectionType): (() => void) | undefined {
-  if (type === 'timeline') return prefetchTimelineEngine;
-  if (type === 'calendar') return prefetchCalendarEngine;
-  return undefined;
-}
 
 /** A section card wired as a dnd-kit sortable (drag handle, transform, drop ordering). */
 function SortableSection({
@@ -112,32 +104,7 @@ export function SectionGrid({
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-sm font-medium text-slate-400">Add</span>
-        {SECTION_TYPE_ORDER.map((type) => {
-          const meta = SECTION_TYPE_META[type];
-          return (
-            <button
-              key={type}
-              onClick={() => addSection(type)}
-              onPointerEnter={prefetchForType(type)}
-              disabled={createSection.isPending}
-              title={`${meta.addLabel} section`}
-              className={`group flex min-h-[2.25rem] items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${meta.base} ${meta.hover}`}
-            >
-              <svg
-                className="h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={meta.icon} />
-              </svg>
-              <span className="hidden sm:inline">{meta.addLabel}</span>
-            </button>
-          );
-        })}
-      </div>
+      <AddSectionBar onAdd={addSection} busy={createSection.isPending} />
 
       {isPending ? (
         <p className="text-sm text-slate-400">Loading sections…</p>

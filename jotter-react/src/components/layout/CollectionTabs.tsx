@@ -76,7 +76,7 @@ export function CollectionTabs({
       </select>
 
       {/* Desktop: tabs */}
-      <div className="hidden items-center gap-1 overflow-x-auto sm:flex">
+      <div className="hidden min-w-0 items-center gap-1 overflow-x-auto sm:flex">
         {collections.map((c) => {
           const active = c.id === currentCollectionId;
           if (active) {

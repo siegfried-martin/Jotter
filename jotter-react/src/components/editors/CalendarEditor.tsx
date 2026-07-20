@@ -267,15 +267,13 @@ export function CalendarEditor({
   };
 
   const editing =
-    panel?.mode === 'edit'
-      ? (eventsRef.current.find((e) => e.id === panel.id) ?? null)
-      : null;
+    panel?.mode === 'edit' ? (eventsRef.current.find((e) => e.id === panel.id) ?? null) : null;
 
   return (
     <div data-testid="calendar-editor" className="relative flex h-full flex-col">
-      <div className="mb-3 flex flex-shrink-0 items-center gap-2">
+      <div className="mb-3 flex flex-shrink-0 flex-wrap items-center gap-2">
         <ViewToggle view={viewRef.current} onChange={setView} />
-        <span className="ml-auto text-xs text-slate-400">
+        <span className="ml-auto hidden text-xs text-slate-400 sm:inline">
           Select day(s), then add an event
         </span>
       </div>
@@ -340,14 +338,16 @@ function ViewToggle({
   onChange: (v: CalendarView) => void;
 }) {
   return (
-    <div className="inline-flex overflow-hidden rounded-md border border-slate-200 text-sm">
+    <div className="inline-flex flex-shrink-0 overflow-hidden rounded-md border border-slate-200 text-sm">
       {VIEWS.map((v) => (
         <button
           key={v.key}
           type="button"
           onClick={() => onChange(v.key)}
-          className={`px-3 py-1.5 font-medium transition ${
-            view === v.key ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+          className={`px-3 py-1.5 font-medium whitespace-nowrap transition ${
+            view === v.key
+              ? 'bg-indigo-600 text-white'
+              : 'bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
           {v.label}
@@ -474,7 +474,9 @@ function EventForm({
                 : toDateTimeInput(values.end)
             }
             onChange={(e) =>
-              onField({ end: values.allDay ? allDayEndFromDisplay(e.target.value) : e.target.value })
+              onField({
+                end: values.allDay ? allDayEndFromDisplay(e.target.value) : e.target.value
+              })
             }
             className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs focus:border-indigo-400 focus:outline-none"
           />
