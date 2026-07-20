@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor, useEditorState, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle, Color } from '@tiptap/extension-text-style';
+import Highlight from '@tiptap/extension-highlight';
 import type * as Y from 'yjs';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
@@ -40,7 +42,11 @@ export function YTipTapEditor({
         link: { openOnClick: false }
       }),
       Collaboration.configure({ fragment }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] })
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      // The "Word-like" upgrades that motivated the TipTap move (wysiwyg-upgrade.md).
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true })
     ],
     editorProps: {
       attributes: {
@@ -79,11 +85,33 @@ export function YTipTapEditor({
   );
 }
 
+// Preset palettes — deliberately small (throwaway planning notes, not a design tool).
+const TEXT_COLORS = [
+  { name: 'Red', value: '#dc2626' },
+  { name: 'Orange', value: '#ea580c' },
+  { name: 'Green', value: '#16a34a' },
+  { name: 'Blue', value: '#2563eb' },
+  { name: 'Violet', value: '#7c3aed' },
+  { name: 'Pink', value: '#db2777' },
+  { name: 'Gray', value: '#64748b' }
+];
+const HIGHLIGHT_COLORS = [
+  { name: 'Yellow', value: '#fef08a' },
+  { name: 'Green', value: '#bbf7d0' },
+  { name: 'Blue', value: '#bfdbfe' },
+  { name: 'Pink', value: '#fbcfe8' },
+  { name: 'Orange', value: '#fed7aa' },
+  { name: 'Purple', value: '#e9d5ff' }
+];
+
 /** Selection-reactive toolbar (v3 pattern: useEditorState re-renders only on changes). */
 function Toolbar({ editor }: { editor: Editor }) {
+  const [openPicker, setOpenPicker] = useState<'color' | 'highlight' | null>(null);
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
+      color: (e.getAttributes('textStyle').color as string | undefined) ?? '',
+      highlight: (e.getAttributes('highlight').color as string | undefined) ?? '',
       heading: e.isActive('heading', { level: 1 })
         ? '1'
         : e.isActive('heading', { level: 2 })
@@ -195,6 +223,44 @@ function Toolbar({ editor }: { editor: Editor }) {
       </div>
 
       <div className="flex items-center gap-0.5">
+        <SwatchPicker
+          label="Text color"
+          testId="picker-color"
+          open={openPicker === 'color'}
+          onToggle={() => setOpenPicker((p) => (p === 'color' ? null : 'color'))}
+          onClose={() => setOpenPicker(null)}
+          colors={TEXT_COLORS}
+          current={state.color}
+          onPick={(c) => editor.chain().focus().setColor(c).run()}
+          onClear={() => editor.chain().focus().unsetColor().run()}
+          trigger={
+            <span
+              className="text-sm leading-none font-semibold"
+              style={{ color: state.color || undefined }}
+            >
+              A
+              <span
+                className="mx-auto mt-0.5 block h-[3px] w-4 rounded-sm"
+                style={{ background: state.color || '#374151' }}
+              />
+            </span>
+          }
+        />
+        <SwatchPicker
+          label="Highlight"
+          testId="picker-highlight"
+          open={openPicker === 'highlight'}
+          onToggle={() => setOpenPicker((p) => (p === 'highlight' ? null : 'highlight'))}
+          onClose={() => setOpenPicker(null)}
+          colors={HIGHLIGHT_COLORS}
+          current={state.highlight}
+          onPick={(c) => editor.chain().focus().setHighlight({ color: c }).run()}
+          onClear={() => editor.chain().focus().unsetHighlight().run()}
+          trigger={<HighlighterIcon color={state.highlight || undefined} />}
+        />
+      </div>
+
+      <div className="flex items-center gap-0.5">
         <ToolButton
           label="Align left"
           active={!state.alignCenter && !state.alignRight}
@@ -229,16 +295,113 @@ function Toolbar({ editor }: { editor: Editor }) {
   );
 }
 
+/** A toolbar swatch popover: trigger button + a small grid of preset colors + "None". */
+function SwatchPicker({
+  label,
+  testId,
+  open,
+  onToggle,
+  onClose,
+  colors,
+  current,
+  onPick,
+  onClear,
+  trigger
+}: {
+  label: string;
+  testId: string;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  colors: { name: string; value: string }[];
+  current: string;
+  onPick: (color: string) => void;
+  onClear: () => void;
+  trigger: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <ToolButton label={label} active={open || current !== ''} onClick={onToggle} testId={testId}>
+        {trigger}
+      </ToolButton>
+      {open && (
+        <>
+          {/* click-away catcher */}
+          <div className="fixed inset-0 z-30" onMouseDown={onClose} />
+          <div className="absolute top-full left-0 z-40 mt-1 w-max rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+            <div className="grid grid-cols-4 gap-1">
+              {colors.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.name}
+                  aria-label={`${label}: ${c.name}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onPick(c.value);
+                    onClose();
+                  }}
+                  className={`h-6 w-6 rounded border ${
+                    current === c.value ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'
+                  }`}
+                  style={{ background: c.value }}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onClear();
+                onClose();
+              }}
+              className="mt-1.5 block w-full rounded px-1 py-0.5 text-left text-xs text-slate-500 hover:bg-slate-100"
+            >
+              None
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function HighlighterIcon({ color }: { color?: string }) {
+  return (
+    <span className="flex flex-col items-center">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-3.5 w-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M9 11l-6 6v3h3l6-6" />
+        <path d="M22 12l-4.5 4.5L9 8l4.5-4.5a2.1 2.1 0 013 0l5.5 5.5a2.1 2.1 0 010 3z" />
+      </svg>
+      <span
+        className="mt-0.5 block h-[3px] w-4 rounded-sm"
+        style={{ background: color ?? '#fde047' }}
+      />
+    </span>
+  );
+}
+
 function ToolButton({
   label,
   active,
   onClick,
-  children
+  children,
+  testId
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  testId?: string;
 }) {
   return (
     <button
@@ -246,6 +409,7 @@ function ToolButton({
       title={label}
       aria-label={label}
       aria-pressed={active}
+      data-testid={testId}
       // preventDefault so the editor selection survives the click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
