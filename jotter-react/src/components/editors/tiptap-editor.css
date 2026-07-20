@@ -1,0 +1,102 @@
+/* TipTap rich-text editor chrome + content typography. Tailwind's preflight flattens
+   headings/lists/quotes, so the editable area restores document styling explicitly.
+   Visual language follows the old quill-editor.css (border, slate toolbar, focus ring). */
+
+.tiptap-editor {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+
+.tiptap-editor:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.tiptap-scroll {
+  cursor: text;
+}
+
+.tiptap-editor .tiptap-content {
+  min-height: 100%;
+  padding: 16px;
+  outline: none;
+  color: #374151;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tiptap-editor .tiptap-content > * + * {
+  margin-top: 0.5em;
+}
+
+.tiptap-editor .tiptap-content h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.tiptap-editor .tiptap-content h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.tiptap-editor .tiptap-content h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.tiptap-editor .tiptap-content ul,
+.tiptap-editor .tiptap-content ol {
+  padding-left: 1.5em;
+}
+.tiptap-editor .tiptap-content ul {
+  list-style-type: disc;
+}
+.tiptap-editor .tiptap-content ul ul {
+  list-style-type: circle;
+}
+.tiptap-editor .tiptap-content ul ul ul {
+  list-style-type: disc;
+}
+.tiptap-editor .tiptap-content ol {
+  list-style-type: decimal;
+}
+
+.tiptap-editor .tiptap-content blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 12px;
+  color: #64748b;
+}
+
+.tiptap-editor .tiptap-content pre {
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  overflow-x: auto;
+}
+.tiptap-editor .tiptap-content code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+.tiptap-editor .tiptap-content pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.tiptap-editor .tiptap-content a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* ProseMirror selection/caret niceties */
+.tiptap-editor .tiptap-content ::selection {
+  background: rgba(59, 130, 246, 0.25);
+}

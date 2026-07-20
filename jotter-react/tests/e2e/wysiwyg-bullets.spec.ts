@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { cleanup, gotoAppForSeeding, seedTree } from './helpers';
 
-// Regression for the double-bullet bug: the custom editor CSS (ported from the Quill 1.x
-// Svelte app) used to draw a bullet on `li::before` in addition to Quill 2's own marker on
-// `.ql-ui::before`, so every bullet rendered twice. The marker must come ONLY from .ql-ui.
+// Legacy-content migration + single-marker rendering. Sections written by the old Quill
+// editor carry its markup quirks (`.ql-ui` marker spans, `data-list` attributes). TipTap
+// must parse that HTML into a clean list — items intact, exactly one marker per item
+// (the native ::marker), and no Quill scaffolding surviving in the document.
 test.describe('wysiwyg bullet rendering', () => {
-  test('a bullet list shows exactly one marker per item', async ({ page }) => {
+  test('a legacy Quill bullet list renders as a clean list with one marker per item', async ({
+    page
+  }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
       collectionName: 'e2e-wys-bullets',
@@ -20,20 +23,25 @@ test.describe('wysiwyg bullet rendering', () => {
     });
     try {
       await page.goto(`/app/sections/${tree.sections[0].id}`);
-      await expect(page.locator('.ql-editor')).toContainText('alpha');
+      const editor = page.getByTestId('wysiwyg-content');
+      await expect(editor).toContainText('alpha');
+      await expect(editor).toContainText('beta');
+      await expect(editor.locator('ul li')).toHaveCount(2);
 
       const markers = await page.evaluate(() => {
-        const li = document.querySelector('.ql-editor li');
-        const ui = li?.querySelector('.ql-ui') ?? null;
-        const before = (el: Element | null) =>
-          el ? getComputedStyle(el, '::before').content : '(no element)';
-        return { liBefore: before(li ?? null), uiBefore: before(ui) };
+        const root = document.querySelector('[data-testid="wysiwyg-content"]')!;
+        const li = root.querySelector('ul li')!;
+        return {
+          // The bullet must come from the native list marker…
+          listStyle: getComputedStyle(li.parentElement!).listStyleType,
+          // …not from any pseudo-element or leftover Quill scaffolding.
+          liBefore: getComputedStyle(li, '::before').content,
+          qlUiCount: root.querySelectorAll('.ql-ui').length
+        };
       });
-
-      // Quill's marker (on .ql-ui) renders the bullet…
-      expect(markers.uiBefore).toContain('•');
-      // …and the legacy li::before must NOT add a second one.
-      expect(markers.liBefore).not.toContain('•');
+      expect(markers.listStyle).toBe('disc');
+      expect(markers.liBefore).toBe('none');
+      expect(markers.qlUiCount).toBe(0);
     } finally {
       await cleanup(page, tree.collectionId);
     }
