@@ -5,7 +5,7 @@ import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { YCodeEditor } from '@/components/editors/YCodeEditor';
 import { YMarkdownEditor } from '@/components/editors/YMarkdownEditor';
-import { YQuillEditor } from '@/components/editors/YQuillEditor';
+import { YTipTapEditor } from '@/components/editors/YTipTapEditor';
 import { ChecklistEditor } from '@/components/editors/ChecklistEditor';
 import { ExcalidrawEditor } from '@/components/editors/ExcalidrawEditor';
 import { TableEditor } from '@/components/editors/TableEditor';
@@ -319,6 +319,17 @@ function clearDraft(id: string) {
  * local store has loaded and any first-open seed is applied — render the editor only then,
  * so its initial content is present. The doc is destroyed on unmount.
  */
+// Stable caret colors for collab presence; picked deterministically from the email so a
+// user looks the same on every peer's screen.
+const CARET_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#db2777'];
+
+function collabIdentity(email: string | undefined | null): { name: string; color: string } {
+  const name = email?.split('@')[0] || 'anonymous';
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return { name, color: CARET_COLORS[hash % CARET_COLORS.length] };
+}
+
 function useCrdtHandle(section: NoteSection, enabled: boolean, plainSeed: boolean) {
   const [handle, setHandle] = useState<CrdtHandle | null>(null);
   const [ready, setReady] = useState(false);
@@ -358,7 +369,7 @@ function SectionEditorModal({
   // Code + wysiwyg + markdown are CRDT-backed: their content lives in a Yjs doc persisted to
   // y-indexeddb, so edits are durable the instant they're typed. Checklist/diagram keep the
   // controlled-string path. Code and markdown seed the doc as plain text (they ARE plain
-  // text — markdown source); wysiwyg seeds through Quill.
+  // text — markdown source); wysiwyg seeds through TipTap (HTML → Y.XmlFragment).
   const isCrdt =
     section.type === 'code' || section.type === 'wysiwyg' || section.type === 'markdown';
   const isPlainText = section.type === 'code' || section.type === 'markdown';
@@ -410,7 +421,7 @@ function SectionEditorModal({
   function buildUpdates(): Partial<CreateNoteSection> {
     // Materialize on flush: code/markdown read their plain Y.Text (the markdown source is
     // the canonical content); wysiwyg uses the live HTML kept by the editor's onChange (its
-    // Y.Text holds deltas, not HTML); other types use their state.
+    // Y.XmlFragment holds the ProseMirror tree, not HTML); other types use their state.
     const nextContent = isPlainText && handle ? handle.text.toString() : content;
     const updates: Partial<CreateNoteSection> = {
       content: nextContent,
@@ -685,7 +696,13 @@ function SectionEditorModal({
             ))}
           {section.type === 'wysiwyg' &&
             (crdtReady && handle ? (
-              <YQuillEditor text={handle.text} initial={content} onChange={handleContentChange} />
+              <YTipTapEditor
+                fragment={handle.fragment}
+                awareness={handle.awareness}
+                user={collabIdentity(user?.email)}
+                initial={content}
+                onChange={handleContentChange}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">
                 Loading…

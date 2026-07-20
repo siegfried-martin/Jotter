@@ -21,8 +21,13 @@ import { bytesToBase64, base64ToBytes } from './base64';
 
 export interface CrdtHandle {
   doc: Y.Doc;
-  /** The shared text the editor binds to. */
+  /** The shared plain text the code/markdown editors bind to. */
   text: Y.Text;
+  /** The shared rich-text tree the wysiwyg (TipTap/ProseMirror) editor binds to. Legacy
+   *  wysiwyg docs hold Quill deltas in `text`; those are deliberately abandoned — the
+   *  TipTap editor re-seeds this fragment from the materialized HTML `content` instead
+   *  (docs/initiatives/wysiwyg-upgrade.md, owner-approved history wipe). */
+  fragment: Y.XmlFragment;
   /** Awareness (presence) — unused until the real-time provider lands, but yCollab wants it. */
   awareness: Awareness;
   /** Resolves once the local store has loaded and any first-open seed has been applied. */
@@ -47,6 +52,7 @@ function roomFor(sectionId: string): string {
 function createEntry(section: NoteSection, plainSeed: boolean): Entry {
   const doc = new Y.Doc();
   const text = doc.getText('content');
+  const fragment = doc.getXmlFragment('richtext');
   const awareness = new Awareness(doc);
   const persistence = new IndexeddbPersistence(roomFor(section.id), doc);
   // Live multi-user sync over Supabase Realtime (slice 5). Tolerates offline (it just
@@ -66,7 +72,7 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
         }
       }
       // Legacy section (no ydoc yet): seed plain content for code so nothing's blank.
-      // Wysiwyg seeds through Quill. Only when nothing else populated the doc.
+      // Wysiwyg seeds through the TipTap editor. Only when nothing else populated the doc.
       if (plainSeed && text.length === 0 && section.content) {
         text.insert(0, section.content);
       }
@@ -75,7 +81,7 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
   });
 
   return {
-    handle: { doc, text, awareness, whenReady },
+    handle: { doc, text, fragment, awareness, whenReady },
     persistence,
     provider,
     refs: 0,

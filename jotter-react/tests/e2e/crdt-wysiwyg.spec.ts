@@ -11,7 +11,7 @@ async function fetchSectionContent(page: import('@playwright/test').Page, sectio
 
 const editorText = (page: import('@playwright/test').Page) =>
   page
-    .locator('.ql-editor')
+    .getByTestId('wysiwyg-content')
     .innerText()
     .then((t) => t.trim());
 
@@ -28,13 +28,13 @@ test.describe('CRDT wysiwyg editor', () => {
 
     try {
       await page.goto(`/app/sections/${sectionId}`);
-      // Quill mounts and is seeded from the legacy HTML once the local store loads.
-      await expect(page.locator('.ql-editor')).toContainText('seed');
+      // TipTap mounts and is seeded from the legacy HTML once the local store loads.
+      await expect(page.getByTestId('wysiwyg-content')).toContainText('seed');
 
-      // Edit the document; y-quill writes it into the Y.Text, which y-indexeddb persists
-      // immediately. Do NOT save. (We don't assert the exact typed string — the binding can
-      // reorder rapid keystrokes in tests — only that an edit registered and is durable.)
-      await page.locator('.ql-editor').click();
+      // Edit the document; the Collaboration binding writes it into the Y.XmlFragment, which
+      // y-indexeddb persists immediately. Do NOT save. (We don't assert the exact typed string
+      // — the binding can reorder rapid keystrokes — only that an edit registered and is durable.)
+      await page.getByTestId('wysiwyg-content').click();
       await page.keyboard.press('End');
       await page.keyboard.type('MARKER', { delay: 80 });
       const before = await editorText(page);

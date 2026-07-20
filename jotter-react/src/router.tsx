@@ -6,7 +6,7 @@ import { AppHomeRoute } from '@/routes/appHome';
 import { ContainerPageRoute } from '@/routes/containerPage';
 import { SettingsRoute } from '@/routes/settings';
 
-// Lazy-load the editor route so the heavy editors (CodeMirror, later Quill/
+// Lazy-load the editor route so the heavy editors (CodeMirror, later TipTap/
 // Excalidraw) are a separate chunk, not in the initial collections/notes load.
 const SectionEditorRoute = lazy(() =>
   import('@/routes/sectionEditor').then((m) => ({ default: m.SectionEditorRoute }))

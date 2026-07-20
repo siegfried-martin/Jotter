@@ -46,7 +46,7 @@ turndown.addRule('paragraph', {
   replacement: (content) => content + '\n'
 });
 
-/** HTML (Quill) → Markdown, with line spacing that matches what the user typed. */
+/** Wysiwyg HTML → Markdown, with line spacing that matches what the user typed. */
 function htmlToMarkdown(html: string): string {
   return turndown
     .turndown(html)
