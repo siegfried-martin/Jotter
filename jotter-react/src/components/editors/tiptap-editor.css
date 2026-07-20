@@ -64,6 +64,38 @@
   list-style-type: decimal;
 }
 
+/* Empty-document hint (Placeholder extension). */
+.tiptap-editor .tiptap-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Checkable task lists (TaskList/TaskItem). */
+.tiptap-editor .tiptap-content ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.tiptap-editor .tiptap-content ul[data-type='taskList'] li {
+  display: flex;
+  gap: 0.5em;
+}
+.tiptap-editor .tiptap-content ul[data-type='taskList'] li > label {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+  user-select: none;
+}
+.tiptap-editor .tiptap-content ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.tiptap-editor .tiptap-content ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
 .tiptap-editor .tiptap-content blockquote {
   border-left: 3px solid #cbd5e1;
   padding-left: 12px;
@@ -94,6 +126,35 @@
 .tiptap-editor .tiptap-content a {
   color: #2563eb;
   text-decoration: underline;
+}
+
+/* Tables (also the landing shape for <table> HTML pasted from rendered markdown). */
+.tiptap-editor .tiptap-content table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5em 0;
+  overflow: hidden;
+}
+.tiptap-editor .tiptap-content th,
+.tiptap-editor .tiptap-content td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  vertical-align: top;
+  position: relative;
+}
+.tiptap-editor .tiptap-content th {
+  background: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+}
+/* ProseMirror cell-selection tint */
+.tiptap-editor .tiptap-content .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 130, 246, 0.12);
+  pointer-events: none;
 }
 
 /* ProseMirror selection/caret niceties */
