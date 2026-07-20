@@ -72,7 +72,7 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
         }
       }
       // Legacy section (no ydoc yet): seed plain content for code so nothing's blank.
-      // Wysiwyg seeds through Quill. Only when nothing else populated the doc.
+      // Wysiwyg seeds through the TipTap editor. Only when nothing else populated the doc.
       if (plainSeed && text.length === 0 && section.content) {
         text.insert(0, section.content);
       }
