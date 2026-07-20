@@ -1,6 +1,7 @@
 # Initiative: WYSIWYG Upgrade — Quill → TipTap
 
-**Status**: Design accepted (2026-07-20) — TipTap is the chosen library. Not yet started.
+**Status**: Built on `feat/wysiwyg-tiptap` (2026-07-20) — all five slices done, Quill
+removed, 50 unit + 83 e2e green. Awaiting owner hands-on testing before merge.
 **Feature**: Replace the Quill rich-text editor with **TipTap** (ProseMirror) to deliver
 the "Word / Google Docs" feature set the owner asked for — starting with **text color and
 highlighting** — while keeping the entire Yjs offline/collab stack intact.
