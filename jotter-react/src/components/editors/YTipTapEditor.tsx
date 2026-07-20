@@ -4,9 +4,15 @@ import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import TextAlign from '@tiptap/extension-text-align';
-import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import { TableKit } from '@tiptap/extension-table';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { Placeholder } from '@tiptap/extensions';
+import Typography from '@tiptap/extension-typography';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
+import { BubbleMenu } from '@tiptap/react/menus';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
@@ -47,7 +53,7 @@ export function YTipTapEditor({
         // Undo/redo comes from the Yjs document (Collaboration ships its own manager);
         // TipTap's local history would fight it.
         undoRedo: false,
-        link: { openOnClick: false }
+        link: { openOnClick: false, autolink: true, linkOnPaste: true }
       }),
       Collaboration.configure({ fragment }),
       // The extension only reads `provider.awareness`; ours lives on the CRDT handle
@@ -60,7 +66,16 @@ export function YTipTapEditor({
       Highlight.configure({ multicolor: true }),
       // Tables: without the schema, pasted <table> HTML (e.g. from a rendered markdown
       // preview) silently flattens to paragraphs — the owner hit this on day one.
-      TableKit.configure({ table: { resizable: false } })
+      TableKit.configure({ table: { resizable: false } }),
+      // Docs-like niceties (owner-picked batch): checkable task lists in prose, smart
+      // punctuation, sub/superscript, per-run font size, and the empty-doc hint.
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Typography,
+      Subscript,
+      Superscript,
+      FontSize,
+      Placeholder.configure({ placeholder: 'Start typing your notes here...' })
     ],
     editorProps: {
       attributes: {
@@ -94,7 +109,80 @@ export function YTipTapEditor({
   return (
     <div className="tiptap-editor flex h-full flex-col">
       {editor && <Toolbar editor={editor} />}
+      {editor && (
+        <BubbleMenu editor={editor} options={{ placement: 'top', offset: 8 }}>
+          <BubbleBar editor={editor} />
+        </BubbleMenu>
+      )}
       <EditorContent editor={editor} className="tiptap-scroll min-h-0 flex-1 overflow-y-auto" />
+    </div>
+  );
+}
+
+/** Floating format bar over the current selection — the most-reached-for marks. */
+function BubbleBar({ editor }: { editor: Editor }) {
+  const state = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      bold: e.isActive('bold'),
+      italic: e.isActive('italic'),
+      underline: e.isActive('underline'),
+      strike: e.isActive('strike'),
+      code: e.isActive('code'),
+      highlight: e.isActive('highlight')
+    })
+  });
+  return (
+    <div
+      data-testid="bubble-menu"
+      className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+    >
+      <ToolButton
+        label="Bold"
+        active={state.bold}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
+        <span className="font-bold">B</span>
+      </ToolButton>
+      <ToolButton
+        label="Italic"
+        active={state.italic}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      >
+        <span className="italic">I</span>
+      </ToolButton>
+      <ToolButton
+        label="Underline"
+        active={state.underline}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <span className="underline">U</span>
+      </ToolButton>
+      <ToolButton
+        label="Strikethrough"
+        active={state.strike}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+      >
+        <span className="line-through">S</span>
+      </ToolButton>
+      <ToolButton
+        label="Inline code"
+        active={state.code}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+      >
+        <span className="rounded bg-slate-200 px-0.5 font-mono text-xs">c</span>
+      </ToolButton>
+      <ToolButton
+        label="Highlight"
+        active={state.highlight}
+        onClick={() =>
+          state.highlight
+            ? editor.chain().focus().unsetHighlight().run()
+            : editor.chain().focus().setHighlight({ color: '#fef08a' }).run()
+        }
+      >
+        <HighlighterIcon color={state.highlight ? undefined : '#fde047'} />
+      </ToolButton>
     </div>
   );
 }
@@ -126,8 +214,13 @@ function Toolbar({ editor }: { editor: Editor }) {
     selector: ({ editor: e }) => ({
       color: (e.getAttributes('textStyle').color as string | undefined) ?? '',
       highlight: (e.getAttributes('highlight').color as string | undefined) ?? '',
+      fontSize: (e.getAttributes('textStyle').fontSize as string | undefined) ?? '',
       code: e.isActive('code'),
       inTable: e.isActive('table'),
+      strike: e.isActive('strike'),
+      taskList: e.isActive('taskList'),
+      subscript: e.isActive('subscript'),
+      superscript: e.isActive('superscript'),
       heading: e.isActive('heading', { level: 1 })
         ? '1'
         : e.isActive('heading', { level: 2 })
@@ -177,6 +270,26 @@ function Toolbar({ editor }: { editor: Editor }) {
         <option value="3">Heading 3</option>
       </select>
 
+      <select
+        title="Font size"
+        aria-label="Font size"
+        value={state.fontSize}
+        onChange={(e) => {
+          const v = e.target.value;
+          const chain = editor.chain().focus();
+          if (v === '') chain.unsetFontSize().run();
+          else chain.setFontSize(v).run();
+        }}
+        className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[13px] text-slate-700 focus:outline-none"
+      >
+        <option value="">Size</option>
+        <option value="12px">12</option>
+        <option value="14px">14</option>
+        <option value="16px">16</option>
+        <option value="18px">18</option>
+        <option value="24px">24</option>
+      </select>
+
       <div className="flex items-center gap-0.5">
         <ToolButton
           label="Bold"
@@ -199,6 +312,31 @@ function Toolbar({ editor }: { editor: Editor }) {
         >
           <span className="underline">U</span>
         </ToolButton>
+        <ToolButton
+          label="Strikethrough"
+          active={state.strike}
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        >
+          <span className="line-through">S</span>
+        </ToolButton>
+        <ToolButton
+          label="Subscript"
+          active={state.subscript}
+          onClick={() => editor.chain().focus().toggleSubscript().run()}
+        >
+          <span className="text-xs">
+            x<sub>2</sub>
+          </span>
+        </ToolButton>
+        <ToolButton
+          label="Superscript"
+          active={state.superscript}
+          onClick={() => editor.chain().focus().toggleSuperscript().run()}
+        >
+          <span className="text-xs">
+            x<sup>2</sup>
+          </span>
+        </ToolButton>
       </div>
 
       <div className="flex items-center gap-0.5">
@@ -215,6 +353,14 @@ function Toolbar({ editor }: { editor: Editor }) {
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
         >
           <ListIcon ordered />
+        </ToolButton>
+        <ToolButton
+          label="Task list"
+          active={state.taskList}
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          testId="tool-task-list"
+        >
+          <TaskIcon />
         </ToolButton>
       </div>
 
@@ -437,6 +583,24 @@ function SwatchPicker({
         </>
       )}
     </div>
+  );
+}
+
+function TaskIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden="true"
+    >
+      <rect x="1.5" y="1.5" width="6" height="6" rx="1" />
+      <path d="M3 4.5l1.4 1.4L7 3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="1.5" y="9.5" width="6" height="6" rx="1" />
+      <path d="M10 4.5h5M10 12.5h5" strokeLinecap="round" />
+    </svg>
   );
 }
 
