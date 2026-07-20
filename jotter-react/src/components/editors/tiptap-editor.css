@@ -96,6 +96,35 @@
   text-decoration: underline;
 }
 
+/* Tables (also the landing shape for <table> HTML pasted from rendered markdown). */
+.tiptap-editor .tiptap-content table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5em 0;
+  overflow: hidden;
+}
+.tiptap-editor .tiptap-content th,
+.tiptap-editor .tiptap-content td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  vertical-align: top;
+  position: relative;
+}
+.tiptap-editor .tiptap-content th {
+  background: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+}
+/* ProseMirror cell-selection tint */
+.tiptap-editor .tiptap-content .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 130, 246, 0.12);
+  pointer-events: none;
+}
+
 /* ProseMirror selection/caret niceties */
 .tiptap-editor .tiptap-content ::selection {
   background: rgba(59, 130, 246, 0.25);

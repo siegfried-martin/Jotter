@@ -6,6 +6,7 @@ import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
+import { TableKit } from '@tiptap/extension-table';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
@@ -56,7 +57,10 @@ export function YTipTapEditor({
       // The "Word-like" upgrades that motivated the TipTap move (wysiwyg-upgrade.md).
       TextStyle,
       Color,
-      Highlight.configure({ multicolor: true })
+      Highlight.configure({ multicolor: true }),
+      // Tables: without the schema, pasted <table> HTML (e.g. from a rendered markdown
+      // preview) silently flattens to paragraphs — the owner hit this on day one.
+      TableKit.configure({ table: { resizable: false } })
     ],
     editorProps: {
       attributes: {
@@ -116,12 +120,14 @@ const HIGHLIGHT_COLORS = [
 
 /** Selection-reactive toolbar (v3 pattern: useEditorState re-renders only on changes). */
 function Toolbar({ editor }: { editor: Editor }) {
-  const [openPicker, setOpenPicker] = useState<'color' | 'highlight' | null>(null);
+  const [openPicker, setOpenPicker] = useState<'color' | 'highlight' | 'table' | null>(null);
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
       color: (e.getAttributes('textStyle').color as string | undefined) ?? '',
       highlight: (e.getAttributes('highlight').color as string | undefined) ?? '',
+      code: e.isActive('code'),
+      inTable: e.isActive('table'),
       heading: e.isActive('heading', { level: 1 })
         ? '1'
         : e.isActive('heading', { level: 2 })
@@ -221,6 +227,14 @@ function Toolbar({ editor }: { editor: Editor }) {
           <span className="font-serif text-base leading-none">&ldquo;</span>
         </ToolButton>
         <ToolButton
+          label="Inline code"
+          active={state.code}
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          testId="tool-inline-code"
+        >
+          <span className="rounded bg-slate-200 px-0.5 font-mono text-xs">c</span>
+        </ToolButton>
+        <ToolButton
           label="Code block"
           active={state.codeBlock}
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
@@ -268,6 +282,56 @@ function Toolbar({ editor }: { editor: Editor }) {
           onClear={() => editor.chain().focus().unsetHighlight().run()}
           trigger={<HighlighterIcon color={state.highlight || undefined} />}
         />
+        <div className="relative">
+          <ToolButton
+            label="Table"
+            active={state.inTable || openPicker === 'table'}
+            onClick={() => setOpenPicker((p) => (p === 'table' ? null : 'table'))}
+            testId="picker-table"
+          >
+            <TableIcon />
+          </ToolButton>
+          {openPicker === 'table' && (
+            <>
+              <div className="fixed inset-0 z-30" onMouseDown={() => setOpenPicker(null)} />
+              <div className="absolute top-full left-0 z-40 mt-1 w-max rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                {(state.inTable
+                  ? ([
+                      ['Add row below', () => editor.chain().focus().addRowAfter().run()],
+                      ['Add column right', () => editor.chain().focus().addColumnAfter().run()],
+                      ['Delete row', () => editor.chain().focus().deleteRow().run()],
+                      ['Delete column', () => editor.chain().focus().deleteColumn().run()],
+                      ['Delete table', () => editor.chain().focus().deleteTable().run()]
+                    ] as const)
+                  : ([
+                      [
+                        'Insert table (3×3)',
+                        () =>
+                          editor
+                            .chain()
+                            .focus()
+                            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                            .run()
+                      ]
+                    ] as const)
+                ).map(([itemLabel, run]) => (
+                  <button
+                    key={itemLabel}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      run();
+                      setOpenPicker(null);
+                    }}
+                    className="block w-full px-3 py-1 text-left text-xs text-slate-700 hover:bg-slate-100"
+                  >
+                    {itemLabel}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-0.5">
@@ -373,6 +437,22 @@ function SwatchPicker({
         </>
       )}
     </div>
+  );
+}
+
+function TableIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      aria-hidden="true"
+    >
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+      <path d="M1.5 6.5h13M6 6.5v7M10.5 6.5v7" />
+    </svg>
   );
 }
 
