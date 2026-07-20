@@ -624,14 +624,14 @@ function SectionEditorModal({
               ? `absolute inset-x-0 top-0 z-20 flex items-center gap-4 border-b border-slate-200 bg-white px-6 py-3 shadow-sm transition-transform duration-200 ${
                   chromeVisible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'
                 }`
-              : 'mb-4 flex flex-shrink-0 items-center gap-4 border-b border-slate-200 px-6 pt-6 pb-2'
+              : 'mb-4 flex flex-shrink-0 items-center gap-2 border-b border-slate-200 px-4 pt-6 pb-2 sm:gap-4 sm:px-6'
           }
         >
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Untitled section"
-            className="min-w-0 flex-1 bg-transparent text-lg font-semibold text-slate-800 focus:outline-none"
+            className="w-full min-w-[5rem] flex-1 bg-transparent text-lg font-semibold text-slate-800 focus:outline-none"
           />
           <SectionFiling section={section} />
           {isDesktop && (
@@ -655,7 +655,7 @@ function SectionEditorModal({
               data-testid="chrome-tab-top"
               aria-label={chromeVisible ? 'Hide toolbar' : 'Show toolbar'}
               onClick={() => setChromeVisible((v) => !v)}
-              className="pointer-events-auto absolute left-1/2 top-full z-30 flex -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
+              className="pointer-events-auto absolute top-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
             >
               {chromeVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </button>

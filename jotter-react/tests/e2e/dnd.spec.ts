@@ -143,6 +143,11 @@ test.describe('drag-and-drop', () => {
       await page.goto(`/app/collections/${tree.collectionId}`);
       await expect(page.getByTestId('container-item')).toHaveCount(3);
 
+      // Below 1024px the sidebar starts collapsed (icon rail, no grips) — expand it
+      // and let the width transition finish so dnd-kit measures settled rects.
+      await page.getByTestId('sidebar-toggle').click();
+      await page.waitForTimeout(400);
+
       const handle = page.getByRole('button', { name: 'Drag note' }).first();
       await handle.focus();
       await page.keyboard.press('Space');
@@ -216,6 +221,8 @@ test.describe('drag-and-drop', () => {
     const b = await seedTree(page, { collectionName: 'e2e-dndB2', containerTitle: 'b1' });
     try {
       await page.goto(`/app/collections/${a.collectionId}/containers/${a.containerId}`);
+      // Below 1024px the sidebar starts collapsed (icon rail, no grips) — expand it.
+      await page.getByTestId('sidebar-toggle').click();
       const handle = page.getByRole('button', { name: 'Drag note' }).first();
       await pointerDrag(page, handle, page.getByRole('link', { name: 'e2e-dndB2', exact: true }));
 

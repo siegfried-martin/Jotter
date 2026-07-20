@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -44,6 +45,7 @@ function SortableContainerItem({
   index,
   collectionId,
   active,
+  collapsed,
   dndEnabled,
   activeType,
   onSelect,
@@ -54,6 +56,7 @@ function SortableContainerItem({
   index: number;
   collectionId: string;
   active: boolean;
+  collapsed: boolean;
   dndEnabled: boolean;
   activeType: 'section' | 'container' | null;
   onSelect: () => void;
@@ -93,12 +96,13 @@ function SortableContainerItem({
       data-container-id={container.id}
       data-testid="container-item"
       onClick={onSelect}
+      title={collapsed ? container.title : undefined}
       style={
         isDragging ? { opacity: 0.5 } : { transform: CSS.Transform.toString(transform), transition }
       }
-      className={`group mb-1 flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-sm ${
-        active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'
-      } ${
+      className={`group mb-1 flex cursor-pointer items-center gap-1 rounded-lg text-sm ${
+        collapsed ? 'justify-center px-1 py-2' : 'px-2 py-2'
+      } ${active ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-50'} ${
         sectionOver
           ? 'bg-blue-100 outline outline-2 outline-blue-500'
           : eligible
@@ -106,7 +110,7 @@ function SortableContainerItem({
             : ''
       }`}
     >
-      {dndEnabled && (
+      {dndEnabled && !collapsed && (
         <button
           ref={setActivatorNodeRef}
           {...attributes}
@@ -127,27 +131,51 @@ function SortableContainerItem({
         {(container.title.trim()[0] ?? '•').toUpperCase()}
       </span>
 
-      <InlineEditableTitle
-        value={container.title}
-        trigger="dblclick"
-        onSave={onRename}
-        className="flex-1 truncate"
-      />
+      {!collapsed && (
+        <>
+          <InlineEditableTitle
+            value={container.title}
+            trigger="dblclick"
+            onSave={onRename}
+            className="flex-1 truncate"
+          />
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="ml-1 flex-shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
-        title="Delete note"
-        aria-label="Delete note"
-      >
-        ✕
-      </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="ml-1 flex-shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+            title="Delete note"
+            aria-label="Delete note"
+          >
+            ✕
+          </button>
+        </>
+      )}
     </div>
   );
 }
+
+const DESKTOP_QUERY = '(min-width: 1024px)';
+
+/** Chevron pair pointing left (expanded) / right (collapsed) — the collapse toggle. */
+const CollapseChevrons = ({ collapsed }: { collapsed: boolean }) => (
+  <svg
+    className={`h-5 w-5 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+    />
+  </svg>
+);
 
 export function ContainerSidebar({
   collectionId,
@@ -162,6 +190,18 @@ export function ContainerSidebar({
 }) {
   const navigate = useNavigate();
   const dndEnabled = useDndEnabled();
+
+  // Auto-collapse below the desktop breakpoint (and re-expand above it), like the
+  // pre-React app; the toggle still lets the user override either way.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && !window.matchMedia(DESKTOP_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setCollapsed(!e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   const createContainer = useCreateContainer();
   const deleteContainer = useDeleteContainer();
   const updateContainer = useUpdateContainer();
@@ -195,18 +235,43 @@ export function ContainerSidebar({
   }
 
   return (
-    <aside className="flex w-64 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-100 p-3">
+    <aside
+      data-testid="container-sidebar"
+      data-collapsed={collapsed ? 'true' : 'false'}
+      className={`flex flex-shrink-0 flex-col border-r border-slate-200 bg-white transition-all duration-200 ${
+        collapsed ? 'w-14' : 'w-56 lg:w-64'
+      }`}
+    >
+      <div
+        className={`flex items-center border-b border-slate-100 p-2 ${
+          collapsed ? 'justify-center' : 'justify-between'
+        }`}
+      >
+        {!collapsed && <h2 className="pl-1 text-sm font-semibold text-slate-700">Notes</h2>}
+        <button
+          data-testid="sidebar-toggle"
+          onClick={() => setCollapsed((v) => !v)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+        >
+          <CollapseChevrons collapsed={collapsed} />
+        </button>
+      </div>
+      <div className={`border-b border-slate-100 ${collapsed ? 'p-2' : 'p-3'}`}>
         <button
           onClick={handleNew}
           disabled={createContainer.isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+          title="Create new note"
+          className={`flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:opacity-50 ${
+            collapsed ? 'px-0 py-2' : 'px-4 py-2'
+          }`}
         >
-          + New Note
+          {collapsed ? '+' : '+ New Note'}
         </button>
       </div>
-      <nav className="flex-1 overflow-y-auto p-2">
-        {containers.length === 0 && (
+      <nav className={`flex-1 overflow-y-auto ${collapsed ? 'p-1.5' : 'p-2'}`}>
+        {containers.length === 0 && !collapsed && (
           <p className="px-2 py-4 text-center text-sm text-slate-400">No notes yet</p>
         )}
         <SortableContext items={containers.map((c) => c.id)} strategy={verticalListSortingStrategy}>
@@ -217,6 +282,7 @@ export function ContainerSidebar({
               index={index}
               collectionId={collectionId}
               active={c.id === selectedContainerId}
+              collapsed={collapsed}
               dndEnabled={dndEnabled}
               activeType={activeType}
               onSelect={() => select(c.id)}
