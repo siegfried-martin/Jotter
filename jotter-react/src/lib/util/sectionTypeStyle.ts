@@ -8,8 +8,8 @@ type SectionType = NoteSection['type'];
 //
 // Colors vary in VALUE (lightness), not just hue: hue-adjacent types were
 // indistinguishable under red-green colorblindness ({blue/indigo/purple},
-// {green/rose}, {teal/cyan}), so each such group spans three tiers — light tint
-// (*-50/700), mid tint (*-200/900), and solid (*-600/white).
+// {green/slate}, {teal/cyan}), so each such group spans different tiers — light
+// tint (*-50/700), mid tint (*-200/900), and solid (*-600/white).
 export const SECTION_TYPE_META: Record<
   SectionType,
   { typeLabel: string; addLabel: string; icon: string; base: string; hover: string }
@@ -47,8 +47,10 @@ export const SECTION_TYPE_META: Record<
     addLabel: 'Markdown',
     // Document with a folded corner and a centered "M" — reads clearly at icon size.
     icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9.5 17v-5l2.5 3 2.5-3v5',
-    base: 'bg-rose-600 text-white',
-    hover: 'hover:bg-rose-700'
+    // Solid slate, not red: markdown's classic dark-gray identity — a solid red
+    // button read as an error/destructive action.
+    base: 'bg-slate-600 text-white',
+    hover: 'hover:bg-slate-700'
   },
   table: {
     typeLabel: 'Table',
