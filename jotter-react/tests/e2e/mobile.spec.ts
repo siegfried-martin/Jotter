@@ -47,6 +47,33 @@ test.describe('mobile layout', () => {
     }
   });
 
+  test('add-section toolbar stays one row, overflow types open from More menu', async ({
+    page
+  }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, { collectionName: 'e2e-mobile-addbar' });
+    try {
+      await page.goto(`/app/collections/${tree.collectionId}/containers/${tree.containerId}`);
+
+      // At phone width not all 8 types fit — the trailing ones fold into "More ▾".
+      const more = page.getByTestId('add-overflow');
+      await expect(more).toBeVisible();
+      // Draw is last in the order, so it must be in the overflow, not inline.
+      await expect(page.getByRole('button', { name: 'Draw', exact: true })).toHaveCount(0);
+
+      await more.click();
+      const menu = page.getByTestId('add-overflow-menu');
+      await expect(menu).toBeVisible();
+      await menu.getByRole('button', { name: 'Draw', exact: true }).click();
+
+      // Creates the section and opens its editor.
+      await expect(page.getByPlaceholder('Untitled section')).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('home and section editor fit the phone viewport', async ({ page }) => {
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
