@@ -100,3 +100,29 @@
 .tiptap-editor .tiptap-content ::selection {
   background: rgba(59, 130, 246, 0.25);
 }
+
+/* Remote collaborator carets (CollaborationCaret). Color comes inline from the peer's
+   presence state; these rules give the caret a visible bar and a floating name label. */
+.tiptap-editor .collaboration-carets__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid;
+  border-right: 1px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+.tiptap-editor .collaboration-carets__label {
+  position: absolute;
+  top: -1.35em;
+  left: -1px;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px 3px 3px 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}

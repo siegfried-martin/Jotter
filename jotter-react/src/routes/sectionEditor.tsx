@@ -319,6 +319,17 @@ function clearDraft(id: string) {
  * local store has loaded and any first-open seed is applied — render the editor only then,
  * so its initial content is present. The doc is destroyed on unmount.
  */
+// Stable caret colors for collab presence; picked deterministically from the email so a
+// user looks the same on every peer's screen.
+const CARET_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#db2777'];
+
+function collabIdentity(email: string | undefined | null): { name: string; color: string } {
+  const name = email?.split('@')[0] || 'anonymous';
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return { name, color: CARET_COLORS[hash % CARET_COLORS.length] };
+}
+
 function useCrdtHandle(section: NoteSection, enabled: boolean, plainSeed: boolean) {
   const [handle, setHandle] = useState<CrdtHandle | null>(null);
   const [ready, setReady] = useState(false);
@@ -687,6 +698,8 @@ function SectionEditorModal({
             (crdtReady && handle ? (
               <YTipTapEditor
                 fragment={handle.fragment}
+                awareness={handle.awareness}
+                user={collabIdentity(user?.email)}
                 initial={content}
                 onChange={handleContentChange}
               />

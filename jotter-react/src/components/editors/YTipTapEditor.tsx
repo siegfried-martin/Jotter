@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useEditor, useEditorState, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import type * as Y from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 import './tiptap-editor.css';
@@ -24,10 +26,15 @@ const seededDocs = new Set<string>();
  */
 export function YTipTapEditor({
   fragment,
+  awareness,
+  user,
   initial,
   onChange
 }: {
   fragment: Y.XmlFragment;
+  awareness: Awareness;
+  /** Presence identity for remote carets (name label + caret color). */
+  user: { name: string; color: string };
   initial: string;
   onChange: (html: string) => void;
 }) {
@@ -42,6 +49,9 @@ export function YTipTapEditor({
         link: { openOnClick: false }
       }),
       Collaboration.configure({ fragment }),
+      // The extension only reads `provider.awareness`; ours lives on the CRDT handle
+      // (broadcast over the Supabase Realtime channel by SupabaseYjsProvider).
+      CollaborationCaret.configure({ provider: { awareness }, user }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       // The "Word-like" upgrades that motivated the TipTap move (wysiwyg-upgrade.md).
       TextStyle,
