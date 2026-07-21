@@ -9,7 +9,9 @@ type SectionType = NoteSection['type'];
 // Colors vary in VALUE (lightness), not just hue: hue-adjacent types were
 // indistinguishable under red-green colorblindness ({blue/indigo/purple},
 // {green/slate}, {teal/cyan}), so each such group spans different tiers — light
-// tint (*-50/700), mid tint (*-200/900), and solid (*-600/white).
+// tint (*-50/700), mid tint (*-200/900), and solid (*-600 at 70% with white
+// text — full-strength *-600 made the buttons/pills shout; 70% over the white
+// card keeps the dark-value tier without the saturation).
 export const SECTION_TYPE_META: Record<
   SectionType,
   { typeLabel: string; addLabel: string; icon: string; base: string; hover: string }
@@ -49,8 +51,8 @@ export const SECTION_TYPE_META: Record<
     icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9.5 17v-5l2.5 3 2.5-3v5',
     // Solid slate, not red: markdown's classic dark-gray identity — a solid red
     // button read as an error/destructive action.
-    base: 'bg-slate-600 text-white',
-    hover: 'hover:bg-slate-700'
+    base: 'bg-slate-600/70 text-white',
+    hover: 'hover:bg-slate-600/85'
   },
   table: {
     typeLabel: 'Table',
@@ -65,16 +67,16 @@ export const SECTION_TYPE_META: Record<
     addLabel: 'Timeline',
     // Three swimlane bars of varying start/length — the gantt/roadmap read.
     icon: 'M3 6h7 M8 12h11 M5 18h9',
-    base: 'bg-cyan-600 text-white',
-    hover: 'hover:bg-cyan-700'
+    base: 'bg-cyan-600/70 text-white',
+    hover: 'hover:bg-cyan-600/85'
   },
   calendar: {
     typeLabel: 'Calendar',
     addLabel: 'Calendar',
     // A month grid: rounded rect with a header bar (two hanging "rings") and one inner divider.
     icon: 'M4 6a1 1 0 011-1h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6z M4 10h16 M8 3v4 M16 3v4',
-    base: 'bg-indigo-600 text-white',
-    hover: 'hover:bg-indigo-700'
+    base: 'bg-indigo-600/70 text-white',
+    hover: 'hover:bg-indigo-600/85'
   }
 };
 
