@@ -1,21 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useEditor, useEditorState, EditorContent, type Editor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
-import TextAlign from '@tiptap/extension-text-align';
-import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style';
-import Highlight from '@tiptap/extension-highlight';
-import { TableKit } from '@tiptap/extension-table';
-import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Placeholder } from '@tiptap/extensions';
-import Typography from '@tiptap/extension-typography';
-import Subscript from '@tiptap/extension-subscript';
-import Superscript from '@tiptap/extension-superscript';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
+import { richTextExtensions } from './richTextExtensions';
 import { isWysiwygEmpty } from '@/lib/util/sectionContent';
 import './tiptap-editor.css';
 
@@ -49,32 +41,11 @@ export function YTipTapEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        // Undo/redo comes from the Yjs document (Collaboration ships its own manager);
-        // TipTap's local history would fight it.
-        undoRedo: false,
-        link: { openOnClick: false, autolink: true, linkOnPaste: true }
-      }),
+      ...richTextExtensions(),
       Collaboration.configure({ fragment }),
       // The extension only reads `provider.awareness`; ours lives on the CRDT handle
       // (broadcast over the Supabase Realtime channel by SupabaseYjsProvider).
       CollaborationCaret.configure({ provider: { awareness }, user }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      // The "Word-like" upgrades that motivated the TipTap move (wysiwyg-upgrade.md).
-      TextStyle,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      // Tables: without the schema, pasted <table> HTML (e.g. from a rendered markdown
-      // preview) silently flattens to paragraphs — the owner hit this on day one.
-      TableKit.configure({ table: { resizable: false } }),
-      // Docs-like niceties (owner-picked batch): checkable task lists in prose, smart
-      // punctuation, sub/superscript, per-run font size, and the empty-doc hint.
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Typography,
-      Subscript,
-      Superscript,
-      FontSize,
       Placeholder.configure({ placeholder: 'Start typing your notes here...' })
     ],
     editorProps: {
@@ -562,7 +533,9 @@ function SwatchPicker({
                     onClose();
                   }}
                   className={`h-6 w-6 rounded border ${
-                    current === c.value ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'
+                    current === c.value
+                      ? 'border-blue-500 ring-2 ring-blue-200'
+                      : 'border-slate-200'
                   }`}
                   style={{ background: c.value }}
                 />
