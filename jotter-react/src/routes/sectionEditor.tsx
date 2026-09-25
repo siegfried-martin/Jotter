@@ -36,6 +36,7 @@ import {
   releaseCrdtText,
   destroyCrdtStore,
   encodeDocState,
+  mergeServerSnapshot,
   type CrdtHandle
 } from '@/lib/offline/crdtSection';
 import { isSectionEmpty, isWysiwygEmpty } from '@/lib/util/sectionContent';
@@ -413,7 +414,12 @@ function SectionEditorModal({
     }
   }, [isDesktop, isFullscreen]);
 
+  // The latest editor value, readable synchronously: merging the server snapshot on save
+  // re-renders the wysiwyg editor, whose onChange lands here before React state catches up.
+  const liveContent = useRef(content);
+
   function handleContentChange(next: string) {
+    liveContent.current = next;
     setContent(next);
     writeDraft(section.id, next);
   }
@@ -422,7 +428,7 @@ function SectionEditorModal({
     // Materialize on flush: code/markdown read their plain Y.Text (the markdown source is
     // the canonical content); wysiwyg uses the live HTML kept by the editor's onChange (its
     // Y.XmlFragment holds the ProseMirror tree, not HTML); other types use their state.
-    const nextContent = isPlainText && handle ? handle.text.toString() : content;
+    const nextContent = isPlainText && handle ? handle.text.toString() : liveContent.current;
     const updates: Partial<CreateNoteSection> = {
       content: nextContent,
       title: title.trim() || null
@@ -481,6 +487,9 @@ function SectionEditorModal({
   const saveAndClose = useCallbackRef(async () => {
     if (saving || conflict) return;
     setSaving(true);
+    // CRDT types: fold in whatever reached the server since we opened (the save writes our
+    // whole doc as the shared snapshot, so un-merged remote ops would be lost).
+    if (handle && isOnline()) await mergeServerSnapshot(handle, section.id);
     const updates = buildUpdates();
     // LWW types: if the section changed under us since we opened it, don't silently
     // overwrite — surface the choice. (CRDT types merge, so they skip this.)

@@ -16,8 +16,10 @@ import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { Awareness } from 'y-protocols/awareness';
 import type { NoteSection } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import { SupabaseYjsProvider } from './supabaseYjsProvider';
 import { bytesToBase64, base64ToBytes } from './base64';
+import { isOnline } from './onlineStatus';
 
 export interface CrdtHandle {
   doc: Y.Doc;
@@ -60,17 +62,15 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
   const provider = new SupabaseYjsProvider(doc, awareness, section.id);
 
   const whenReady = new Promise<void>((resolve) => {
-    persistence.once('synced', () => {
+    persistence.once('synced', async () => {
       // The shared persistent CRDT snapshot (Postgres) is the canonical seed source —
       // applying it is idempotent, so every client converges on the same ops instead of
-      // independently re-seeding from `content` (which would duplicate text).
-      if (section.ydoc) {
-        try {
-          Y.applyUpdate(doc, base64ToBytes(section.ydoc));
-        } catch {
-          /* corrupt snapshot — fall through to a plain seed */
-        }
-      }
+      // independently re-seeding from `content` (which would duplicate text). The cached
+      // row can be hours old (the query cache never goes stale), so also merge the
+      // server's CURRENT snapshot — edits made elsewhere (another user, the MCP connector)
+      // must be in the doc before we decide whether it needs a seed.
+      applySnapshot(doc, section.ydoc);
+      applySnapshot(doc, await fetchServerSnapshot(section.id));
       // Legacy section (no ydoc yet): seed plain content for code so nothing's blank.
       // Wysiwyg seeds through the TipTap editor. Only when nothing else populated the doc.
       if (plainSeed && text.length === 0 && section.content) {
@@ -87,6 +87,42 @@ function createEntry(section: NoteSection, plainSeed: boolean): Entry {
     refs: 0,
     destroyTimer: null
   };
+}
+
+const SERVER_SNAPSHOT_TIMEOUT_MS = 3000;
+
+function applySnapshot(doc: Y.Doc, snapshot: string | null | undefined): void {
+  if (!snapshot) return;
+  try {
+    Y.applyUpdate(doc, base64ToBytes(snapshot));
+  } catch {
+    /* corrupt snapshot — ignore; the local doc stays as it is */
+  }
+}
+
+/** The section's current shared snapshot from Postgres; null when offline, slow, or unset. */
+async function fetchServerSnapshot(sectionId: string): Promise<string | null> {
+  if (!isOnline()) return null;
+  const fetch = supabase
+    .from('note_section')
+    .select('ydoc')
+    .eq('id', sectionId)
+    .maybeSingle()
+    .then(({ data }) => (data?.ydoc as string | null | undefined) ?? null);
+  const timeout = new Promise<null>((resolve) =>
+    setTimeout(() => resolve(null), SERVER_SNAPSHOT_TIMEOUT_MS)
+  );
+  return Promise.race([fetch, timeout]).catch(() => null);
+}
+
+/**
+ * Merge the server's current snapshot into a live document. Call before persisting: the
+ * save writes the WHOLE local state as the new shared snapshot, so any ops that reached the
+ * server while this editor wasn't receiving them live (another user's save, an MCP write)
+ * must be merged in first or the save would silently drop them.
+ */
+export async function mergeServerSnapshot(handle: CrdtHandle, sectionId: string): Promise<void> {
+  applySnapshot(handle.doc, await fetchServerSnapshot(sectionId));
 }
 
 /** The current document state as a base64 snapshot, for persisting to note_section.ydoc. */
