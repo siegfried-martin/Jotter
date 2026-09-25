@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { NoteSection } from '@/lib/types';
-import { sectionToMarkdown, nativeCopyLabel, hasMarkdownCopy } from './sectionClipboard';
+import { nativeCopyLabel, hasMarkdownCopy } from './sectionClipboard';
+import { sectionToMarkdown } from './sectionMarkdown';
 
 // Minimal section factory — only the fields the clipboard code reads matter.
 function section(partial: Partial<NoteSection> & Pick<NoteSection, 'type'>): NoteSection {

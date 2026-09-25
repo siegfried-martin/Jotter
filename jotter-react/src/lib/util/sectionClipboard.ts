@@ -1,18 +1,16 @@
-import TurndownService from 'turndown';
 import type { ChecklistItem, NoteSection } from '@/lib/types';
 import { renderMarkdown } from './renderMarkdown';
+import { sectionToMarkdown } from './sectionMarkdown';
 import { getDiagramElementCount } from './diagram';
-import { getTableCellCount, tableToCsv, tableToHtml, tableToMarkdown, tableToTsv } from './table';
+import { getTableCellCount, tableToCsv, tableToHtml, tableToTsv } from './table';
 import {
   getTimelineElementCount,
   timelineToCsv,
   timelineToHtml,
-  timelineToMarkdown,
   timelineToTsv,
   getCalendarEventCount,
   calendarToCsv,
   calendarToHtml,
-  calendarToMarkdown,
   calendarToTsv
 } from './schedule';
 
@@ -27,33 +25,6 @@ import {
 //   Markdown        Copy = rich HTML (rendered) Copy as Markdown = raw source
 //   Table           Copy = TSV + HTML table     Copy as Markdown = GFM pipe table
 //                   (Table also offers a "Download CSV" action — see downloadCsv.)
-
-const turndown = new TurndownService({
-  headingStyle: 'atx',
-  codeBlockStyle: 'fenced',
-  bulletListMarker: '-'
-});
-// Quill emits <s> for strikethrough; turndown core ignores it. Map it to GFM ~~ ~~.
-turndown.addRule('strikethrough', {
-  filter: ['del', 's'],
-  replacement: (content) => `~~${content}~~`
-});
-// Quill wraps every line in its own <p>, so turndown's default would put a blank line
-// between every line. Emit a single trailing newline so consecutive lines stay consecutive;
-// intentional blank lines (empty <p><br></p>) are normalized back in htmlToMarkdown().
-turndown.addRule('paragraph', {
-  filter: 'p',
-  replacement: (content) => content + '\n'
-});
-
-/** Wysiwyg HTML → Markdown, with line spacing that matches what the user typed. */
-function htmlToMarkdown(html: string): string {
-  return turndown
-    .turndown(html)
-    .replace(/^[ \t]+$/gm, '') // drop whitespace-only lines left by empty paragraphs
-    .replace(/\n{3,}/g, '\n\n') // at most one blank line
-    .trim();
-}
 
 function htmlToPlainText(html: string): string {
   const div = document.createElement('div');
@@ -83,31 +54,6 @@ function checklistToHtml(items: ChecklistItem[]): string {
 /** Plain-text fallback for a checklist (no strikethrough possible — mark done with ✓). */
 function checklistToPlain(items: ChecklistItem[]): string {
   return items.map((it) => `${it.checked ? '✓' : '•'} ${it.text}`).join('\n');
-}
-
-/** A section's Markdown representation (for the "Copy as Markdown" action). */
-export function sectionToMarkdown(section: NoteSection): string {
-  switch (section.type) {
-    case 'markdown':
-      return section.content ?? '';
-    case 'wysiwyg':
-      return htmlToMarkdown(section.content ?? '');
-    case 'checklist':
-      return checklistItems(section)
-        .map(
-          (it) => `- [${it.checked ? 'x' : ' '}] ${it.text}${it.date ? ` (due ${it.date})` : ''}`
-        )
-        .join('\n');
-    case 'table':
-      return tableToMarkdown(section.content ?? '');
-    case 'timeline':
-      return timelineToMarkdown(section.content ?? '');
-    case 'calendar':
-      return calendarToMarkdown(section.content ?? '');
-    default:
-      // code/diagram have no "Copy as Markdown" affordance, but stay total for safety.
-      return section.content ?? '';
-  }
 }
 
 async function writeRich(html: string, plain: string): Promise<void> {
