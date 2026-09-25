@@ -1,0 +1,23 @@
+# systemd unit for jotter-server on the droplet.
+#   sudo cp deploy/jotter-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now jotter-server
+# Paths assume the repo lives at /root/Jotter (as deploy.sh does). Check `which node`.
+
+[Unit]
+Description=Jotter app server (Claude MCP connector)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/Jotter/jotter-server
+ExecStart=/usr/bin/node --env-file=/root/Jotter/jotter-server/.env dist/index.js
+Environment=NODE_ENV=production
+Restart=on-failure
+RestartSec=3
+# Shared 4 GB droplet: keep this service small and contained.
+MemoryMax=300M
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

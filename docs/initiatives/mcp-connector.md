@@ -1,6 +1,10 @@
 # Initiative: Jotter MCP Connector
 
-**Status**: Signed off 2026-09-24 — building on `feat/mcp-connector`
+**Status**: Built on `feat/mcp-connector` (2026-09-24). Slices 0–4 are code-complete with
+33 server unit tests plus 50 SPA unit tests green, and deploy artifacts are ready (slice 5).
+**Not yet verified against a live backend**: the jotter-dev Supabase project was unreachable
+(paused) during the build, so the SPA e2e specs (`crdt-external-write`, `oauth-consent`) and the
+server integration suite (`npm run test:int`) are written but haven't run.
 **Feature**: A remote **MCP server** that lets Claude (claude.ai, Claude Desktop, the Claude
 mobile app, and Claude Code) read and write your Jotter notes. You connect it once, alongside
 Jira, Gmail, and the code, and "notes" becomes a first-class context source for any project.
@@ -184,3 +188,29 @@ Each slice is a commit with tests green (the cadence the owner likes).
    Playwright receives Claude's append live".
 5. **Deploy**: bundle, systemd, nginx, prod OAuth enable, and adding the connector in
    claude.ai. The owner does the manual end-to-end check.
+
+## Known limitations (v1)
+
+- **Opened-but-never-saved legacy sections.** A code, markdown, or text section whose server
+  `ydoc` is still null, but which was opened in an editor and closed with *Cancel* on some
+  device, has a locally seeded doc in that device's IndexedDB. If Claude edits it before any
+  save, the server seeds its own snapshot. When that device next opens it, the two seeds
+  merge and the original text can appear twice. It's rare (every normal close saves), and it
+  recovers with an edit. Deterministic seeding is the fix if it ever bites.
+- **Structured bodies are read-only**: table, timeline, calendar, and drawing notes can be
+  read (except drawings) but not edited through the connector.
+- **Search** is keyword-only (migration 0013). Structured types match on title only.
+- **Rich-text task lists**: Markdown `- [ ]` inside a *text* note renders as a plain bullet.
+  Use a checklist note for real checkboxes.
+- **e2e OAuth clients**: each `oauth-consent.spec.ts` run registers a client on jotter-dev;
+  prune them in the dashboard occasionally.
+
+## As built
+
+- `jotter-server/`: Express 5 + `@modelcontextprotocol/sdk` (stateless Streamable HTTP),
+  `src/{auth,http,mcp,notes}`, bundled by esbuild (`npm run build`). See
+  `jotter-server/README.md` for setup, deploy, and connecting Claude.
+- App changes: `crdtSection.ts` merges the server snapshot on open and before save (slice 0).
+  `sectionMarkdown.ts` and `richTextExtensions.ts` are shared with the server.
+  `/oauth/consent` route.
+
