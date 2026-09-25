@@ -12,10 +12,13 @@ export function createAnonClient(config: Config): SupabaseClient {
   return createClient(config.supabaseUrl, config.supabaseAnonKey, { auth: serverAuth });
 }
 
-/** A client that acts as the user who owns `accessToken`. */
+/**
+ * A client that acts as the user who owns `accessToken` — for PostgREST, RPCs, and Realtime
+ * broadcasts alike. (With `accessToken` set, the client's own `auth` API is disabled; token
+ * validation happens on the anon client.)
+ */
 export function createUserClient(config: Config, accessToken: string): SupabaseClient {
   return createClient(config.supabaseUrl, config.supabaseAnonKey, {
-    auth: serverAuth,
-    global: { headers: { Authorization: `Bearer ${accessToken}` } }
+    accessToken: async () => accessToken
   });
 }
