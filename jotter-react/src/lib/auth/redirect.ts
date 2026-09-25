@@ -4,21 +4,27 @@
 
 const KEY = 'jotter_post_login_redirect';
 
-/** Remember an in-app destination to return to after login (only /app/* paths). */
+/** In-app pages worth returning to: the app itself, and the OAuth consent screen (an MCP
+ *  client's connect flow must resume there after login). Never an external URL. */
+function isReturnable(path: string): boolean {
+  return path.startsWith('/app') || path.startsWith('/oauth/consent');
+}
+
+/** Remember an in-app destination to return to after login. */
 export function setPostLoginRedirect(path: string): void {
   try {
-    if (path.startsWith('/app')) localStorage.setItem(KEY, path);
+    if (isReturnable(path)) localStorage.setItem(KEY, path);
   } catch {
     /* localStorage unavailable */
   }
 }
 
-/** Read-and-clear the saved destination (null if none / not an in-app path). */
+/** Read-and-clear the saved destination (null if none / not returnable). */
 export function consumePostLoginRedirect(): string | null {
   try {
     const v = localStorage.getItem(KEY);
     if (v) localStorage.removeItem(KEY);
-    return v && v.startsWith('/app') ? v : null;
+    return v && isReturnable(v) ? v : null;
   } catch {
     return null;
   }
