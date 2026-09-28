@@ -84,10 +84,11 @@ test.describe('wysiwyg color and highlight', () => {
 
       // Save → both materialize into the stored HTML.
       await page.getByRole('button', { name: 'Save', exact: true }).click();
+      // Poll on what only the save produces (the seed already contains '<table').
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
-        .toContain('<table');
-      expect((await fetchSectionContent(page, sectionId)) ?? '').toContain('<code>codeword</code>');
+        .toContain('<code>codeword</code>');
+      expect((await fetchSectionContent(page, sectionId)) ?? '').toContain('<table');
     } finally {
       await cleanup(page, tree.collectionId);
     }
