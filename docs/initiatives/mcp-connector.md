@@ -1,10 +1,10 @@
 # Initiative: Jotter MCP Connector
 
-**Status**: Built on `feat/mcp-connector` (2026-09-24). Slices 0–4 are code-complete with
-33 server unit tests plus 50 SPA unit tests green, and deploy artifacts are ready (slice 5).
-**Not yet verified against a live backend**: the jotter-dev Supabase project was unreachable
-(paused) during the build, so the SPA e2e specs (`crdt-external-write`, `oauth-consent`) and the
-server integration suite (`npm run test:int`) are written but haven't run.
+**Status**: Built on `feat/mcp-connector` (2026-09-24). Verified against jotter-dev
+(2026-09-27): server 34 unit + 16 integration tests, and the SPA's full e2e suite (90) all green.
+That includes the merge-on-save regression spec, which was confirmed to fail without the fix.
+**Pending**: `oauth-consent.spec.ts` and a real Claude connection, both waiting on the OAuth
+2.1 server being enabled on jotter-dev.
 **Feature**: A remote **MCP server** that lets Claude (claude.ai, Claude Desktop, the Claude
 mobile app, and Claude Code) read and write your Jotter notes. You connect it once, alongside
 Jira, Gmail, and the code, and "notes" becomes a first-class context source for any project.
