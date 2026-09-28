@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { applyCrdtEdit, fragmentToHtml } from './crdt';
+import { applyCrdtEdit, fragmentToHtml, markdownToEditorHtml } from './crdt';
 
 const b64 = (u: Uint8Array) => Buffer.from(u).toString('base64');
 const load = (ydoc: string) => {
@@ -108,5 +108,14 @@ describe('applyCrdtEdit — rich text (wysiwyg)', () => {
     expect(r.content).toContain('href="https://x.test"');
     expect(r.content).toContain('<pre><code class="language-js">let a</code></pre>');
     expect(r.content).toContain('<table');
+  });
+});
+
+describe('markdownToEditorHtml', () => {
+  it('produces the HTML the editor would store', () => {
+    expect(markdownToEditorHtml('We agreed to **ship**.\n\n- a')).toBe(
+      '<p>We agreed to <strong>ship</strong>.</p><ul><li><p>a</p></li></ul>'
+    );
+    expect(markdownToEditorHtml('   ')).toBe('');
   });
 });

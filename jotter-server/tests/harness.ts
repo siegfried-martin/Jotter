@@ -108,7 +108,14 @@ export async function seedTree(
   for (const [i, s] of sections.entries()) {
     const { data: sec, error: se } = await db
       .from('note_section')
-      .insert({ content: '', sequence: i, ...s, note_container_id: cont.id, user_id: userId })
+      // Distinct, non-zero sequences (the DB reassigns a 0 on insert), in array order.
+      .insert({
+        content: '',
+        sequence: (i + 1) * 10,
+        ...s,
+        note_container_id: cont.id,
+        user_id: userId
+      })
       .select()
       .single();
     if (se) throw new Error(`section insert: ${se.message}`);

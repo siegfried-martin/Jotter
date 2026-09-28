@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChecklistItem, Collection, NoteContainer, NoteSection } from '../shared';
 import { NotesError } from './errors';
-import { applyCrdtEdit, isCrdtType, markdownToHtml, type CrdtEdit } from './crdt';
+import { applyCrdtEdit, isCrdtType, markdownToEditorHtml, type CrdtEdit } from './crdt';
 import { applyChecklistChanges, parseChecklistItems, type ChecklistChange } from './checklist';
 
 export { NotesError };
@@ -195,7 +195,7 @@ export class NotesApi {
       meta: {}
     };
     if (input.type === 'checklist') row.checklist_data = parseChecklistItems(input.body);
-    else if (input.type === 'wysiwyg') row.content = markdownToHtml(input.body);
+    else if (input.type === 'wysiwyg') row.content = markdownToEditorHtml(input.body);
     else row.content = input.body;
     if (input.type === 'code') {
       const language = input.language?.toLowerCase() ?? 'plaintext';

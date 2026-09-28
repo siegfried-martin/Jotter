@@ -51,6 +51,16 @@ function htmlToYNodes(html: string): Array<Y.XmlElement | Y.XmlText> {
   return fragment.toArray() as Array<Y.XmlElement | Y.XmlText>;
 }
 
+/**
+ * Markdown → the HTML the Text editor itself would store: rendered, then round-tripped through
+ * the editor's schema (so e.g. list items get their <p> wrappers and unsupported markup is
+ * dropped the same way). Used for new text notes, whose `content` seeds the editor.
+ */
+export function markdownToEditorHtml(md: string): string {
+  const html = generateHTML(generateJSON(markdownToHtml(md), extensions), extensions);
+  return isWysiwygEmpty(html) ? '' : html;
+}
+
 export function fragmentToHtml(fragment: Y.XmlFragment): string {
   const html = generateHTML(yXmlFragmentToProsemirrorJSON(fragment), extensions);
   return isWysiwygEmpty(html) ? '' : html;
