@@ -1,0 +1,51 @@
+{
+  "name": "jotter-server",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Jotter's app service: the Claude MCP connector today, more server-side features later.",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env.local src/index.ts",
+    "build": "node build.mjs",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest",
+    "test:int": "vitest run --project integration",
+    "format": "prettier --write src tests build.mjs vitest.config.ts",
+    "lint": "prettier --check src tests build.mjs vitest.config.ts && tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "@supabase/supabase-js": "^2.117.1",
+    "@tiptap/core": "3.28.0",
+    "@tiptap/extension-highlight": "3.28.0",
+    "@tiptap/extension-list": "3.28.0",
+    "@tiptap/extension-subscript": "3.28.0",
+    "@tiptap/extension-superscript": "3.28.0",
+    "@tiptap/extension-table": "3.28.0",
+    "@tiptap/extension-text-align": "3.28.0",
+    "@tiptap/extension-text-style": "3.28.0",
+    "@tiptap/extension-typography": "3.28.0",
+    "@tiptap/html": "3.28.0",
+    "@tiptap/pm": "3.28.0",
+    "@tiptap/starter-kit": "3.28.0",
+    "@tiptap/y-tiptap": "3.0.7",
+    "express": "^5.2.1",
+    "markdown-it": "^14.3.2",
+    "turndown": "^7.2.4",
+    "yjs": "^13.6.33",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^26.6.2",
+    "@types/turndown": "^5.0.6",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9",
+    "vitest": "^3.2.7"
+  }
+}

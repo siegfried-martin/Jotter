@@ -1,4 +1,4 @@
-import type { NoteSection } from '@/lib/types';
+import type { NoteSection } from '../types';
 
 /**
  * Whether wysiwyg HTML is visually empty. A cleared contentEditable (or Quill)

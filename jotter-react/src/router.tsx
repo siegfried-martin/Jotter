@@ -5,6 +5,7 @@ import { AuthCallbackRoute } from '@/routes/authCallback';
 import { AppHomeRoute } from '@/routes/appHome';
 import { ContainerPageRoute } from '@/routes/containerPage';
 import { SettingsRoute } from '@/routes/settings';
+import { OAuthConsentRoute } from '@/routes/oauthConsent';
 
 // Lazy-load the editor route so the heavy editors (CodeMirror, later TipTap/
 // Excalidraw) are a separate chunk, not in the initial collections/notes load.
@@ -37,6 +38,12 @@ const authCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/callback',
   component: AuthCallbackRoute
+});
+
+const oauthConsentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/oauth/consent',
+  component: OAuthConsentRoute
 });
 
 const appRoute = createRoute({
@@ -86,6 +93,7 @@ const flatSectionRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authCallbackRoute,
+  oauthConsentRoute,
   appRoute,
   settingsRoute,
   flatSectionRoute,
