@@ -15,6 +15,23 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
 }
 
+/** The Univer grid canvas (the largest one), once it has laid out. */
+async function tableGridBox(page: Page) {
+  const largest = () =>
+    page
+      .getByTestId('table-editor')
+      .locator('canvas')
+      .evaluateAll(
+        (cs) =>
+          cs
+            .map((c) => c.getBoundingClientRect())
+            .map((r) => ({ x: r.x, y: r.y, area: r.width * r.height }))
+            .sort((a, b) => b.area - a.area)[0]
+      );
+  await expect.poll(async () => (await largest())?.area ?? 0).toBeGreaterThan(100_000);
+  return largest();
+}
+
 test.describe('mobile layout', () => {
   test.use({ viewport: MOBILE, hasTouch: true });
 
@@ -163,19 +180,7 @@ test.describe('mobile section editor', () => {
       await expect(cellEditor).toHaveAttribute('inputmode', 'none');
 
       // A real touch (pointer + touch events), on the grid canvas.
-      const grid = page.getByTestId('table-editor').locator('canvas').first();
-      await expect(grid).toBeVisible();
-      const box = (
-        await page
-          .getByTestId('table-editor')
-          .locator('canvas')
-          .evaluateAll((cs) =>
-            cs
-              .map((c) => c.getBoundingClientRect())
-              .sort((a, b) => b.width * b.height - a.width * a.height)
-              .map((r) => ({ x: r.x, y: r.y }))
-          )
-      )[0];
+      const box = await tableGridBox(page);
       const cdp = await page.context().newCDPSession(page);
       const tap = async () => {
         const pt = { x: box.x + 120, y: box.y + 70 };
@@ -194,6 +199,96 @@ test.describe('mobile section editor', () => {
       await tap();
       await expect.poll(editing).toBe(true);
       await expect(cellEditor).toHaveAttribute('inputmode', 'text');
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
+  test('table: two fingers pan (and pinch-zoom) the grid without selecting or editing', async ({
+    page
+  }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-mobile-table-pan',
+      sections: [{ type: 'table', content: '', sequence: 10 }]
+    });
+    try {
+      await page.goto(`/app/sections/${tree.sections[0].id}`);
+      await page.waitForFunction(() => Boolean((window as any).__UNIVER_TABLE_API__));
+      const box = await tableGridBox(page);
+      // Record the scroll operations Univer applies (sheetViewStartRow = top visible row).
+      await page.evaluate(() => {
+        const api = (window as any).__UNIVER_TABLE_API__;
+        (window as any).__scrolls = [];
+        api.onCommandExecuted((c: any) => {
+          if (c.id === 'sheet.operation.set-scroll') (window as any).__scrolls.push(c.params);
+        });
+      });
+      const state = () =>
+        page.evaluate(() => {
+          const wb = (window as any).__UNIVER_TABLE_API__.getActiveWorkbook();
+          const scrolls = (window as any).__scrolls;
+          return {
+            scroll: scrolls[scrolls.length - 1] ?? {
+              sheetViewStartRow: 0,
+              sheetViewStartColumn: 0
+            },
+            range: wb.getActiveRange()?.getA1Notation() ?? null,
+            editing: wb.isCellEditing()
+          };
+        });
+      const before = await state();
+
+      // Two fingers drag up-left together → the grid scrolls down-right.
+      const cdp = await page.context().newCDPSession(page);
+      const at = (dx: number, dy: number) => [
+        { x: box.x + 200 + dx, y: box.y + 300 + dy, id: 1 },
+        { x: box.x + 260 + dx, y: box.y + 300 + dy, id: 2 }
+      ];
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [at(0, 0)[0]]
+      });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0, 0) });
+      for (let i = 1; i <= 10; i++) {
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: at(-10 * i, -20 * i)
+        });
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+
+      await expect
+        .poll(async () => (await state()).scroll.sheetViewStartRow)
+        .toBeGreaterThan(before.scroll.sheetViewStartRow);
+      const after = await state();
+      expect(after.scroll.sheetViewStartColumn).toBeGreaterThanOrEqual(
+        before.scroll.sheetViewStartColumn
+      );
+      expect(after.editing).toBe(false);
+      // A single cell, not a range dragged out by the first finger.
+      expect(after.range).toMatch(/^[A-Z]+\d+$/);
+
+      // Spreading the two fingers zooms the grid in.
+      const pinch = (spread: number) => [
+        { x: box.x + 190 - spread, y: box.y + 300, id: 1 },
+        { x: box.x + 190 + spread, y: box.y + 300, id: 2 }
+      ];
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pinch(40) });
+      for (let spread = 50; spread <= 120; spread += 10) {
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: pinch(spread)
+        });
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            (window as any).__UNIVER_TABLE_API__.getActiveWorkbook().getActiveSheet().getZoom()
+          )
+        )
+        .toBeGreaterThan(1.5);
     } finally {
       await cleanup(page, tree.collectionId);
     }

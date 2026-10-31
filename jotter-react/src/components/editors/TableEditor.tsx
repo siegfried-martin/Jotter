@@ -97,6 +97,112 @@ function tapToEdit(container: HTMLElement, univerAPI: any): () => void {
   };
 }
 
+const SCROLL_RELATIVE = 'sheet.command.set-scroll-relative';
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+
+/**
+ * Touch: two fingers pan the grid (and pinching them zooms it); one finger keeps Univer's
+ * own behavior (select / drag a range). Univer's desktop UI has no touch scrolling of its
+ * own. Registered on an ancestor of Univer's container so its capture listeners run before
+ * the canvas (where Univer listens) and before tapToEdit: once a second finger lands, every
+ * touch event until all fingers lift belongs to the gesture.
+ */
+function twoFingerScroll(el: HTMLElement, univerAPI: any): () => void {
+  const touchPointers = new Set<number>();
+  let gesturing = false;
+  let last: { x: number; y: number; dist: number; zoom: number } | null = null;
+  let pending = { x: 0, y: 0, zoom: 0 };
+  let frame = 0;
+
+  const sheet = () => univerAPI.getActiveWorkbook()?.getActiveSheet();
+  const measure = (t: TouchList) => ({
+    x: (t[0].clientX + t[1].clientX) / 2,
+    y: (t[0].clientY + t[1].clientY) / 2,
+    dist: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1
+  });
+  const flush = () => {
+    frame = 0;
+    const ws = sheet();
+    if (!ws) return;
+    if (pending.zoom && Math.abs(pending.zoom - ws.getZoom()) >= 0.05) ws.zoom(pending.zoom);
+    const zoom = ws.getZoom() || 1;
+    if (pending.x || pending.y) {
+      univerAPI.executeCommand(SCROLL_RELATIVE, {
+        offsetX: pending.x / zoom,
+        offsetY: pending.y / zoom
+      });
+    }
+    pending = { x: 0, y: 0, zoom: 0 };
+  };
+
+  const onPointerDown = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    touchPointers.add(e.pointerId);
+    if (touchPointers.size >= 2) gesturing = true;
+    // The second finger must not reach Univer as a new selection.
+    if (gesturing) e.stopPropagation();
+  };
+  const onPointerMove = (e: PointerEvent) => {
+    // Keep the first finger from dragging a range selection while panning.
+    if (gesturing && e.pointerType === 'touch') e.stopPropagation();
+  };
+  const onPointerUp = (e: PointerEvent) => {
+    touchPointers.delete(e.pointerId);
+  };
+  const onTouchStart = (e: TouchEvent) => {
+    if (e.touches.length < 2) return;
+    gesturing = true;
+    e.stopPropagation();
+    const m = measure(e.touches);
+    last = { ...m, zoom: sheet()?.getZoom() ?? 1 };
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    if (!gesturing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!last || e.touches.length < 2) return;
+    const m = measure(e.touches);
+    pending.x += last.x - m.x;
+    pending.y += last.y - m.y;
+    const zoom = (last.zoom * m.dist) / last.dist;
+    pending.zoom = Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) * 10) / 10;
+    last = { ...last, x: m.x, y: m.y };
+    if (!frame) frame = requestAnimationFrame(flush);
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    if (!gesturing) return;
+    // No finger-lift of the gesture counts as a tap (tapToEdit listens for touchend).
+    e.stopPropagation();
+    if (e.touches.length < 2) last = null;
+    if (e.touches.length === 0) {
+      gesturing = false;
+      touchPointers.clear();
+    }
+  };
+  // iOS Safari's own page-zoom gesture events.
+  const onGesture = (e: Event) => e.preventDefault();
+
+  const listeners: [string, EventListener][] = [
+    ['pointerdown', onPointerDown as EventListener],
+    ['pointermove', onPointerMove as EventListener],
+    ['pointerup', onPointerUp as EventListener],
+    ['pointercancel', onPointerUp as EventListener],
+    ['touchstart', onTouchStart as EventListener],
+    ['touchmove', onTouchMove as EventListener],
+    ['touchend', onTouchEnd as EventListener],
+    ['touchcancel', onTouchEnd as EventListener],
+    ['gesturestart', onGesture],
+    ['gesturechange', onGesture]
+  ];
+  const opts = { capture: true, passive: false } as const;
+  for (const [type, fn] of listeners) el.addEventListener(type, fn, opts);
+  return () => {
+    cancelAnimationFrame(frame);
+    for (const [type, fn] of listeners) el.removeEventListener(type, fn, opts);
+  };
+}
+
 export function TableEditor({
   initial,
   onChange
@@ -104,6 +210,7 @@ export function TableEditor({
   initial: string;
   onChange: (content: string) => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useCallbackRef(onChange);
   // Snapshot only the very first `initial` — Univer owns the document after mount, and we
@@ -116,6 +223,7 @@ export function TableEditor({
     let univer: any = null;
     let listener: { dispose: () => void } | null = null;
     let disposeTapToEdit: (() => void) | null = null;
+    let disposeTwoFinger: (() => void) | null = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
 
     (async () => {
@@ -146,6 +254,7 @@ export function TableEditor({
 
         univerAPI.createWorkbook(parseSnapshot(initialRef.current));
         disposeTapToEdit = tapToEdit(containerRef.current, univerAPI);
+        if (rootRef.current) disposeTwoFinger = twoFingerScroll(rootRef.current, univerAPI);
         setStatus('ready');
 
         // Dev/e2e only: expose the Facade so tests can drive deterministic edits (the grid is
@@ -178,6 +287,7 @@ export function TableEditor({
       if (debounce) clearTimeout(debounce);
       listener?.dispose();
       disposeTapToEdit?.();
+      disposeTwoFinger?.();
       univer?.dispose();
       if (import.meta.env.DEV) {
         delete (window as unknown as Record<string, unknown>).__UNIVER_TABLE_API__;
@@ -186,7 +296,7 @@ export function TableEditor({
   }, [onChangeRef]);
 
   return (
-    <div className="relative h-full w-full" data-testid="table-editor">
+    <div ref={rootRef} className="relative h-full w-full" data-testid="table-editor">
       <div ref={containerRef} className="h-full w-full" />
       {status === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
