@@ -69,7 +69,8 @@ test.describe('drag-and-drop', () => {
       await page.waitForTimeout(150);
 
       await expect(page.locator('input[placeholder="Enter task..."]').first()).toHaveValue('Beta');
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      // < lg, so the editor is the full-screen mobile shell: its back button saves & closes.
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchChecklistTexts(page, tree.sections[0].id))
         .toEqual(['Beta', 'Alpha', 'Gamma']);

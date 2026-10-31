@@ -278,7 +278,7 @@ export function CalendarEditor({
         </span>
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div data-zoom-target className="min-h-0 flex-1">
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center text-sm text-slate-400">

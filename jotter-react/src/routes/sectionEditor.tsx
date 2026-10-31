@@ -18,6 +18,7 @@ import { useCollections } from '@/lib/data/useCollections';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { SectionService } from '@/lib/services/sectionService';
 import { SectionFiling } from '@/components/sections/SectionFiling';
+import { MobileEditorShell } from '@/components/sections/MobileEditorShell';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
 import { useIsDesktop } from '@/lib/util/useMediaQuery';
@@ -603,6 +604,126 @@ function SectionEditorModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [saveAndClose, isFullscreen, chromeVisible, section.type]);
 
+  const editorBody = (
+    <>
+      {section.type === 'code' &&
+        (crdtReady && handle ? (
+          <YCodeEditor
+            text={handle.text}
+            awareness={handle.awareness}
+            language={language}
+            onLanguageChange={setLanguage}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-slate-400">
+            Loading…
+          </div>
+        ))}
+      {section.type === 'markdown' &&
+        (crdtReady && handle ? (
+          <YMarkdownEditor text={handle.text} awareness={handle.awareness} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-slate-400">
+            Loading…
+          </div>
+        ))}
+      {section.type === 'wysiwyg' &&
+        (crdtReady && handle ? (
+          <YTipTapEditor
+            fragment={handle.fragment}
+            awareness={handle.awareness}
+            user={collabIdentity(user?.email)}
+            initial={content}
+            onChange={handleContentChange}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-slate-400">
+            Loading…
+          </div>
+        ))}
+      {section.type === 'checklist' && (
+        <ChecklistEditor value={checklistData} onChange={setChecklistData} />
+      )}
+      {section.type === 'diagram' && (
+        <ExcalidrawEditor initial={content} onChange={handleContentChange} />
+      )}
+      {section.type === 'table' && <TableEditor initial={content} onChange={handleContentChange} />}
+      {section.type === 'timeline' && (
+        <TimelineEditor initial={content} onChange={handleContentChange} />
+      )}
+      {section.type === 'calendar' && (
+        <CalendarEditor initial={content} onChange={handleContentChange} />
+      )}
+    </>
+  );
+
+  const conflictDialog = conflict && (
+    <div
+      data-testid="conflict-dialog"
+      onClick={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+    >
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+        <h2 className="mb-2 text-lg font-semibold text-slate-900">
+          This note changed while you were editing
+        </h2>
+        <p className="mb-5 text-sm text-slate-600">
+          Someone else saved it since you opened it. Saving now would overwrite their changes. You
+          can keep both by saving yours as a copy.
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => saveConflictAsCopy()}
+            className="rounded-lg bg-blue-500 px-4 py-2 font-medium text-white hover:bg-blue-600"
+          >
+            Save as a copy
+          </button>
+          <button
+            onClick={() => overwriteConflict()}
+            className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Overwrite their changes
+          </button>
+          <button
+            onClick={() => discardConflict()}
+            className="rounded-lg px-4 py-2 font-medium text-slate-500 hover:bg-slate-100"
+          >
+            Discard mine &amp; keep theirs
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Below the desktop breakpoint the editor is a full-screen page with a slim top bar
+  // instead of the windowed modal; the editor body and save/cancel logic are shared.
+  if (!isDesktop) {
+    return (
+      <>
+        <MobileEditorShell
+          section={section}
+          title={title}
+          onTitleChange={setTitle}
+          saving={saving}
+          onSaveAndClose={() => saveAndClose()}
+          onCancel={() => cancel()}
+          actions={[
+            { label: nativeCopyLabel(section.type), onClick: copyNativeNow },
+            ...(hasMarkdownCopy(section.type)
+              ? [{ label: 'Copy as Markdown', onClick: copyMarkdownNow }]
+              : []),
+            ...(hasCsvDownload(section.type)
+              ? [{ label: 'Download CSV', onClick: downloadCsvNow }]
+              : [])
+          ]}
+        >
+          {editorBody}
+        </MobileEditorShell>
+        {conflictDialog}
+      </>
+    );
+  }
+
   return (
     <div
       onMouseDown={(e) => {
@@ -682,56 +803,7 @@ function SectionEditorModal({
               : 'min-h-0 flex-1 overflow-hidden px-6 pb-6'
           }
         >
-          {section.type === 'code' &&
-            (crdtReady && handle ? (
-              <YCodeEditor
-                text={handle.text}
-                awareness={handle.awareness}
-                language={language}
-                onLanguageChange={setLanguage}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                Loading…
-              </div>
-            ))}
-          {section.type === 'markdown' &&
-            (crdtReady && handle ? (
-              <YMarkdownEditor text={handle.text} awareness={handle.awareness} />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                Loading…
-              </div>
-            ))}
-          {section.type === 'wysiwyg' &&
-            (crdtReady && handle ? (
-              <YTipTapEditor
-                fragment={handle.fragment}
-                awareness={handle.awareness}
-                user={collabIdentity(user?.email)}
-                initial={content}
-                onChange={handleContentChange}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                Loading…
-              </div>
-            ))}
-          {section.type === 'checklist' && (
-            <ChecklistEditor value={checklistData} onChange={setChecklistData} />
-          )}
-          {section.type === 'diagram' && (
-            <ExcalidrawEditor initial={content} onChange={handleContentChange} />
-          )}
-          {section.type === 'table' && (
-            <TableEditor initial={content} onChange={handleContentChange} />
-          )}
-          {section.type === 'timeline' && (
-            <TimelineEditor initial={content} onChange={handleContentChange} />
-          )}
-          {section.type === 'calendar' && (
-            <CalendarEditor initial={content} onChange={handleContentChange} />
-          )}
+          {editorBody}
         </div>
 
         {/* Footer. Mirrors the header: an auto-hiding overlay band in fullscreen (so Save is
@@ -808,43 +880,7 @@ function SectionEditorModal({
         </div>
       </div>
 
-      {conflict && (
-        <div
-          data-testid="conflict-dialog"
-          onClick={(e) => e.stopPropagation()}
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
-        >
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">
-              This note changed while you were editing
-            </h2>
-            <p className="mb-5 text-sm text-slate-600">
-              Someone else saved it since you opened it. Saving now would overwrite their changes.
-              You can keep both by saving yours as a copy.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => saveConflictAsCopy()}
-                className="rounded-lg bg-blue-500 px-4 py-2 font-medium text-white hover:bg-blue-600"
-              >
-                Save as a copy
-              </button>
-              <button
-                onClick={() => overwriteConflict()}
-                className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
-              >
-                Overwrite their changes
-              </button>
-              <button
-                onClick={() => discardConflict()}
-                className="rounded-lg px-4 py-2 font-medium text-slate-500 hover:bg-slate-100"
-              >
-                Discard mine &amp; keep theirs
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {conflictDialog}
     </div>
   );
 }

@@ -241,7 +241,7 @@ export function ChecklistEditor({
   }, [rows]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div data-zoom-target className="flex h-full flex-col">
       {total > 0 && (
         <div className="mb-4 hidden rounded-lg bg-slate-50 p-3 md:block">
           <div className="mb-2 flex items-center justify-between">
