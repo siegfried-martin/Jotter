@@ -80,7 +80,7 @@ test.describe('calendar section', () => {
         })
         .toContain('Sprint 14');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       // Persisted content is our CalendarDoc JSON with the new event.
       await expect
@@ -125,7 +125,7 @@ test.describe('calendar section', () => {
         })
         .toContain('Launch week');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('Launch week');
@@ -165,7 +165,7 @@ test.describe('calendar section', () => {
       await panel.getByRole('button', { name: '+ Event' }).click();
 
       // Persisted exclusive end is the day after the inclusive 07-15 → 07-16 (not 07-07).
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('2026-07-16');
@@ -237,7 +237,7 @@ test.describe('calendar section', () => {
         })
         .toContain('"defaultView":"week"');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('"defaultView":"week"');

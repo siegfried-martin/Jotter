@@ -49,7 +49,7 @@ test.describe('CRDT wysiwyg editor', () => {
       await expect.poll(() => editorText(page)).toBe(before);
 
       // Saving materializes the live HTML into Postgres `content`.
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .not.toBe('<p>seed</p>');

@@ -59,7 +59,7 @@ test.describe('CRDT external writes', () => {
       await page.locator('.cm-content').click();
       await page.keyboard.press('Control+End');
       await page.keyboard.type(' LOCAL1', { delay: 30 });
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect.poll(async () => (await readRow(page, sectionId)).ydoc).not.toBeNull();
 
       // Reopen the editor, then land a write on the server that this editor never sees live.
@@ -71,7 +71,7 @@ test.describe('CRDT external writes', () => {
       await page.locator('.cm-content').click();
       await page.keyboard.press('Control+End');
       await page.keyboard.type(' LOCAL2', { delay: 30 });
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       await expect
         .poll(async () => (await readRow(page, sectionId)).content, { timeout: 10000 })

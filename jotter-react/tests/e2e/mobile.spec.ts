@@ -91,7 +91,7 @@ test.describe('mobile layout', () => {
       await page.goto(`/app/sections/${tree.sections[0].id}`);
       const editor = page.getByTestId('wysiwyg-content');
       await expect(editor).toContainText('fit check');
-      await page.getByTestId('mobile-editor-menu').click();
+      await page.getByTestId('editor-menu').click();
       for (const testId of ['filing-collection', 'filing-note']) {
         const box = await page.getByTestId(testId).boundingBox();
         expect(box).not.toBeNull();
@@ -115,21 +115,21 @@ test.describe('mobile section editor', () => {
     });
     try {
       await page.goto(`/app/sections/${tree.sections[0].id}`);
-      await expect(page.getByTestId('mobile-editor')).toBeVisible();
+      await expect(page.getByTestId('editor-shell')).toBeVisible();
       await expect(page.getByTestId('wysiwyg-content')).toContainText('shell check');
 
-      // No desktop modal chrome: no footer Save/Cancel, no fullscreen toggle.
+      // No footer: Save is the back button, Cancel lives in the ⋮ menu.
       await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
-      await expect(page.getByTestId('fullscreen-toggle')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0);
 
       // The editor body fills the viewport below the slim top bar.
       const body = await page.getByTestId('editor-body').boundingBox();
       expect(body!.width).toBeGreaterThanOrEqual(MOBILE.width - 1);
       expect(body!.y + body!.height).toBeGreaterThanOrEqual(MOBILE.height - 1);
 
-      const menu = page.getByTestId('mobile-editor-menu');
+      const menu = page.getByTestId('editor-menu');
       await menu.click();
-      const panel = page.getByTestId('mobile-editor-menu-panel');
+      const panel = page.getByTestId('editor-menu-panel');
       await expect(panel.getByTestId('filing-collection')).toBeVisible();
       await expect(panel.getByRole('button', { name: 'Copy as Markdown' })).toBeVisible();
       await expect(panel.getByRole('button', { name: 'Close without saving' })).toBeVisible();
@@ -137,8 +137,8 @@ test.describe('mobile section editor', () => {
       await expect(panel).toHaveCount(0);
 
       await page.getByPlaceholder('Untitled section').fill('e2e mobile titled');
-      await page.getByTestId('mobile-editor-back').click();
-      await expect(page.getByTestId('mobile-editor')).toHaveCount(0);
+      await page.getByTestId('editor-back').click();
+      await expect(page.getByTestId('editor-shell')).toHaveCount(0);
       await expect
         .poll(() => fetchSectionTitle(page, tree.sections[0].id))
         .toBe('e2e mobile titled');
@@ -148,18 +148,22 @@ test.describe('mobile section editor', () => {
     }
   });
 
-  test('desktop keeps the windowed modal', async ({ page }) => {
+  test('desktop uses the same full-screen shell', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoAppForSeeding(page);
     const tree = await seedTree(page, {
-      collectionName: 'e2e-mobile-shell-desktop',
+      collectionName: 'e2e-shell-desktop',
       sections: [{ type: 'wysiwyg', content: '<p>desk</p>', sequence: 10 }]
     });
     try {
       await page.goto(`/app/sections/${tree.sections[0].id}`);
       await expect(page.getByTestId('wysiwyg-content')).toContainText('desk');
-      await expect(page.getByTestId('mobile-editor')).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
+      await expect(page.getByTestId('editor-shell')).toBeVisible();
+      const body = await page.getByTestId('editor-body').boundingBox();
+      expect(body!.width).toBeGreaterThanOrEqual(1279);
+      // Escape still saves & closes on desktop.
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('editor-shell')).toHaveCount(0);
     } finally {
       await cleanup(page, tree.collectionId);
     }

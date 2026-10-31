@@ -25,7 +25,7 @@ test.describe('offline editing', () => {
       // Edit + save while offline. The write is parked; the editor closes normally and the
       // indicator shows a pending change instead of erroring or losing the edit.
       await page.getByPlaceholder('Untitled section').fill('edited offline');
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect(page.getByTestId('offline-indicator')).toContainText('saved locally');
 
       // The change has NOT yet reached Postgres (we're offline) — it lives only in the outbox.

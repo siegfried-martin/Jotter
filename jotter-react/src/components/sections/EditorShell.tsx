@@ -43,12 +43,11 @@ function MoreIcon() {
 }
 
 /**
- * The section editor's chrome below the desktop breakpoint. Instead of the windowed modal
- * (backdrop, header, wrapping footer), it is a full-screen page with a single slim top bar:
- * back (= save & close), the title, and a ⋮ menu holding filing, copy actions, and
+ * The section editor's chrome, at every screen size: a full-screen page with a single slim
+ * top bar — back (= save & close), the title, and a ⋮ menu holding filing, copy actions, and
  * close-without-saving. Everything else goes to the editor body.
  */
-export function MobileEditorShell({
+export function EditorShell({
   section,
   title,
   onTitleChange,
@@ -87,16 +86,17 @@ export function MobileEditorShell({
   };
 
   return (
-    <div data-testid="mobile-editor" className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div data-testid="editor-shell" className="fixed inset-0 z-50 flex flex-col bg-white">
       {/* z-20 keeps the ⋮ menu above popovers the editors render in the body. */}
       <div className="relative z-20 flex h-12 flex-shrink-0 items-center gap-1 border-b border-slate-200 bg-white px-1">
         <button
           type="button"
-          data-testid="mobile-editor-back"
+          data-testid="editor-back"
           aria-label="Save and close"
+          title="Save and close (Esc)"
           onClick={onSaveAndClose}
           disabled={saving}
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 active:bg-slate-100 disabled:opacity-50"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 active:bg-slate-100 disabled:opacity-50"
         >
           <BackIcon />
         </button>
@@ -111,17 +111,18 @@ export function MobileEditorShell({
         <div ref={menuRef} className="relative flex-shrink-0">
           <button
             type="button"
-            data-testid="mobile-editor-menu"
+            data-testid="editor-menu"
             aria-label="More actions"
+            title="More actions"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 active:bg-slate-100"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 active:bg-slate-100"
           >
             <MoreIcon />
           </button>
           {menuOpen && (
             <div
-              data-testid="mobile-editor-menu-panel"
+              data-testid="editor-menu-panel"
               className="absolute top-full right-0 z-10 mt-1 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
             >
               <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
@@ -133,7 +134,7 @@ export function MobileEditorShell({
                   key={a.label}
                   type="button"
                   onClick={runAction(a.onClick)}
-                  className="block w-full px-4 py-3 text-left text-sm text-slate-700 active:bg-slate-50"
+                  className="block w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 active:bg-slate-50"
                 >
                   {a.label}
                 </button>
@@ -142,7 +143,7 @@ export function MobileEditorShell({
                 type="button"
                 onClick={runAction(onCancel)}
                 disabled={saving}
-                className="block w-full border-t border-slate-100 px-4 py-3 text-left text-sm text-red-600 active:bg-red-50 disabled:opacity-50"
+                className="block w-full border-t border-slate-100 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 active:bg-red-50 disabled:opacity-50"
               >
                 Close without saving
               </button>

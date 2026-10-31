@@ -42,7 +42,7 @@ test.describe('CRDT code editor', () => {
       await expect(page.locator('.cm-content')).toContainText('seed');
 
       // Saving now materializes the CRDT doc into Postgres `content`.
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('XYZ123');

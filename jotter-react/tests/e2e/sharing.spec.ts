@@ -36,7 +36,7 @@ test.describe('section sharing', () => {
 
       // B (now a contributor) edits and saves — the write path that used to RLS-406.
       await pageB.getByPlaceholder('Untitled section').fill('edited by B');
-      await pageB.getByRole('button', { name: 'Save', exact: true }).click();
+      await pageB.getByRole('button', { name: 'Save and close' }).click();
       await expect.poll(() => fetchSectionTitle(pageB, sectionId)).toBe('edited by B');
 
       // The section now appears in B's accessible recent feed.

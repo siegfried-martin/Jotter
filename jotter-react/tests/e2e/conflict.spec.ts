@@ -26,7 +26,7 @@ test.describe('LWW conflict detection', () => {
 
       // Make our edit and save → the change is detected.
       await page.getByPlaceholder('Untitled section').fill('mine');
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect(page.getByTestId('conflict-dialog')).toBeVisible();
 
       // Keep both: our edit becomes a copy; theirs is left intact.

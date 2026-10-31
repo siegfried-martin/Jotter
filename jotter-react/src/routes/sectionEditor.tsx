@@ -17,11 +17,9 @@ import { useContainer } from '@/lib/data/useContainers';
 import { useCollections } from '@/lib/data/useCollections';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { SectionService } from '@/lib/services/sectionService';
-import { SectionFiling } from '@/components/sections/SectionFiling';
-import { MobileEditorShell } from '@/components/sections/MobileEditorShell';
+import { EditorShell } from '@/components/sections/EditorShell';
 import { useCallbackRef } from '@/lib/util/useCallbackRef';
 import { useDocumentTitle } from '@/lib/util/useDocumentTitle';
-import { useIsDesktop } from '@/lib/util/useMediaQuery';
 import { showToast } from '@/lib/ui/toast';
 import {
   copyNative,
@@ -101,7 +99,7 @@ function SectionEditor() {
   }
 
   return (
-    <SectionEditorModal
+    <SectionEditorPage
       key={section.id}
       section={section}
       containerId={section.note_container_id ?? ''}
@@ -181,7 +179,7 @@ function FlatSectionEditor() {
   }
 
   return (
-    <SectionEditorModal
+    <SectionEditorPage
       key={section.id}
       section={section}
       containerId={section.note_container_id ?? ''}
@@ -196,95 +194,10 @@ function Backdrop({ children, onClick }: { children: React.ReactNode; onClick: (
       onClick={(e) => {
         if (e.target === e.currentTarget) onClick();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 text-slate-500"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-white p-4 text-slate-500"
     >
       {children}
     </div>
-  );
-}
-
-function ClipboardIcon() {
-  return (
-    <svg
-      className="h-4 w-4 flex-shrink-0"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-      />
-    </svg>
-  );
-}
-
-function ExpandIcon() {
-  return (
-    <svg
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
-      />
-    </svg>
-  );
-}
-
-function CollapseIcon() {
-  return (
-    <svg
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 9V5m0 4H5m4 0L4 4m11 5h4m-4 0V5m0 4l5-5M9 15v4m0-4H5m4 0l-5 5m11-5h4m-4 0v4m0-4l5 5"
-      />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
-}
-
-function ChevronUpIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-    </svg>
   );
 }
 
@@ -348,14 +261,14 @@ function useCrdtHandle(section: NoteSection, enabled: boolean, plainSeed: boolea
       active = false;
       releaseCrdtText(section.id);
     };
-    // section.id is stable for the modal's lifetime (keyed by it upstream).
+    // section.id is stable for the editor's lifetime (keyed by it upstream).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, section.id]);
 
   return { handle, ready };
 }
 
-function SectionEditorModal({
+function SectionEditorPage({
   section,
   containerId,
   onClose
@@ -392,28 +305,6 @@ function SectionEditorModal({
   const baseUpdatedAt = useRef(section.updated_at);
   // The pending updates, stashed while the conflict dialog is open.
   const pendingUpdates = useRef<Partial<CreateNoteSection>>({});
-  // Did this click's mousedown START on the backdrop? Only then is a backdrop-click a real
-  // "click outside" to close. Without this, drag-selecting text and releasing past the modal
-  // edge (mouseup lands on the backdrop) would close the editor — a long-standing annoyance.
-  const downOnBackdrop = useRef(false);
-
-  // Desktop-only fullscreen / focus mode. `isFullscreen` expands the modal to the viewport and
-  // collapses the header+footer into a single auto-hiding "chrome" overlay; `chromeVisible`
-  // toggles that overlay (revealed by the edge tabs, dismissed by a body click or Escape).
-  const isDesktop = useIsDesktop();
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [chromeVisible, setChromeVisible] = useState(false);
-  const toggleFullscreen = () => {
-    setChromeVisible(false);
-    setIsFullscreen((v) => !v);
-  };
-  // Shrinking below desktop drops out of fullscreen (the toggle is hidden there too).
-  useEffect(() => {
-    if (!isDesktop && isFullscreen) {
-      setIsFullscreen(false);
-      setChromeVisible(false);
-    }
-  }, [isDesktop, isFullscreen]);
 
   // The latest editor value, readable synchronously: merging the server snapshot on save
   // re-renders the wysiwyg editor, whose onChange lands here before React state catches up.
@@ -445,7 +336,7 @@ function SectionEditorModal({
   }
 
   // A snapshot of the section as it currently looks on screen (including unsaved edits), so
-  // the modal's Copy actions grab what you see — not the last-saved version. Code/markdown
+  // the editor's Copy actions grab what you see — not the last-saved version. Code/markdown
   // live in the Y.Text; wysiwyg/diagram keep their live value in `content`; checklist in state.
   function liveSection(): NoteSection {
     return {
@@ -484,7 +375,7 @@ function SectionEditorModal({
     }
   }
 
-  // Save & close (Save button, Escape, Ctrl/Cmd+S, click-outside).
+  // Save & close (back button, Escape, Ctrl/Cmd+S).
   const saveAndClose = useCallbackRef(async () => {
     if (saving || conflict) return;
     setSaving(true);
@@ -579,30 +470,17 @@ function SectionEditorModal({
         e.preventDefault();
         saveAndClose();
       } else if (e.key === 'Escape') {
-        // In fullscreen, Escape steps down one level at a time. Closing the open chrome wins
-        // even over a table, so the toolbar is always dismissable.
-        if (isFullscreen && chromeVisible) {
-          e.preventDefault();
-          setChromeVisible(false);
-          return;
-        }
         // The spreadsheet editor is complex enough that Escape belongs to it (exit cell
         // edit, cancel a selection/formula, dismiss its menus) rather than closing the
-        // modal. Let Univer handle it; the user saves explicitly (Save button / Cmd+S).
+        // editor. Let Univer handle it; the user saves explicitly (back button / Cmd+S).
         if (section.type === 'table') return;
-        // Next step down: leave fullscreen back to the windowed modal before closing.
-        if (isFullscreen) {
-          e.preventDefault();
-          setIsFullscreen(false);
-          return;
-        }
         e.preventDefault();
         saveAndClose();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [saveAndClose, isFullscreen, chromeVisible, section.type]);
+  }, [saveAndClose, section.type]);
 
   const editorBody = (
     <>
@@ -695,192 +573,28 @@ function SectionEditorModal({
     </div>
   );
 
-  // Below the desktop breakpoint the editor is a full-screen page with a slim top bar
-  // instead of the windowed modal; the editor body and save/cancel logic are shared.
-  if (!isDesktop) {
-    return (
-      <>
-        <MobileEditorShell
-          section={section}
-          title={title}
-          onTitleChange={setTitle}
-          saving={saving}
-          onSaveAndClose={() => saveAndClose()}
-          onCancel={() => cancel()}
-          actions={[
-            { label: nativeCopyLabel(section.type), onClick: copyNativeNow },
-            ...(hasMarkdownCopy(section.type)
-              ? [{ label: 'Copy as Markdown', onClick: copyMarkdownNow }]
-              : []),
-            ...(hasCsvDownload(section.type)
-              ? [{ label: 'Download CSV', onClick: downloadCsvNow }]
-              : [])
-          ]}
-        >
-          {editorBody}
-        </MobileEditorShell>
-        {conflictDialog}
-      </>
-    );
-  }
-
   return (
-    <div
-      onMouseDown={(e) => {
-        downOnBackdrop.current = e.target === e.currentTarget;
-      }}
-      onClick={(e) => {
-        // Close only when the whole gesture was on the backdrop (press + release), so a
-        // selection drag that ends outside the modal doesn't dismiss it.
-        if (e.target === e.currentTarget && downOnBackdrop.current) saveAndClose();
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-    >
-      <div
-        data-fullscreen={isFullscreen ? 'true' : undefined}
-        data-chrome={isFullscreen ? (chromeVisible ? 'open' : 'closed') : undefined}
-        className={`relative flex w-full flex-col overflow-hidden bg-white shadow-2xl ${
-          isFullscreen ? '' : 'rounded-xl border border-slate-200'
-        }`}
-        style={
-          isFullscreen ? { width: '100vw', height: '100vh' } : { width: '95vw', height: '90vh' }
-        }
+    <>
+      <EditorShell
+        section={section}
+        title={title}
+        onTitleChange={setTitle}
+        saving={saving}
+        onSaveAndClose={() => saveAndClose()}
+        onCancel={() => cancel()}
+        actions={[
+          { label: nativeCopyLabel(section.type), onClick: copyNativeNow },
+          ...(hasMarkdownCopy(section.type)
+            ? [{ label: 'Copy as Markdown', onClick: copyMarkdownNow }]
+            : []),
+          ...(hasCsvDownload(section.type)
+            ? [{ label: 'Download CSV', onClick: downloadCsvNow }]
+            : [])
+        ]}
       >
-        {/* Header. In fullscreen it becomes an auto-hiding overlay band (translated off the
-            top until the chrome is revealed); windowed, it sits inline above the body. */}
-        <div
-          className={
-            isFullscreen
-              ? `absolute inset-x-0 top-0 z-20 flex items-center gap-4 border-b border-slate-200 bg-white px-6 py-3 shadow-sm transition-transform duration-200 ${
-                  chromeVisible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'
-                }`
-              : 'mb-4 flex flex-shrink-0 items-center gap-2 border-b border-slate-200 px-4 pt-6 pb-2 sm:gap-4 sm:px-6'
-          }
-        >
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Untitled section"
-            className="w-full min-w-[5rem] flex-1 bg-transparent text-lg font-semibold text-slate-800 focus:outline-none"
-          />
-          <SectionFiling section={section} />
-          {isDesktop && (
-            <button
-              type="button"
-              data-testid="fullscreen-toggle"
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              onClick={toggleFullscreen}
-              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-800"
-            >
-              {isFullscreen ? <CollapseIcon /> : <ExpandIcon />}
-              <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
-            </button>
-          )}
-          {/* Tab rides the header's bottom edge: at the screen top when the chrome is hidden,
-              sticking out below the band when it's open. Click toggles; chevron flips. */}
-          {isFullscreen && (
-            <button
-              type="button"
-              data-testid="chrome-tab-top"
-              aria-label={chromeVisible ? 'Hide toolbar' : 'Show toolbar'}
-              onClick={() => setChromeVisible((v) => !v)}
-              className="pointer-events-auto absolute top-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
-            >
-              {chromeVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </button>
-          )}
-        </div>
-        {/* Body. Clicking it while the chrome overlay is open dismisses the overlay. */}
-        <div
-          data-testid="editor-body"
-          onMouseDown={() => {
-            if (isFullscreen && chromeVisible) setChromeVisible(false);
-          }}
-          className={
-            isFullscreen
-              ? 'min-h-0 flex-1 overflow-hidden px-6 py-4'
-              : 'min-h-0 flex-1 overflow-hidden px-6 pb-6'
-          }
-        >
-          {editorBody}
-        </div>
-
-        {/* Footer. Mirrors the header: an auto-hiding overlay band in fullscreen (so Save is
-            reachable the moment the chrome is revealed), inline otherwise. */}
-        <div
-          className={
-            isFullscreen
-              ? `absolute inset-x-0 bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 transition-transform duration-200 ${
-                  chromeVisible ? 'translate-y-0' : 'pointer-events-none translate-y-full'
-                }`
-              : 'flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4'
-          }
-        >
-          {/* Copy actions (teal = alternate), bottom-left. They copy the live on-screen
-              content via the same util as the section cards. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={copyNativeNow}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
-            >
-              <ClipboardIcon />
-              {nativeCopyLabel(section.type)}
-            </button>
-            {hasMarkdownCopy(section.type) && (
-              <button
-                onClick={copyMarkdownNow}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
-              >
-                <ClipboardIcon />
-                Copy as Markdown
-              </button>
-            )}
-            {hasCsvDownload(section.type) && (
-              <button
-                onClick={downloadCsvNow}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700"
-              >
-                <ClipboardIcon />
-                Download CSV
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => cancel()}
-              disabled={saving}
-              className="rounded-lg border border-slate-300 px-6 py-2 font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => saveAndClose()}
-              disabled={saving}
-              className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-          {/* Tab rides the footer's top edge: at the screen bottom when the chrome is hidden,
-              sticking out above the band when it's open. Click toggles; chevron flips. The
-              footer's own click target also covers the table case, where Univer swallows the
-              body click that would otherwise dismiss the chrome. */}
-          {isFullscreen && (
-            <button
-              type="button"
-              data-testid="chrome-tab-bottom"
-              aria-label={chromeVisible ? 'Hide actions' : 'Show actions'}
-              onClick={() => setChromeVisible((v) => !v)}
-              className="pointer-events-auto absolute bottom-full left-1/2 z-30 flex -translate-x-1/2 items-center justify-center rounded-t-3xl bg-slate-400/50 px-20 py-1 text-white shadow transition-colors hover:bg-slate-500"
-            >
-              {chromeVisible ? <ChevronDownIcon /> : <ChevronUpIcon />}
-            </button>
-          )}
-        </div>
-      </div>
-
+        {editorBody}
+      </EditorShell>
       {conflictDialog}
-    </div>
+    </>
   );
 }

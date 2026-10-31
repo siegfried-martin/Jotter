@@ -18,7 +18,8 @@ test.describe('unparented sections', () => {
       await expect(page).toHaveURL(/\/app\/sections\//);
       sectionId = page.url().split('/sections/')[1];
 
-      // Starts unfiled.
+      // Starts unfiled. Filing lives in the editor's ⋮ menu.
+      await page.getByTestId('editor-menu').click();
       await expect(page.getByTestId('filing-collection')).toContainText('Collection');
       await expect.poll(() => fetchSectionContainerId(page, sectionId)).toBeNull();
 
