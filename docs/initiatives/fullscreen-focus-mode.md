@@ -40,7 +40,7 @@ shape.
   brief occlusion of an editor's own bottom controls is acceptable. (Checked: Excalidraw has
   no bottom dock in our build; Univer table tabs / Calendar toolbar are only covered while
   chrome is open.)
-- **Desktop only.** Gate on viewport / pointer; mobile keeps today's modal. Consistent with
+- **Desktop only.** Gate on viewport / pointer. (Below 1024px the editor is now the full-screen mobile shell — see `mobile-editor-shell.md`.) Consistent with
   the existing desktop-first posture for the heavier editors.
 - **Simple in-page fullscreen, not the browser Fullscreen API.** Expand the modal to
   `100vw × 100vh` within the page. No fullscreen-permission quirks, and it composes with the

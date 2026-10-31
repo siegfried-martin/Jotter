@@ -556,7 +556,8 @@ export function TimelineEditor({
         <ToolbarButton onClick={() => api?.fit()} disabled={!ready}>
           Fit
         </ToolbarButton>
-        <span className="ml-1 text-xs text-slate-400">
+        {/* Mouse/keyboard hints — noise on touch screens, where the editor is full-screen. */}
+        <span className="ml-1 hidden text-xs text-slate-400 lg:inline">
           Click a lane to select it (+ Bar drops there) · drag to move/resize · double-click to
           edit · Delete removes the selected bar/annotation/lane · annotations float &amp; wrap
         </span>
