@@ -84,7 +84,7 @@ test.describe('timeline section', () => {
         })
         .toContain('AK Build');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       // Persisted content is our TimelineDoc JSON with both the new lane and bar.
       await expect
@@ -130,7 +130,7 @@ test.describe('timeline section', () => {
           timeout: 10000
         })
         .toContain('New item');
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       await expect.poll(() => fetchSectionContent(page, sectionId)).toContain('New item');
       const doc = JSON.parse(await fetchSectionContent(page, sectionId));
@@ -177,7 +177,7 @@ test.describe('timeline section', () => {
         })
         .toContain('Renamed Bar');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(async () => JSON.parse(await fetchSectionContent(page, sectionId)).items[0].title, {
           timeout: 10000
@@ -223,7 +223,7 @@ test.describe('timeline section', () => {
         }, id);
       await expect.poll(() => itemCount(sectionId), { timeout: 10000 }).toBe(0);
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(async () => JSON.parse(await fetchSectionContent(page, sectionId)).items.length)
         .toBe(0);
@@ -309,7 +309,7 @@ test.describe('timeline section', () => {
         })
         .toContain('Existing 2026 Roadmap');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })

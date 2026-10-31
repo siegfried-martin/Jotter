@@ -1,7 +1,8 @@
-# Initiative: Lightweight Mobile Section Editor + Pinch Zoom
+# Initiative: Full-Screen Section Editor Shell + Pinch Zoom
 
-**Status**: Built on `feat/mobile-editor-shell` — awaiting owner testing on a real phone
-(2026-10-30).
+**Status**: Mobile shell shipped (PR #32, 2026-10-30). Same day the owner made it the editor
+view at **every** screen size (`feat/editor-shell-everywhere`), replacing the desktop modal
+and removing fullscreen focus mode.
 
 ## Problem
 
@@ -11,17 +12,19 @@ Save buttons wrapped to 2–3 rows. Together that chrome took ~40–50% of a 390
 
 ## Decisions (owner, 2026-10-30)
 
-- **Breakpoint: below `lg` (1024px)** — the same `useIsDesktop` line the desktop fullscreen
-  mode uses, so tablets get the mobile shell too.
+- **Breakpoint: below `lg` (1024px)** at first; then **no breakpoint** — "it should just be
+  the new default view, we are wasting space in the other views also". The windowed modal
+  and fullscreen focus mode were removed.
 - **Pinch only** for zoom — no on-screen zoom buttons ("buttons are clutter").
 - **Range 50%–200%.**
 
 ## What it does
 
-- `MobileEditorShell` (`jotter-react/src/components/sections/MobileEditorShell.tsx`)
-  replaces the modal below 1024px: full-screen page, one 48px top bar — back (= save &
-  close), title, ⋮ menu (filing, copy actions, "Close without saving"). No footer.
-  `SectionEditorModal` keeps all save/cancel/conflict logic; only the chrome differs.
+- `EditorShell` (`jotter-react/src/components/sections/EditorShell.tsx`) is the editor's
+  only chrome: full-screen page, one 48px top bar — back (= save & close), title, ⋮ menu
+  (filing, copy actions, "Close without saving"). No footer, no backdrop.
+  `SectionEditorPage` (`routes/sectionEditor.tsx`) holds the save/cancel/conflict logic.
+  Escape and Ctrl/Cmd+S still save & close (Escape stays with the table editor).
 - `usePinchZoom` (`jotter-react/src/lib/util/usePinchZoom.ts`) adds two-finger zoom to the
   editors with no zoom of their own: text, code, markdown, checklist, calendar. Diagram,
   table and timeline already zoom natively and are untouched. The level persists per
@@ -35,4 +38,6 @@ Save buttons wrapped to 2–3 rows. Together that chrome took ~40–50% of a 390
 
 ## Desktop
 
-Unchanged — windowed modal + fullscreen focus mode (`fullscreen-focus-mode.md`).
+Same shell. Pinch zoom listens to touch events, so it only applies on touchscreens; desktop
+keeps the browser's own zoom. The markdown editor's Split view is still desktop-only.
+Fullscreen focus mode (`fullscreen-focus-mode.md`) is superseded and removed.

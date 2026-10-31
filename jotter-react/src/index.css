@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Mobile editor pinch-zoom (MobileEditorShell): scale only each editor's content, not its
+/* Editor pinch-zoom (EditorShell): scale only each editor's content, not its
    own toolbars. */
 [data-pinch-zoom] :is(.tiptap-scroll, .cm-editor, .markdown-preview, [data-zoom-target]) {
   zoom: var(--editor-zoom, 1);

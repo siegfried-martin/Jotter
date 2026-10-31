@@ -64,7 +64,7 @@ test.describe('sections', () => {
         const titleInput = page.getByPlaceholder('Untitled section');
         await expect(titleInput).toBeVisible();
         await titleInput.fill(`e2e ${label} title`);
-        await page.getByRole('button', { name: 'Save', exact: true }).click();
+        await page.getByRole('button', { name: 'Save and close' }).click();
 
         await expect(page.getByTestId('section-card')).toHaveCount(1);
         await expect(page.getByText(`e2e ${label} title`)).toBeVisible();
@@ -163,7 +163,7 @@ test.describe('sections', () => {
       }
     });
 
-    test('editor modal: copy grabs live, unsaved edits', async ({ page }) => {
+    test('editor menu: copy grabs live, unsaved edits', async ({ page }) => {
       await gotoAppForSeeding(page);
       const tree = await seedTree(page, {
         sections: [{ type: 'markdown', content: 'seed', sequence: 10 }]
@@ -171,11 +171,12 @@ test.describe('sections', () => {
       try {
         await page.goto(`/app/sections/${tree.sections[0].id}`);
         await expect(page.locator('.cm-content')).toContainText('seed');
-        // Edit without saving, then copy from the modal footer — it must reflect the
+        // Edit without saving, then copy from the editor's ⋮ menu — it must reflect the
         // on-screen (live Y.Text) content, not the last-saved version.
         await page.locator('.cm-content').click();
         await page.keyboard.press('Control+End');
         await page.keyboard.type(' EXTRA', { delay: 30 });
+        await page.getByTestId('editor-menu').click();
         await page.getByRole('button', { name: 'Copy as Markdown' }).click();
         await expect(page.getByText('Copied as Markdown')).toBeVisible();
         expect(await readClipboard(page)).toBe('seed EXTRA');

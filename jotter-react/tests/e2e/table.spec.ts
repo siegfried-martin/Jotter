@@ -94,7 +94,7 @@ test.describe('table section', () => {
         })
         .toContain('e2e_typed');
 
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       // Persisted content is the normalized Univer snapshot JSON, with both the seeded and the
       // newly-edited cell — proving the load → mutate → save() round-trip end to end.

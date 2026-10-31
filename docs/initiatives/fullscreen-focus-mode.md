@@ -1,3 +1,6 @@
+> **Superseded (2026-10-30).** The windowed modal and this fullscreen mode were removed; the
+> section editor is now always the full-screen `EditorShell` — see `mobile-editor-shell.md`.
+
 # Initiative: Fullscreen Focus Mode for the Section Editor
 
 **Status**: Built on `feat/fullscreen-focus-mode` — awaiting owner hands-on testing before

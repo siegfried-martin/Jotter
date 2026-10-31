@@ -29,7 +29,7 @@ test.describe('wysiwyg color and highlight', () => {
       await expect(editor.locator('mark')).toContainText('paint me');
 
       // Save → the materialized HTML carries both.
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('<mark');
@@ -83,7 +83,7 @@ test.describe('wysiwyg color and highlight', () => {
       await expect(editor.locator('code', { hasText: 'codeword' })).toBeVisible();
 
       // Save → both materialize into the stored HTML.
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       // Poll on what only the save produces (the seed already contains '<table').
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
@@ -126,7 +126,7 @@ test.describe('wysiwyg color and highlight', () => {
       await expect(editor.locator('strong', { hasText: 'buy milk' })).toBeVisible();
 
       // Save → task-list markup materializes.
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('data-type="taskList"');

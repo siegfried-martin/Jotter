@@ -22,7 +22,7 @@ test.describe('navigation', () => {
       await expect(page.getByPlaceholder('Untitled section')).toBeVisible();
 
       // Save closes the editor, returning to the container page.
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect(page).toHaveURL(new RegExp(`/containers/${tree.containerId}$`));
     } finally {
       await cleanup(page, tree.collectionId);

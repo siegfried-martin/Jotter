@@ -82,7 +82,7 @@ test.describe('Markdown section', () => {
       await expect(page.locator('.cm-content')).toContainText('seed');
 
       // Save materializes the CRDT doc into Postgres `content` (the Markdown source).
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
       await expect
         .poll(() => fetchSectionContent(page, sectionId), { timeout: 10000 })
         .toContain('XYZ123');

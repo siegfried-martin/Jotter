@@ -28,7 +28,7 @@ test.describe('section editor', () => {
         `/app/collections/${tree.collectionId}/containers/${tree.containerId}/sections/${tree.sections[0].id}`
       );
       await page.getByPlaceholder('Untitled section').fill('e2e persisted title');
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       await expect(page.getByText('e2e persisted title')).toBeVisible();
       await page.reload();
@@ -58,7 +58,7 @@ test.describe('section editor', () => {
 
       await page.getByRole('button', { name: '+ Add new item' }).click();
       await inputs.last().fill('brand new task');
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Save and close' }).click();
 
       const preview = page.getByTestId('section-card-content');
       await expect(preview.getByText('brand new task')).toBeVisible();
@@ -79,7 +79,8 @@ test.describe('section editor', () => {
       await page.getByRole('button', { name: 'Code', exact: true }).click();
       await expect(page.getByPlaceholder('Untitled section')).toBeVisible();
 
-      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByTestId('editor-menu').click();
+      await page.getByRole('button', { name: 'Close without saving' }).click();
       await expect(page.getByTestId('section-card')).toHaveCount(0);
       await expect(page.getByText('No sections yet. Add one above.')).toBeVisible();
     } finally {
