@@ -148,6 +148,57 @@ test.describe('mobile section editor', () => {
     }
   });
 
+  test('table: a tap selects a cell without the keyboard; tapping it again edits', async ({
+    page
+  }) => {
+    await gotoAppForSeeding(page);
+    const tree = await seedTree(page, {
+      collectionName: 'e2e-mobile-table-tap',
+      sections: [{ type: 'table', content: '', sequence: 10 }]
+    });
+    try {
+      await page.goto(`/app/sections/${tree.sections[0].id}`);
+      await page.waitForFunction(() => Boolean((window as any).__UNIVER_TABLE_API__));
+      const cellEditor = page.locator('[id^="__editor___INTERNAL_EDITOR__DOCS_NORMAL"]');
+      await expect(cellEditor).toHaveAttribute('inputmode', 'none');
+
+      // A real touch (pointer + touch events), on the grid canvas.
+      const grid = page.getByTestId('table-editor').locator('canvas').first();
+      await expect(grid).toBeVisible();
+      const box = (
+        await page
+          .getByTestId('table-editor')
+          .locator('canvas')
+          .evaluateAll((cs) =>
+            cs
+              .map((c) => c.getBoundingClientRect())
+              .sort((a, b) => b.width * b.height - a.width * a.height)
+              .map((r) => ({ x: r.x, y: r.y }))
+          )
+      )[0];
+      const cdp = await page.context().newCDPSession(page);
+      const tap = async () => {
+        const pt = { x: box.x + 120, y: box.y + 70 };
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      };
+      const editing = () =>
+        page.evaluate(() =>
+          (window as any).__UNIVER_TABLE_API__.getActiveWorkbook().isCellEditing()
+        );
+
+      await tap();
+      await expect.poll(editing).toBe(false);
+      await expect(cellEditor).toHaveAttribute('inputmode', 'none');
+
+      await tap();
+      await expect.poll(editing).toBe(true);
+      await expect(cellEditor).toHaveAttribute('inputmode', 'text');
+    } finally {
+      await cleanup(page, tree.collectionId);
+    }
+  });
+
   test('desktop uses the same full-screen shell', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoAppForSeeding(page);

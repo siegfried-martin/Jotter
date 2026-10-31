@@ -27,6 +27,76 @@ function parseSnapshot(content: string): Record<string, any> {
   }
 }
 
+// Univer keeps this hidden contenteditable focused whenever a cell is selected, so typing
+// starts an edit. On a touchscreen that focus pops the on-screen keyboard on every tap.
+const CELL_EDITOR = '[id^="__editor___INTERNAL_EDITOR__DOCS_NORMAL"]';
+
+/**
+ * Touch: tapping a cell only selects it; tapping the already-selected cell edits it. The cell
+ * editor carries `inputmode="none"` (focused, no keyboard) until then. The switch to "text"
+ * and the refocus happen inside the touchend handler, as iOS only raises the keyboard for
+ * focus that comes from a user gesture.
+ */
+function tapToEdit(container: HTMLElement, univerAPI: any): () => void {
+  const cellEditor = () => container.querySelector<HTMLElement>(CELL_EDITOR);
+  const setKeyboard = (on: boolean) => {
+    const el = cellEditor();
+    if (!el || el.getAttribute('inputmode') === (on ? 'text' : 'none')) return;
+    el.setAttribute('inputmode', on ? 'text' : 'none');
+    // Re-focus so the keyboard change takes effect on a field that is already focused.
+    if (document.activeElement === el) {
+      el.blur();
+      el.focus();
+    }
+  };
+  const activeCell = () => {
+    const range = univerAPI.getActiveWorkbook()?.getActiveRange();
+    return range ? `${range.getRow()}:${range.getColumn()}` : null;
+  };
+
+  let tap: { x: number; y: number; cell: string | null; wasEditing: boolean } | null = null;
+  const onPointerDown = (e: PointerEvent) => {
+    // Capture phase on the container runs before Univer's canvas moves the selection.
+    tap =
+      e.pointerType === 'touch' && e.target instanceof HTMLCanvasElement
+        ? {
+            x: e.clientX,
+            y: e.clientY,
+            cell: activeCell(),
+            wasEditing: Boolean(univerAPI.getActiveWorkbook()?.isCellEditing())
+          }
+        : null;
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = tap;
+    tap = null;
+    const t = e.changedTouches[0];
+    if (!start || !t || Math.hypot(t.clientX - start.x, t.clientY - start.y) > 10) return;
+    const wb = univerAPI.getActiveWorkbook();
+    if (!wb || start.wasEditing || !start.cell || activeCell() !== start.cell) return;
+    setKeyboard(true);
+    // A quick second tap reads as a double-click to Univer, which has already started the
+    // edit on pointerdown; only start it ourselves for a slower tap.
+    if (!wb.isCellEditing()) wb.startEditing();
+  };
+
+  setKeyboard(false);
+  // The cell editor mounts asynchronously; catch it (and any remount) as it appears.
+  const observer = new MutationObserver(() => {
+    if (!univerAPI.getActiveWorkbook()?.isCellEditing()) setKeyboard(false);
+  });
+  observer.observe(container, { childList: true, subtree: true });
+  const editEnded = univerAPI.addEvent(univerAPI.Event.SheetEditEnded, () => setKeyboard(false));
+  container.addEventListener('pointerdown', onPointerDown, true);
+  container.addEventListener('touchend', onTouchEnd, true);
+  return () => {
+    observer.disconnect();
+    editEnded.dispose();
+    container.removeEventListener('pointerdown', onPointerDown, true);
+    container.removeEventListener('touchend', onTouchEnd, true);
+  };
+}
+
 export function TableEditor({
   initial,
   onChange
@@ -45,6 +115,7 @@ export function TableEditor({
     let disposed = false;
     let univer: any = null;
     let listener: { dispose: () => void } | null = null;
+    let disposeTapToEdit: (() => void) | null = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
 
     (async () => {
@@ -74,6 +145,7 @@ export function TableEditor({
         const univerAPI = created.univerAPI;
 
         univerAPI.createWorkbook(parseSnapshot(initialRef.current));
+        disposeTapToEdit = tapToEdit(containerRef.current, univerAPI);
         setStatus('ready');
 
         // Dev/e2e only: expose the Facade so tests can drive deterministic edits (the grid is
@@ -105,6 +177,7 @@ export function TableEditor({
       disposed = true;
       if (debounce) clearTimeout(debounce);
       listener?.dispose();
+      disposeTapToEdit?.();
       univer?.dispose();
       if (import.meta.env.DEV) {
         delete (window as unknown as Record<string, unknown>).__UNIVER_TABLE_API__;
